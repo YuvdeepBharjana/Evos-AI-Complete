@@ -88,13 +88,14 @@ export const useUserStore = create<UserStore>()(
         }));
         
         // Create local user profile from API data
+        // Note: SQLite returns 0/1 for booleans, so we need to convert
         const userProfile: UserProfile = {
           id: apiUser.id,
           name: apiUser.name,
           email: apiUser.email,
           createdAt: new Date(),
-          onboardingComplete: apiUser.onboarding_complete,
-          onboardingMethod: apiUser.onboarding_method as 'questionnaire' | 'upload' | undefined,
+          onboardingComplete: Boolean(apiUser.onboarding_complete),
+          onboardingMethod: apiUser.onboarding_method as 'questionnaire' | 'upload' | 'manual' | undefined,
           identityNodes,
           chatHistory: [],
           alignmentScore: 75,
