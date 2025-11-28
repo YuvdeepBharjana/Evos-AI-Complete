@@ -14,21 +14,31 @@ import { MirrorControls } from './MirrorControls';
 import { useUserStore } from '../../store/useUserStore';
 import { generateReactFlowElements } from '../../lib/networkLayoutEngine';
 import type { NodeType } from '../../types';
+import { Brain, Target, Zap, Trophy, Heart, AlertCircle } from 'lucide-react';
 
 const nodeTypes: NodeTypes = {
   identityNode: IdentityNode
 };
 
+// Brain region info for the legend
+const BRAIN_REGIONS = [
+  { type: 'goal', label: 'Goals', region: 'Prefrontal Cortex', icon: Target, color: '#3b82f6', description: 'Planning & vision' },
+  { type: 'habit', label: 'Habits', region: 'Motor Cortex', icon: Zap, color: '#10b981', description: 'Actions & routines' },
+  { type: 'trait', label: 'Traits', region: 'Temporal Lobe', icon: Trophy, color: '#a855f7', description: 'Personality & character' },
+  { type: 'emotion', label: 'Emotions', region: 'Limbic System', icon: Heart, color: '#f59e0b', description: 'Feelings & mood' },
+  { type: 'struggle', label: 'Struggles', region: 'Amygdala', icon: AlertCircle, color: '#ef4444', description: 'Challenges & fears' },
+];
+
 export const PsychMirror = () => {
-  const { user } = useUserStore();
+  const { user, recentStrengthChanges } = useUserStore();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<NodeType | 'all'>('all');
 
   // Generate React Flow elements from user's identity nodes
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     if (!user?.identityNodes) return { nodes: [], edges: [] };
-    return generateReactFlowElements(user.identityNodes);
-  }, [user?.identityNodes]);
+    return generateReactFlowElements(user.identityNodes, recentStrengthChanges);
+  }, [user?.identityNodes, recentStrengthChanges]);
 
   // Filter nodes based on selected type
   const filteredNodes = useMemo(() => {
@@ -62,6 +72,17 @@ export const PsychMirror = () => {
   const handleFitView = () => reactFlowInstance?.fitView({ padding: 0.2 });
 
   const selectedNode = user?.identityNodes.find(n => n.id === selectedNodeId) || null;
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    if (!user?.identityNodes) return null;
+    const nodes = user.identityNodes;
+    const avgStrength = Math.round(nodes.reduce((acc, n) => acc + n.strength, 0) / nodes.length);
+    const mastered = nodes.filter(n => n.status === 'mastered').length;
+    const active = nodes.filter(n => n.status === 'active').length;
+    const developing = nodes.filter(n => n.status === 'developing').length;
+    return { total: nodes.length, avgStrength, mastered, active, developing };
+  }, [user?.identityNodes]);
 
   if (!user?.identityNodes || user.identityNodes.length === 0) {
     return (
@@ -100,12 +121,12 @@ export const PsychMirror = () => {
         onInit={setReactFlowInstance}
         nodeTypes={nodeTypes}
         fitView
-        minZoom={0.2}
-        maxZoom={1.5}
+        minZoom={0.3}
+        maxZoom={2}
         attributionPosition="bottom-right"
-        className="bg-gradient-to-br from-gray-950 via-purple-950/20 to-gray-950"
+        className="bg-gradient-to-br from-gray-950 via-purple-950/10 to-gray-950"
       >
-        <Background color="#374151" gap={20} size={1} />
+        <Background color="#1f2937" gap={40} size={1} />
         <MiniMap
           nodeColor={(node) => {
             const colors = {
@@ -117,48 +138,98 @@ export const PsychMirror = () => {
             };
             return colors[node.data.type as keyof typeof colors] || '#6b7280';
           }}
-          maskColor="rgba(0, 0, 0, 0.8)"
-          className="!bg-gray-900 !border-gray-700"
+          maskColor="rgba(0, 0, 0, 0.85)"
+          className="!bg-gray-900/90 !border-gray-700 !rounded-lg"
         />
       </ReactFlow>
 
+
       <NodeDetailsPanel node={selectedNode} onClose={() => setSelectedNodeId(null)} />
 
-      {/* Legend */}
+      {/* Brain Map Legend */}
       <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="absolute bottom-4 left-4 glass rounded-xl p-4 text-xs"
+        initial={{ x: -20, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        className="absolute bottom-4 left-4 glass rounded-2xl p-5 max-w-xs"
       >
-        <div className="font-semibold mb-2">Legend</div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-green-500 to-green-600" />
-            <span>Habits</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-500 to-blue-600" />
-            <span>Goals</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-purple-500 to-purple-600" />
-            <span>Traits</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-orange-500 to-orange-600" />
-            <span>Emotions</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-red-500 to-red-600" />
-            <span>Struggles</span>
-          </div>
+        <div className="flex items-center gap-2 mb-4">
+          <Brain className="w-5 h-5 text-purple-400" />
+          <span className="font-semibold text-sm">Neural Map Legend</span>
         </div>
-        <div className="mt-3 pt-3 border-t border-gray-700 text-gray-400">
-          <div>💚 Mastered • ⚡ Active</div>
-          <div>🌱 Developing • 💤 Neglected</div>
+        
+        <div className="space-y-3">
+          {BRAIN_REGIONS.map(region => {
+            const Icon = region.icon;
+            const count = user.identityNodes.filter(n => n.type === region.type).length;
+            return (
+              <motion.button
+                key={region.type}
+                onClick={() => setFilterType(filterType === region.type ? 'all' : region.type as NodeType)}
+                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-all ${
+                  filterType === region.type 
+                    ? 'bg-white/10 ring-1' 
+                    : 'hover:bg-white/5'
+                }`}
+                style={filterType === region.type ? { 
+                  boxShadow: `inset 0 0 0 1px ${region.color}` 
+                } : {}}
+                whileHover={{ x: 4 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <div 
+                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: `${region.color}20` }}
+                >
+                  <Icon size={16} style={{ color: region.color }} />
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium">{region.label}</span>
+                    <span className="text-xs text-gray-500">{count}</span>
+                  </div>
+                  <div className="text-[10px] text-gray-500">{region.region}</div>
+                </div>
+              </motion.button>
+            );
+          })}
+        </div>
+
+        {/* Stats summary */}
+        {stats && (
+          <div className="mt-4 pt-4 border-t border-gray-700/50">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <div className="text-lg font-bold text-white">{stats.total}</div>
+                <div className="text-[10px] text-gray-500">Nodes</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-green-400">{stats.avgStrength}%</div>
+                <div className="text-[10px] text-gray-500">Avg Strength</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-purple-400">{stats.mastered}</div>
+                <div className="text-[10px] text-gray-500">Mastered</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Status indicators */}
+        <div className="mt-3 pt-3 border-t border-gray-700/50 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500">
+          <span className="flex items-center gap-1">
+            <span className="text-green-400">●</span> Mastered
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="text-blue-400">◉</span> Active
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="text-yellow-400">○</span> Developing
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="text-gray-600">◌</span> Neglected
+          </span>
         </div>
       </motion.div>
     </div>
   );
 };
-

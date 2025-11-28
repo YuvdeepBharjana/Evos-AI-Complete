@@ -1,0 +1,375 @@
+import OpenAI from 'openai';
+
+// Initialize OpenAI client (may be null if no API key)
+let openai: OpenAI | null = null;
+
+try {
+  if (process.env.OPENAI_API_KEY) {
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    console.log('✅ OpenAI initialized');
+  } else {
+    console.log('⚠️  No OPENAI_API_KEY - running in mock mode');
+  }
+} catch (e) {
+  console.log('⚠️  OpenAI initialization failed - running in mock mode');
+}
+
+export function isAIAvailable(): boolean {
+  return openai !== null;
+}
+
+// System prompts for identity engineering
+export const SYSTEM_PROMPTS = {
+  chat: `You are Evos, the world's first AI identity engineer. You help users understand, visualize, and intentionally evolve their psychological patterns.
+
+Your approach:
+- Be direct, warm, and insightful — like a brilliant friend who sees through surface-level talk
+- Ask probing questions that reveal identity patterns (habits, goals, struggles, traits, emotions)
+- When you spot a pattern, name it clearly: "I'm noticing a theme here..."
+- Connect what they share to their broader identity: "This connects to your drive for..."
+- Offer one actionable insight per response
+- Keep responses concise (2-3 paragraphs max)
+
+You're not a therapist. You're an identity engineer — you help people SEE themselves clearly so they can evolve intentionally.
+
+Key phrases to use:
+- "What pattern do you notice here?"
+- "How does this connect to who you want to become?"
+- "What would your future self do differently?"
+- "This seems like a growth edge for you..."`,
+
+  workSession: `You are Evos, helping a user with a focused identity work session.
+
+Your role:
+- Help them make concrete progress on their chosen focus area
+- Break down vague goals into specific, measurable micro-actions
+- Ask: "What's the smallest step you could take in the next 5 minutes?"
+- Celebrate progress: "That's identity in action."
+- If stuck, find the resistance: "What's making this hard right now?"
+
+Keep responses focused. Max 2-3 paragraphs. Every response should end with a clear next action.`,
+
+  identityAnalysis: `You are an identity pattern extractor for Evos, the world's first identity engineering platform.
+
+Analyze the provided text and extract identity patterns. Be specific and grounded in evidence from the text.
+
+Respond ONLY in this exact JSON format:
+{
+  "nodes": [
+    {
+      "label": "Pattern Name",
+      "type": "goal|habit|trait|emotion|struggle|interest",
+      "strength": 50,
+      "description": "Brief explanation based on evidence from text"
+    }
+  ],
+  "connections": [
+    {
+      "source": "Node Label 1",
+      "target": "Node Label 2",
+      "reason": "Why these are connected"
+    }
+  ],
+  "summary": "2-sentence identity summary"
+}
+
+Guidelines:
+- Extract 8-15 nodes covering all types
+- Strength: 30-50 for emerging patterns, 50-70 for clear patterns, 70-90 for dominant patterns
+- Connect nodes that influence each other
+- Be specific: "Perfectionism in work output" not just "Perfectionism"`,
+
+  dailyActions: `You are generating daily proof-moves for identity engineering.
+
+Each action must be:
+1. BINARY - Either done or not done (no partial credit)
+2. SPECIFIC - Clear what success looks like
+3. TIMED - Completable in 5-20 minutes
+4. IDENTITY-LINKED - Directly strengthens or challenges a node
+
+Respond ONLY in this JSON format:
+{
+  "actions": [
+    {
+      "nodeId": "node-id-if-provided",
+      "nodeName": "Target Node Name",
+      "category": "📊 Data|💪 Challenge|🎯 Practice|📝 Reflection",
+      "action": "Specific action description",
+      "timeEstimate": "X min",
+      "whyItMatters": "One sentence on identity impact"
+    }
+  ]
+}
+
+Focus on nodes that are "developing" or "struggling". One action should always be data tracking.`,
+
+  endOfDaySummary: `You are generating an end-of-day identity summary.
+
+Based on the user's tracking data and completed actions, provide:
+1. What they proved about their identity today
+2. Which nodes were strengthened/weakened
+3. One pattern to watch
+4. One thing to try tomorrow
+
+Respond in JSON format:
+{
+  "headline": "One powerful sentence about today",
+  "proved": ["What they proved through action"],
+  "strengthened": ["Nodes that got stronger"],
+  "watchPattern": "Pattern to be aware of",
+  "tomorrowFocus": "Specific suggestion for tomorrow",
+  "alignmentScore": 75
+}
+
+Be honest but encouraging. Focus on what they DID, not what they didn't.`
+};
+
+// Chat with AI
+export async function chat(
+  message: string,
+  history: { role: 'user' | 'assistant'; content: string }[] = [],
+  systemPrompt: string = SYSTEM_PROMPTS.chat
+): Promise<string> {
+  if (!openai) {
+    return mockChatResponse(message);
+  }
+
+  try {
+    const messages: OpenAI.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemPrompt },
+      ...history,
+      { role: 'user', content: message }
+    ];
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages,
+      max_tokens: 500,
+      temperature: 0.7,
+    });
+
+    return completion.choices[0]?.message?.content || mockChatResponse(message);
+  } catch (error) {
+    console.error('OpenAI chat error:', error);
+    return mockChatResponse(message);
+  }
+}
+
+// Analyze text for identity patterns
+export async function analyzeIdentity(text: string): Promise<any> {
+  if (!openai) {
+    return mockIdentityAnalysis();
+  }
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPTS.identityAnalysis },
+        { role: 'user', content: `Analyze this text for identity patterns:\n\n${text}` }
+      ],
+      max_tokens: 1500,
+      temperature: 0.3,
+    });
+
+    const responseText = completion.choices[0]?.message?.content || '';
+    
+    // Extract JSON from response
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    
+    return mockIdentityAnalysis();
+  } catch (error) {
+    console.error('OpenAI analysis error:', error);
+    return mockIdentityAnalysis();
+  }
+}
+
+// Generate daily actions
+export async function generateDailyActions(nodes: any[]): Promise<any> {
+  if (!openai) {
+    return mockDailyActions(nodes);
+  }
+
+  try {
+    const nodesContext = nodes.map(n => 
+      `- ${n.label} (${n.type}, strength: ${n.strength}%, status: ${n.status})`
+    ).join('\n');
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPTS.dailyActions },
+        { role: 'user', content: `Generate 3 daily proof-moves for these identity nodes:\n\n${nodesContext}` }
+      ],
+      max_tokens: 800,
+      temperature: 0.7,
+    });
+
+    const responseText = completion.choices[0]?.message?.content || '';
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    
+    return mockDailyActions(nodes);
+  } catch (error) {
+    console.error('OpenAI daily actions error:', error);
+    return mockDailyActions(nodes);
+  }
+}
+
+// Generate end of day summary
+export async function generateSummary(
+  trackingData: any,
+  completedActions: any[],
+  nodes: any[]
+): Promise<any> {
+  if (!openai) {
+    return mockSummary(trackingData, completedActions);
+  }
+
+  try {
+    const context = `
+Tracking Data:
+- Calories: ${trackingData.calories || 'not tracked'}
+- Exercise: ${trackingData.exercise_mins || 'not tracked'} min
+- Deep Work: ${trackingData.deep_work_hrs || 'not tracked'} hrs
+- Sleep: ${trackingData.sleep_hrs || 'not tracked'} hrs
+- Mood: ${trackingData.mood || 'not tracked'}/10
+
+Completed Actions:
+${completedActions.map(a => `- ${a.action_text} (${a.status})`).join('\n') || 'None'}
+
+Identity Nodes:
+${nodes.slice(0, 5).map(n => `- ${n.label}: ${n.strength}%`).join('\n')}
+`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPTS.endOfDaySummary },
+        { role: 'user', content: `Generate end-of-day summary:\n${context}` }
+      ],
+      max_tokens: 500,
+      temperature: 0.7,
+    });
+
+    const responseText = completion.choices[0]?.message?.content || '';
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    
+    return mockSummary(trackingData, completedActions);
+  } catch (error) {
+    console.error('OpenAI summary error:', error);
+    return mockSummary(trackingData, completedActions);
+  }
+}
+
+// Mock responses for when OpenAI is unavailable
+function mockChatResponse(message: string): string {
+  const lower = message.toLowerCase();
+  
+  if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
+    return "Welcome to Evos. I'm here to help you understand and engineer your identity. What's on your mind today? What patterns have you been noticing in your life?";
+  }
+  
+  if (lower.includes('goal') || lower.includes('want to')) {
+    return "That's a meaningful aspiration. Goals reveal what we value. What would achieving this change about how you see yourself? And what's the smallest step you could take today to move toward it?";
+  }
+  
+  if (lower.includes('stuck') || lower.includes('help')) {
+    return "Being stuck often signals a growth edge — a place where your current identity meets the person you're becoming. What's the resistance you're feeling? Sometimes naming it takes away its power.";
+  }
+  
+  if (lower.includes('anxious') || lower.includes('worried') || lower.includes('stress')) {
+    return "Anxiety often points to something that deeply matters to us. What's at stake here? And I'm curious — is this a pattern you've noticed before, or does this feel new?";
+  }
+  
+  if (lower.includes('habit') || lower.includes('routine')) {
+    return "Habits are identity in action — they're proof of who we're becoming. Which habits feel aligned with your future self, and which ones feel like they belong to an old version of you?";
+  }
+  
+  return "I hear you. Tell me more about this. What patterns do you notice? Every insight is data for your identity map. The more clearly you see yourself, the more intentionally you can evolve.";
+}
+
+function mockIdentityAnalysis(): any {
+  return {
+    nodes: [
+      { label: "Personal Growth", type: "goal", strength: 75, description: "Strong drive for self-improvement" },
+      { label: "Morning Routine", type: "habit", strength: 60, description: "Developing consistent morning practices" },
+      { label: "Analytical Thinking", type: "trait", strength: 80, description: "Tendency to analyze situations deeply" },
+      { label: "Determination", type: "emotion", strength: 85, description: "High motivation and drive" },
+      { label: "Perfectionism", type: "struggle", strength: 55, description: "Sometimes blocks progress" },
+      { label: "Technology", type: "interest", strength: 70, description: "Engaged with tech and innovation" }
+    ],
+    connections: [
+      { source: "Personal Growth", target: "Morning Routine", reason: "Routines support growth goals" },
+      { source: "Perfectionism", target: "Personal Growth", reason: "Can both drive and hinder growth" },
+      { source: "Determination", target: "Personal Growth", reason: "Fuels pursuit of growth" }
+    ],
+    summary: "You show a strong drive for personal growth supported by determination and analytical thinking. Managing perfectionism is your key growth edge."
+  };
+}
+
+function mockDailyActions(nodes: any[]): any {
+  const struggles = nodes.filter(n => n.type === 'struggle' || n.strength < 50);
+  const developing = nodes.filter(n => n.status === 'developing');
+  
+  const targetNode = struggles[0] || developing[0] || nodes[0];
+  
+  return {
+    actions: [
+      {
+        nodeId: null,
+        nodeName: "📊 Daily Data",
+        category: "📊 Data",
+        action: "Open the Daily Tracker. Enter all 5 numbers: calories, exercise minutes, work hours, sleep hours, mood (1-10). All 5 or it doesn't count. Takes 2 minutes.",
+        timeEstimate: "2 min",
+        whyItMatters: "Data closes the identity loop. No tracking, no growth."
+      },
+      {
+        nodeId: targetNode?.id,
+        nodeName: targetNode?.label || "Growth Edge",
+        category: "💪 Challenge",
+        action: `Identify one moment today where "${targetNode?.label || 'your growth edge'}" shows up. When you notice it, pause and choose a different response than usual. Write down what happened.`,
+        timeEstimate: "15 min",
+        whyItMatters: "Awareness + action = identity change"
+      },
+      {
+        nodeId: null,
+        nodeName: "Evening Reflection",
+        category: "📝 Reflection",
+        action: "Before bed, write 3 sentences: What did I prove about myself today? What pattern did I notice? What will I do differently tomorrow?",
+        timeEstimate: "5 min",
+        whyItMatters: "Reflection consolidates identity changes"
+      }
+    ]
+  };
+}
+
+function mockSummary(trackingData: any, completedActions: any[]): any {
+  const completed = completedActions.filter(a => a.status === 'done').length;
+  const total = completedActions.length || 3;
+  const alignmentScore = Math.round((completed / total) * 100);
+  
+  return {
+    headline: completed > 0 
+      ? `You showed up today. ${completed}/${total} actions completed.`
+      : "Rest day. Tomorrow is another chance to prove who you're becoming.",
+    proved: completed > 0 
+      ? ["You can follow through on commitments", "Your identity goals matter to you"]
+      : ["Even tracking this shows self-awareness"],
+    strengthened: completed > 0 ? ["Consistency", "Self-discipline"] : ["Self-compassion"],
+    watchPattern: "Notice what time of day you're most likely to complete your actions",
+    tomorrowFocus: "Start with your hardest action first thing in the morning",
+    alignmentScore: Math.max(alignmentScore, 25)
+  };
+}
+

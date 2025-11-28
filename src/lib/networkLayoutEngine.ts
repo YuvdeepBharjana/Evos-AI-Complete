@@ -1,41 +1,79 @@
 import type { IdentityNode } from '../types';
 import type { Node, Edge } from 'reactflow';
 
-export const generateReactFlowElements = (nodes: IdentityNode[]) => {
-  // Convert IdentityNodes to React Flow nodes with force-directed layout
+// Brain region positions - inspired by brain anatomy
+const BRAIN_REGIONS = {
+  // Prefrontal cortex - planning and goals (top)
+  goal: { centerX: 400, centerY: 100, radius: 120 },
+  // Motor cortex - habits and actions (left)
+  habit: { centerX: 150, centerY: 300, radius: 100 },
+  // Temporal lobe - traits and personality (right)
+  trait: { centerX: 650, centerY: 250, radius: 110 },
+  // Limbic system - emotions (bottom center)
+  emotion: { centerX: 400, centerY: 450, radius: 100 },
+  // Amygdala - struggles and fears (bottom right)
+  struggle: { centerX: 580, centerY: 400, radius: 90 }
+};
+
+export const generateReactFlowElements = (
+  nodes: IdentityNode[],
+  recentStrengthChanges: Record<string, number> = {}
+) => {
   const flowNodes: Node[] = [];
   const edges: Edge[] = [];
 
-  // Calculate positions using a simple force-directed algorithm
-  const positions = calculateForceDirectedLayout(nodes);
+  // Group nodes by type
+  const nodesByType: Record<string, IdentityNode[]> = {};
+  nodes.forEach(node => {
+    if (!nodesByType[node.type]) {
+      nodesByType[node.type] = [];
+    }
+    nodesByType[node.type].push(node);
+  });
 
-  nodes.forEach((node, index) => {
-    flowNodes.push({
-      id: node.id,
-      type: 'identityNode',
-      position: positions[index],
-      data: {
-        label: node.label,
-        type: node.type,
-        strength: node.strength,
-        status: node.status,
-        description: node.description
-      }
-    });
+  // Position nodes within their brain region
+  Object.entries(nodesByType).forEach(([type, typeNodes]) => {
+    const region = BRAIN_REGIONS[type as keyof typeof BRAIN_REGIONS];
+    if (!region) return;
 
-    // Create edges for connections
-    node.connections.forEach((targetId) => {
-      edges.push({
-        id: `${node.id}-${targetId}`,
-        source: node.id,
-        target: targetId,
-        type: 'smoothstep',
-        animated: node.status === 'active',
-        style: {
-          stroke: getEdgeColor(node.type),
-          strokeWidth: Math.max(1, node.strength / 30),
-          opacity: node.strength / 150
+    // Sort by strength - stronger nodes closer to center
+    const sorted = [...typeNodes].sort((a, b) => b.strength - a.strength);
+
+    sorted.forEach((node, index) => {
+      const position = calculateNodePosition(index, sorted.length, region, node.strength);
+      
+      flowNodes.push({
+        id: node.id,
+        type: 'identityNode',
+        position,
+        data: {
+          label: node.label,
+          type: node.type,
+          strength: node.strength,
+          status: node.status,
+          description: node.description,
+          strengthChange: recentStrengthChanges[node.id] || undefined
         }
+      });
+
+      // Create axon-like edges (connections between neurons)
+      node.connections.forEach(targetId => {
+        const targetNode = nodes.find(n => n.id === targetId);
+        if (!targetNode) return;
+
+        edges.push({
+          id: `${node.id}-${targetId}`,
+          source: node.id,
+          target: targetId,
+          type: 'smoothstep',
+          animated: node.status === 'active' || node.status === 'mastered',
+          style: {
+            stroke: getEdgeColor(node.type, targetNode.type),
+            strokeWidth: calculateAxonWidth(node.strength),
+            opacity: calculateAxonOpacity(node.strength, node.status),
+            strokeDasharray: node.status === 'developing' ? '5,5' : undefined
+          }
+        });
       });
     });
   });
@@ -43,68 +81,62 @@ export const generateReactFlowElements = (nodes: IdentityNode[]) => {
   return { nodes: flowNodes, edges };
 };
 
-const getEdgeColor = (type: string) => {
-  switch (type) {
-    case 'habit':
-      return '#10b981';
-    case 'goal':
-      return '#3b82f6';
-    case 'trait':
-      return '#a855f7';
-    case 'emotion':
-      return '#f59e0b';
-    case 'struggle':
-      return '#ef4444';
-    default:
-      return '#6b7280';
-  }
-};
-
-const calculateForceDirectedLayout = (nodes: IdentityNode[]) => {
-  const positions: Array<{ x: number; y: number }> = [];
-  const centerX = 400;
-  const centerY = 300;
-  const radius = 250;
-
-  if (nodes.length === 1) {
-    return [{ x: centerX, y: centerY }];
+const calculateNodePosition = (
+  index: number,
+  totalInRegion: number,
+  region: { centerX: number; centerY: number; radius: number },
+  strength: number
+): { x: number; y: number } => {
+  if (totalInRegion === 1) {
+    return { x: region.centerX, y: region.centerY };
   }
 
-  // Group nodes by type for better organization
-  const nodesByType: Record<string, number[]> = {};
-  nodes.forEach((node, index) => {
-    if (!nodesByType[node.type]) {
-      nodesByType[node.type] = [];
-    }
-    nodesByType[node.type].push(index);
-  });
+  // Spiral layout within region - stronger nodes at center
+  const strengthFactor = strength / 100;
+  const distanceFromCenter = region.radius * (1 - strengthFactor * 0.6);
+  
+  // Golden angle spiral for even distribution
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const angle = index * goldenAngle;
+  
+  // Add slight random offset for organic feel
+  const jitter = 10;
+  const randomX = (Math.random() - 0.5) * jitter;
+  const randomY = (Math.random() - 0.5) * jitter;
 
-  const types = Object.keys(nodesByType);
-  const typeSections = types.length;
-
-  types.forEach((type, typeIndex) => {
-    const nodeIndices = nodesByType[type];
-    const sectionAngleStart = (typeIndex / typeSections) * Math.PI * 2;
-    const sectionAngleEnd = ((typeIndex + 1) / typeSections) * Math.PI * 2;
-
-    nodeIndices.forEach((nodeIndex, positionInSection) => {
-      const node = nodes[nodeIndex];
-      
-      // Stronger nodes closer to center
-      const strengthFactor = node.strength / 100;
-      const nodeRadius = radius * (1 - strengthFactor * 0.3);
-
-      // Distribute nodes within the type section
-      const angleRange = sectionAngleEnd - sectionAngleStart;
-      const angle = sectionAngleStart + (angleRange * (positionInSection + 1) / (nodeIndices.length + 1));
-
-      positions[nodeIndex] = {
-        x: centerX + Math.cos(angle) * nodeRadius,
-        y: centerY + Math.sin(angle) * nodeRadius
-      };
-    });
-  });
-
-  return positions;
+  return {
+    x: region.centerX + Math.cos(angle) * distanceFromCenter + randomX,
+    y: region.centerY + Math.sin(angle) * distanceFromCenter + randomY
+  };
 };
 
+const getEdgeColor = (sourceType: string, targetType: string): string => {
+  // Blend colors for cross-type connections
+  const colors: Record<string, string> = {
+    habit: '#10b981',
+    goal: '#3b82f6',
+    trait: '#a855f7',
+    emotion: '#f59e0b',
+    struggle: '#ef4444'
+  };
+
+  if (sourceType === targetType) {
+    return colors[sourceType] || '#6b7280';
+  }
+
+  // Return gradient-like color for cross-type
+  return `${colors[sourceType]}88`;
+};
+
+const calculateAxonWidth = (strength: number): number => {
+  // Thicker axons for stronger connections
+  return 1 + (strength / 100) * 2; // 1-3px
+};
+
+const calculateAxonOpacity = (strength: number, status: string): number => {
+  const baseOpacity = strength / 150;
+  if (status === 'mastered') return Math.min(baseOpacity + 0.3, 0.8);
+  if (status === 'active') return Math.min(baseOpacity + 0.2, 0.7);
+  if (status === 'neglected') return Math.max(baseOpacity - 0.2, 0.15);
+  return baseOpacity;
+};

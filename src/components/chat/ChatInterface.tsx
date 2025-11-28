@@ -3,10 +3,12 @@ import { motion } from 'framer-motion';
 import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
 import { useUserStore } from '../../store/useUserStore';
+import { extractIdentityFromChat } from '../../lib/extractIdentityFromChat';
+import { sendChatMessage, checkApiHealth } from '../../lib/api';
 import type { Message } from '../../types';
 
-// Mock AI responses based on context
-const generateAIResponse = (userMessage: string, userName: string): string => {
+// Fallback AI responses when API is unavailable
+const generateLocalResponse = (userMessage: string, userName: string): string => {
   const lowerMessage = userMessage.toLowerCase();
   
   if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
@@ -33,8 +35,9 @@ const generateAIResponse = (userMessage: string, userName: string): string => {
 };
 
 export const ChatInterface = () => {
-  const { user, addMessage } = useUserStore();
+  const { user, addMessage, addNodes } = useUserStore();
   const [isTyping, setIsTyping] = useState(false);
+  const [apiAvailable, setApiAvailable] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -45,7 +48,12 @@ export const ChatInterface = () => {
     scrollToBottom();
   }, [user?.chatHistory]);
 
-  const handleSendMessage = (content: string) => {
+  // Check if API is available on mount
+  useEffect(() => {
+    checkApiHealth().then(setApiAvailable);
+  }, []);
+
+  const handleSendMessage = async (content: string) => {
     if (!user) return;
 
     // Add user message
@@ -57,24 +65,69 @@ export const ChatInterface = () => {
     };
     addMessage(userMessage);
 
-    // Simulate AI typing
+    // Extract identity from user message and add new nodes
+    const newNodes = extractIdentityFromChat(content, user.identityNodes);
+    if (newNodes.length > 0) {
+      addNodes(newNodes);
+    }
+
+    // Show typing indicator
     setIsTyping(true);
-    setTimeout(() => {
+
+    try {
+      let aiResponseText: string;
+
+      if (apiAvailable) {
+        // Use OpenAI API
+        const history = user.chatHistory.map(m => ({
+          content: m.content,
+          sender: m.sender
+        }));
+        aiResponseText = await sendChatMessage(content, history);
+      } else {
+        // Fallback to local response
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        aiResponseText = generateLocalResponse(content, user.name);
+      }
+      
+      // If new identity nodes were found, mention it
+      if (newNodes.length > 0) {
+        aiResponseText += `\n\n✨ I noticed something! I've added ${newNodes.length} new insight${newNodes.length > 1 ? 's' : ''} to your identity mirror: ${newNodes.map(n => n.label).join(', ')}.`;
+      }
+      
       const aiResponse: Message = {
         id: `msg-${Date.now() + 1}`,
-        content: generateAIResponse(content, user.name),
+        content: aiResponseText,
         sender: 'ai',
         timestamp: new Date()
       };
       addMessage(aiResponse);
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      const errorResponse: Message = {
+        id: `msg-${Date.now() + 1}`,
+        content: "I'm having trouble connecting right now. Let's try again in a moment.",
+        sender: 'ai',
+        timestamp: new Date()
+      };
+      addMessage(errorResponse);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   if (!user) return null;
 
   return (
     <div className="flex flex-col h-full">
+      {/* API Status Indicator */}
+      <div className="px-6 pt-2">
+        <div className={`text-xs flex items-center gap-1.5 ${apiAvailable ? 'text-green-400' : 'text-yellow-400'}`}>
+          <div className={`w-1.5 h-1.5 rounded-full ${apiAvailable ? 'bg-green-400' : 'bg-yellow-400'}`} />
+          {apiAvailable ? 'AI Connected' : 'Using local mode'}
+        </div>
+      </div>
+
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {user.chatHistory.length === 0 ? (
@@ -90,9 +143,14 @@ export const ChatInterface = () => {
               <p className="text-gray-400 mb-4">
                 I'm here to help you grow, track your progress, and understand yourself better.
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 mb-4">
                 Start by sharing what's on your mind, or ask me anything!
               </p>
+              <div className="p-3 rounded-xl bg-orange-500/10 border border-orange-500/30">
+                <p className="text-xs text-orange-300">
+                  <span className="font-bold">💡 Pro tip:</span> The more you track (calories, exercise, work hours), the better I understand your patterns and can help you grow.
+                </p>
+              </div>
             </div>
           </motion.div>
         ) : (
@@ -109,14 +167,17 @@ export const ChatInterface = () => {
             animate={{ opacity: 1 }}
             className="flex gap-3"
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 flex items-center justify-center">
-              <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 1, repeat: Infinity }}
-              >
-                🤖
-              </motion.div>
-            </div>
+            <motion.div 
+              className="w-9 h-9 flex items-center justify-center"
+              animate={{ rotate: [0, 360] }}
+              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+            >
+              <img 
+                src="/evos-logo.svg" 
+                alt="Evos" 
+                className="w-8 h-8 invert opacity-80"
+              />
+            </motion.div>
             <div className="glass rounded-2xl px-4 py-3">
               <motion.div className="flex gap-1">
                 {[0, 1, 2].map((i) => (
@@ -128,7 +189,7 @@ export const ChatInterface = () => {
                       repeat: Infinity,
                       delay: i * 0.2
                     }}
-                    className="w-2 h-2 bg-gray-400 rounded-full"
+                    className="w-2 h-2 bg-purple-400 rounded-full"
                   />
                 ))}
               </motion.div>
@@ -146,4 +207,3 @@ export const ChatInterface = () => {
     </div>
   );
 };
-

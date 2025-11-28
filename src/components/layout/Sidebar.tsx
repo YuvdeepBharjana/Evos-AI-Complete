@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { MessageSquare, Brain, User, LogOut } from 'lucide-react';
+import { MessageSquare, Brain, User, LogOut, FlaskConical } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserStore } from '../../store/useUserStore';
 
@@ -10,7 +10,8 @@ export const Sidebar = () => {
 
   const navItems = [
     { icon: MessageSquare, label: 'Chat', path: '/dashboard' },
-    { icon: Brain, label: 'Mirror', path: '/mirror' }
+    { icon: Brain, label: 'Mirror', path: '/mirror' },
+    { icon: FlaskConical, label: '30-Day Experiment', path: '/experiment' }
   ];
 
   const handleLogout = () => {
@@ -28,8 +29,8 @@ export const Sidebar = () => {
     >
       {/* Logo */}
       <div className="mb-8">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 via-blue-500 to-teal-500 flex items-center justify-center font-bold text-xl">
-          E
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-500 flex items-center justify-center p-2">
+          <img src="/evos-logo.svg" alt="Evos" className="w-full h-full invert" />
         </div>
       </div>
 
@@ -47,7 +48,7 @@ export const Sidebar = () => {
               onClick={() => navigate(item.path)}
               className={`relative p-3 rounded-xl transition-colors ${
                 isActive
-                  ? 'bg-gradient-to-br from-purple-500 to-blue-500 text-white'
+                  ? 'bg-gradient-to-br from-indigo-500 to-cyan-500 text-white'
                   : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
               title={item.label}
@@ -56,7 +57,7 @@ export const Sidebar = () => {
               {isActive && (
                 <motion.div
                   layoutId="activeNav"
-                  className="absolute inset-0 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl -z-10"
+                  className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-xl -z-10"
                   transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                 />
               )}

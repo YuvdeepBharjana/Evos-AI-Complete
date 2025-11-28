@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2">
+  <!-- Outer diamond -->
+  <path d="M50 5 L95 50 L50 95 L5 50 Z" stroke-linejoin="round"/>
+  
+  <!-- Middle diamond with curves -->
+  <path d="M50 12 
+           Q75 25, 88 50 
+           Q75 75, 50 88 
+           Q25 75, 12 50 
+           Q25 25, 50 12" />
+  
+  <!-- Inner curved diamond -->
+  <path d="M50 20 
+           Q68 32, 80 50 
+           Q68 68, 50 80 
+           Q32 68, 20 50 
+           Q32 32, 50 20" />
+  
+  <!-- Innermost circle-ish shape -->
+  <path d="M50 28 
+           Q62 38, 72 50 
+           Q62 62, 50 72 
+           Q38 62, 28 50 
+           Q38 38, 50 28" />
+</svg>
+

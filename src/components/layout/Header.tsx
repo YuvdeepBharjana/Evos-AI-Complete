@@ -31,7 +31,7 @@ export const Header = ({ title, showMirrorButton, onMirrorClick }: HeaderProps) 
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={onMirrorClick}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 text-white font-medium"
+          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-medium"
         >
           <Brain size={20} />
           View Mirror

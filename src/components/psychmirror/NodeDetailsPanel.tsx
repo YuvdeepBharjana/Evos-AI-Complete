@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, TrendingUp, Calendar } from 'lucide-react';
+import { X, TrendingUp, Calendar, Play, Target, Sliders } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { IdentityNode } from '../../types';
+import { useUserStore } from '../../store/useUserStore';
 
 interface NodeDetailsPanelProps {
   node: IdentityNode | null;
@@ -8,6 +11,11 @@ interface NodeDetailsPanelProps {
 }
 
 export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
+  const navigate = useNavigate();
+  const { startWorkSession, setNodeDesiredStrength } = useUserStore();
+  const [showGoalSetter, setShowGoalSetter] = useState(false);
+  const [desiredStrength, setDesiredStrength] = useState(node?.desiredStrength || 80);
+
   if (!node) return null;
 
   const getStatusColor = (status: string) => {
@@ -24,6 +32,36 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
         return 'text-gray-400';
     }
   };
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'habit':
+        return 'from-green-500 to-emerald-500';
+      case 'goal':
+        return 'from-blue-500 to-cyan-500';
+      case 'trait':
+        return 'from-purple-500 to-violet-500';
+      case 'emotion':
+        return 'from-orange-500 to-amber-500';
+      case 'struggle':
+        return 'from-red-500 to-rose-500';
+      default:
+        return 'from-gray-500 to-slate-500';
+    }
+  };
+
+  const handleWorkOnThis = () => {
+    startWorkSession(node.id, node.label);
+    onClose();
+    navigate('/work-session');
+  };
+
+  const handleSetGoal = () => {
+    setNodeDesiredStrength(node.id, desiredStrength);
+    setShowGoalSetter(false);
+  };
+
+  const gap = (node.desiredStrength || 80) - node.strength;
 
   return (
     <AnimatePresence>
@@ -47,12 +85,12 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
         <div className="space-y-6">
           {/* Type Badge */}
           <div>
-            <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-300 capitalize">
+            <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r ${getTypeColor(node.type)} text-white capitalize`}>
               {node.type}
             </span>
           </div>
 
-          {/* Strength */}
+          {/* Strength with Gap Indicator */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-400 flex items-center gap-2">
@@ -61,13 +99,25 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
               </span>
               <span className="font-bold">{node.strength}%</span>
             </div>
-            <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-3 bg-gray-800 rounded-full overflow-hidden relative">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${node.strength}%` }}
-                className="h-full bg-gradient-to-r from-purple-500 to-blue-500"
+                className={`h-full bg-gradient-to-r ${getTypeColor(node.type)}`}
               />
+              {/* Desired strength marker */}
+              {node.desiredStrength && (
+                <div 
+                  className="absolute top-0 h-full w-0.5 bg-white"
+                  style={{ left: `${node.desiredStrength}%` }}
+                />
+              )}
             </div>
+            {gap > 0 && (
+              <p className="text-xs text-yellow-400 mt-1">
+                Gap to goal: {gap}%
+              </p>
+            )}
           </div>
 
           {/* Status */}
@@ -115,8 +165,69 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
             </div>
           )}
 
+          {/* Set Goal Button */}
+          <button
+            onClick={() => setShowGoalSetter(!showGoalSetter)}
+            className="w-full flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+          >
+            <span className="flex items-center gap-2 text-sm">
+              <Target size={16} className="text-purple-400" />
+              Set Target Strength
+            </span>
+            <span className="text-sm text-gray-400">
+              {node.desiredStrength || 80}%
+            </span>
+          </button>
+
+          {/* Goal Setter Slider */}
+          <AnimatePresence>
+            {showGoalSetter && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/30">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sliders size={16} className="text-purple-400" />
+                    <span className="text-sm text-purple-300">Target: {desiredStrength}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={desiredStrength}
+                    onChange={(e) => setDesiredStrength(Number(e.target.value))}
+                    className="w-full accent-purple-500"
+                  />
+                  <button
+                    onClick={handleSetGoal}
+                    className="w-full mt-3 py-2 rounded-lg bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium transition-colors"
+                  >
+                    Set Goal
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Work on This Button */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleWorkOnThis}
+            className={`w-full py-4 rounded-xl bg-gradient-to-r ${getTypeColor(node.type)} text-white font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-shadow`}
+          >
+            <Play size={20} />
+            Work on This
+          </motion.button>
+          <p className="text-xs text-gray-500 text-center -mt-2">
+            Start a focused session to strengthen this aspect
+          </p>
+
           {/* Action Suggestions */}
-          <div className="glass rounded-xl p-4 mt-6">
+          <div className="glass rounded-xl p-4">
             <h3 className="font-semibold mb-3">💡 Suggestions</h3>
             <ul className="space-y-2 text-sm text-gray-300">
               {node.status === 'neglected' && (
@@ -138,4 +249,3 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
     </AnimatePresence>
   );
 };
-
