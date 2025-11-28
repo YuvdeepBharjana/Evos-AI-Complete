@@ -25,7 +25,7 @@ export interface UserProfile {
   id: string;
   name: string;
   onboardingComplete: boolean;
-  onboardingMethod?: 'questionnaire' | 'upload';
+  onboardingMethod?: 'questionnaire' | 'upload' | 'manual';
   identityNodes: IdentityNode[];
   chatHistory: Message[];
   createdAt: Date;

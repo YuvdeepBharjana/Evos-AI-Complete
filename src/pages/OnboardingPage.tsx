@@ -4,24 +4,35 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { OnboardingChoice } from '../components/onboarding/OnboardingChoice';
 import { QuestionnaireFlow } from '../components/onboarding/QuestionnaireFlow';
 import { DataUploadFlow } from '../components/onboarding/DataUploadFlow';
+import { ManualOnboardingFlow } from '../components/onboarding/ManualOnboardingFlow';
 import { useUserStore } from '../store/useUserStore';
 import { createDefaultProfile, generateNodesFromQuestionnaire } from '../lib/generateMockProfile';
 import type { IdentityNode } from '../types';
 import { Dna } from 'lucide-react';
 
-type OnboardingStep = 'choice' | 'questionnaire' | 'upload' | 'complete';
+type OnboardingStep = 'choice' | 'questionnaire' | 'upload' | 'manual' | 'complete';
 
 export const OnboardingPage = () => {
     const [step, setStep] = useState<OnboardingStep>('choice');
     const navigate = useNavigate();
     const { setUser, completeOnboarding } = useUserStore();
 
-    const handleMethodSelect = (method: 'questionnaire' | 'upload') => {
+    const handleMethodSelect = (method: 'questionnaire' | 'upload' | 'manual') => {
         // Create user profile
         const profile = createDefaultProfile('User');
         setUser(profile);
 
         setStep(method);
+    };
+
+    const handleManualComplete = (nodes: IdentityNode[]) => {
+        completeOnboarding('manual', nodes);
+        setStep('complete');
+
+        // Navigate after animation
+        setTimeout(() => {
+            navigate('/dashboard');
+        }, 2000);
     };
 
     const handleQuestionnaireComplete = (answers: Record<string, string>) => {
@@ -78,6 +89,17 @@ export const OnboardingPage = () => {
                         exit={{ opacity: 0 }}
                     >
                         <DataUploadFlow onComplete={handleUploadComplete} />
+                    </motion.div>
+                )}
+
+                {step === 'manual' && (
+                    <motion.div
+                        key="manual"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <ManualOnboardingFlow onComplete={handleManualComplete} />
                     </motion.div>
                 )}
 

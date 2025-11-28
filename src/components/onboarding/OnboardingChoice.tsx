@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion';
-import { MessageSquare, Upload } from 'lucide-react';
+import { MessageSquare, Upload, PenTool } from 'lucide-react';
 import { Card } from '../ui/Card';
 
 interface OnboardingChoiceProps {
-  onSelectMethod: (method: 'questionnaire' | 'upload') => void;
+  onSelectMethod: (method: 'questionnaire' | 'upload' | 'manual') => void;
 }
 
 export const OnboardingChoice = ({ onSelectMethod }: OnboardingChoiceProps) => {
@@ -48,7 +48,7 @@ export const OnboardingChoice = ({ onSelectMethod }: OnboardingChoiceProps) => {
           </motion.p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid md:grid-cols-3 gap-6">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -56,15 +56,36 @@ export const OnboardingChoice = ({ onSelectMethod }: OnboardingChoiceProps) => {
           >
             <Card hover onClick={() => onSelectMethod('questionnaire')} className="h-full">
               <div className="flex flex-col items-center text-center p-6">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center mb-6">
-                  <MessageSquare size={32} className="text-white" />
+                <div className="w-14 h-14 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center mb-5">
+                  <MessageSquare size={28} className="text-white" />
                 </div>
-                <h2 className="text-2xl font-bold mb-4">Answer Questions</h2>
-                <p className="text-gray-400 mb-6">
-                  Take 3 minutes to answer a few thoughtful questions about your goals, habits, and values.
+                <h2 className="text-xl font-bold mb-3">Answer Questions</h2>
+                <p className="text-gray-400 text-sm mb-4">
+                  Take 3 minutes to answer thoughtful questions about your goals and values.
                 </p>
-                <div className="text-sm text-gray-500">
+                <div className="text-xs text-indigo-400 font-medium">
                   ⚡ Quick & Personalized
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+          >
+            <Card hover onClick={() => onSelectMethod('manual')} className="h-full">
+              <div className="flex flex-col items-center text-center p-6">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 flex items-center justify-center mb-5">
+                  <PenTool size={28} className="text-white" />
+                </div>
+                <h2 className="text-xl font-bold mb-3">Build Manually</h2>
+                <p className="text-gray-400 text-sm mb-4">
+                  Add your own goals, habits, traits, and struggles one by one. Full control.
+                </p>
+                <div className="text-xs text-orange-400 font-medium">
+                  ✍️ Complete Control
                 </div>
               </div>
             </Card>
@@ -77,15 +98,15 @@ export const OnboardingChoice = ({ onSelectMethod }: OnboardingChoiceProps) => {
           >
             <Card hover onClick={() => onSelectMethod('upload')} className="h-full">
               <div className="flex flex-col items-center text-center p-6">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-cyan-500 to-teal-500 flex items-center justify-center mb-6">
-                  <Upload size={32} className="text-white" />
+                <div className="w-14 h-14 rounded-full bg-gradient-to-r from-cyan-500 to-teal-500 flex items-center justify-center mb-5">
+                  <Upload size={28} className="text-white" />
                 </div>
-                <h2 className="text-2xl font-bold mb-4">Import AI History</h2>
-                <p className="text-gray-400 mb-6">
-                  Upload your ChatGPT conversations or AI chat logs. We'll analyze your patterns instantly.
+                <h2 className="text-xl font-bold mb-3">Import AI History</h2>
+                <p className="text-gray-400 text-sm mb-4">
+                  Upload ChatGPT exports or AI chat logs. We'll extract patterns instantly.
                 </p>
-                <div className="text-sm text-gray-500">
-                  🚀 Instant Identity Profile
+                <div className="text-xs text-cyan-400 font-medium">
+                  🚀 Instant Profile
                 </div>
               </div>
             </Card>

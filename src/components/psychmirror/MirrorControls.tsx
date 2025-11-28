@@ -1,4 +1,4 @@
-import { ZoomIn, ZoomOut, Maximize2, Filter } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, Filter, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { NodeType } from '../../types';
 
@@ -8,6 +8,7 @@ interface MirrorControlsProps {
   onFitView: () => void;
   selectedFilter: NodeType | 'all';
   onFilterChange: (filter: NodeType | 'all') => void;
+  onAddNode?: () => void;
 }
 
 export const MirrorControls = ({
@@ -15,7 +16,8 @@ export const MirrorControls = ({
   onZoomOut,
   onFitView,
   selectedFilter,
-  onFilterChange
+  onFilterChange,
+  onAddNode
 }: MirrorControlsProps) => {
   const filters: Array<{ label: string; value: NodeType | 'all' }> = [
     { label: 'All', value: 'all' },
@@ -53,34 +55,50 @@ export const MirrorControls = ({
         ))}
       </motion.div>
 
-      {/* Zoom Controls */}
-      <motion.div
-        initial={{ x: 20, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        className="glass rounded-xl p-2 flex gap-2"
-      >
-        <button
-          onClick={onZoomIn}
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          title="Zoom In"
+      {/* Right Controls */}
+      <div className="flex gap-2">
+        {/* Add Node Button */}
+        {onAddNode && (
+          <motion.button
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            onClick={onAddNode}
+            className="glass rounded-xl px-4 py-2 flex items-center gap-2 hover:bg-white/10 transition-colors text-sm font-medium"
+          >
+            <Plus size={18} />
+            Add Node
+          </motion.button>
+        )}
+
+        {/* Zoom Controls */}
+        <motion.div
+          initial={{ x: 20, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          className="glass rounded-xl p-2 flex gap-2"
         >
-          <ZoomIn size={20} />
-        </button>
-        <button
-          onClick={onZoomOut}
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          title="Zoom Out"
-        >
-          <ZoomOut size={20} />
-        </button>
-        <button
-          onClick={onFitView}
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          title="Fit View"
-        >
-          <Maximize2 size={20} />
-        </button>
-      </motion.div>
+          <button
+            onClick={onZoomIn}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            title="Zoom In"
+          >
+            <ZoomIn size={20} />
+          </button>
+          <button
+            onClick={onZoomOut}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            title="Zoom Out"
+          >
+            <ZoomOut size={20} />
+          </button>
+          <button
+            onClick={onFitView}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            title="Fit View"
+          >
+            <Maximize2 size={20} />
+          </button>
+        </motion.div>
+      </div>
     </div>
   );
 };

@@ -11,9 +11,10 @@ import 'reactflow/dist/style.css';
 import { IdentityNode } from './IdentityNode';
 import { NodeDetailsPanel } from './NodeDetailsPanel';
 import { MirrorControls } from './MirrorControls';
+import { AddNodeModal } from './AddNodeModal';
 import { useUserStore } from '../../store/useUserStore';
 import { generateReactFlowElements } from '../../lib/networkLayoutEngine';
-import type { NodeType } from '../../types';
+import type { NodeType, IdentityNode as IdentityNodeType } from '../../types';
 import { Brain, Target, Zap, Trophy, Heart, AlertCircle } from 'lucide-react';
 
 const nodeTypes: NodeTypes = {
@@ -30,9 +31,14 @@ const BRAIN_REGIONS = [
 ];
 
 export const PsychMirror = () => {
-  const { user, recentStrengthChanges } = useUserStore();
+  const { user, recentStrengthChanges, addNodes } = useUserStore();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<NodeType | 'all'>('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  const handleAddNode = (node: IdentityNodeType) => {
+    addNodes([node]);
+  };
 
   // Generate React Flow elements from user's identity nodes
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
@@ -110,6 +116,13 @@ export const PsychMirror = () => {
         onFitView={handleFitView}
         selectedFilter={filterType}
         onFilterChange={setFilterType}
+        onAddNode={() => setShowAddModal(true)}
+      />
+
+      <AddNodeModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdd={handleAddNode}
       />
 
       <ReactFlow
