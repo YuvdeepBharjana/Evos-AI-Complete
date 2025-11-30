@@ -52,13 +52,36 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Development endpoint to clear rate limits
+app.post('/api/dev/clear-rate-limit', (req, res) => {
+  const { ip } = req.body;
+  const targetIp = ip || req.ip || req.socket.remoteAddress || 'unknown';
+  
+  clearRateLimit(targetIp);
+  
+  res.json({ 
+    success: true, 
+    message: `Rate limit cleared for IP: ${targetIp}`,
+    tip: 'If still blocked, try clearing all: send empty request body'
+  });
+});
+
+// Clear all rate limits (development)
+app.post('/api/dev/clear-all-rate-limits', (req, res) => {
+  rateLimitMap.clear();
+  res.json({ 
+    success: true, 
+    message: 'All rate limits cleared'
+  });
+});
+
 // ============================================
 // AUTHENTICATION
 // ============================================
 
 // Rate limiting map (basic in-memory)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 10; // max attempts
+const RATE_LIMIT = 50; // max attempts (increased for better UX)
 const RATE_WINDOW = 60000; // 1 minute
 
 function checkRateLimit(ip: string): boolean {
@@ -76,6 +99,10 @@ function checkRateLimit(ip: string): boolean {
   
   entry.count++;
   return true;
+}
+
+function clearRateLimit(ip: string): void {
+  rateLimitMap.delete(ip);
 }
 
 // Password validation
@@ -181,6 +208,9 @@ app.post('/api/auth/login', async (req, res) => {
     if (!valid) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
+    
+    // Clear rate limit on successful login
+    clearRateLimit(ip);
     
     const { password_hash, ...userWithoutPassword } = user;
     const token = generateToken(userWithoutPassword);
@@ -392,7 +422,12 @@ app.delete('/api/user/delete-account', authMiddleware, async (req: AuthRequest, 
         return res.status(400).json({ error: 'Password is required to delete your account' });
       }
       
-      const valid = await verifyPassword(password, user.password_hash);
+      const userWithPassword = findUserById(userId, true);
+      if (!userWithPassword?.password_hash) {
+        return res.status(500).json({ error: 'Failed to verify password' });
+      }
+      
+      const valid = await verifyPassword(password, userWithPassword.password_hash);
       if (!valid) {
         return res.status(401).json({ error: 'Invalid password' });
       }
@@ -721,8 +756,12 @@ app.post('/api/onboarding/complete', authMiddleware, (req: AuthRequest, res) => 
     }
     
     // Get updated user
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user!.id);
+    const user = findUserById(req.user!.id);
     const createdNodes = db.prepare('SELECT * FROM nodes WHERE user_id = ?').all(req.user!.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     
     res.json({ 
       success: true, 
@@ -1250,8 +1289,12 @@ app.post('/api/profile/change-password', authMiddleware, async (req: AuthRequest
       return res.status(400).json({ error: passwordValidation.error });
     }
     
-    const user = findUserById(userId);
+    const user = findUserById(userId, true);
     if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    if (!user.password_hash) {
+      return res.status(500).json({ error: 'Failed to verify password' });
+    }
     
     const valid = await verifyPassword(currentPassword, user.password_hash);
     if (!valid) {

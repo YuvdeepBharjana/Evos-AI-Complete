@@ -14,6 +14,8 @@ export interface User {
   created_at: string;
   onboarding_complete: boolean;
   onboarding_method?: string;
+  email_verified?: boolean;
+  password_hash?: string;
 }
 
 export interface AuthRequest extends Request {
@@ -86,9 +88,13 @@ export function findUserByEmail(email: string): (User & { password_hash: string 
 }
 
 // Find user by ID
-export function findUserById(id: string): User | null {
+export function findUserById(id: string, includePassword: boolean = false): User | null {
+  const fields = includePassword 
+    ? 'id, email, password_hash, name, created_at, onboarding_complete, onboarding_method, email_verified'
+    : 'id, email, name, created_at, onboarding_complete, onboarding_method, email_verified';
+    
   const stmt = db.prepare(`
-    SELECT id, email, name, created_at, onboarding_complete, onboarding_method
+    SELECT ${fields}
     FROM users WHERE id = ?
   `);
   
@@ -98,6 +104,7 @@ export function findUserById(id: string): User | null {
   return {
     ...row,
     onboarding_complete: !!row.onboarding_complete,
+    email_verified: !!row.email_verified,
   };
 }
 

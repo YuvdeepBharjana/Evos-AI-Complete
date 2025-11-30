@@ -2,18 +2,19 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MessageSquare, LayoutGrid } from 'lucide-react';
-import { Header } from '../components/layout/Header';
 import { ChatInterface } from '../components/chat/ChatInterface';
 import { FloatingMirrorButton } from '../components/ui/FloatingMirrorButton';
 import { DailyProofCard } from '../components/daily/DailyProofCard';
 import { AlignmentScore } from '../components/daily/AlignmentScore';
 import { EndOfDaySummary } from '../components/daily/EndOfDaySummary';
 import { DailyTracker } from '../components/tracking/DailyTracker';
+import { useUserStore } from '../store/useUserStore';
 
 type ViewMode = 'chat' | 'dashboard';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
+  const { user } = useUserStore();
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
 
   const handleMirrorClick = () => {
@@ -22,11 +23,43 @@ export const DashboardPage = () => {
 
   return (
     <>
-      <Header 
-        title={viewMode === 'chat' ? 'AI Chat' : 'Daily Actions'} 
-        showMirrorButton 
-        onMirrorClick={handleMirrorClick}
-      />
+      {/* Dashboard Header with Evos AI Branding */}
+      <motion.header
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="glass border-b border-gray-800 px-4 sm:px-8 py-4 sm:py-5 relative"
+      >
+        <div className="flex items-center justify-between">
+          {/* Spacer for balance */}
+          <div className="w-32 sm:w-40"></div>
+
+          {/* Centered Evos AI Title */}
+          <div className="absolute left-1/2 transform -translate-x-1/2">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold gradient-text whitespace-nowrap">
+              Evos AI
+            </h1>
+          </div>
+
+          {/* Mirror Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleMirrorClick}
+            className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-medium text-sm sm:text-base shadow-lg shadow-indigo-500/20"
+          >
+            <span>View Mirror</span>
+          </motion.button>
+        </div>
+
+        {/* Welcome message in bottom left corner */}
+        {user && (
+          <div className="absolute bottom-3 left-4 sm:left-8">
+            <span className="text-sm sm:text-base text-gray-400">
+              Welcome back, <span className="text-white font-semibold">{user.name}</span>
+            </span>
+          </div>
+        )}
+      </motion.header>
 
       {/* View Toggle */}
       <div className="px-3 sm:px-4 py-2 border-b border-gray-800">

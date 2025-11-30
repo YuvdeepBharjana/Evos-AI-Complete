@@ -1,6 +1,7 @@
 import { memo, useState, useEffect } from 'react';
 import { Handle, Position } from 'reactflow';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Target, Zap, Trophy, Heart, AlertCircle, Sparkles } from 'lucide-react';
 import type { NodeType, NodeStatus } from '../../types';
 
 interface IdentityNodeProps {
@@ -49,6 +50,15 @@ const NODE_COLORS: Record<string, { primary: string; glow: string; gradient: str
   },
 };
 
+const NODE_ICONS: Record<string, any> = {
+  goal: Target,
+  habit: Zap,
+  trait: Trophy,
+  emotion: Heart,
+  struggle: AlertCircle,
+  interest: Sparkles,
+};
+
 const cleanLabel = (label: string): string => {
   return label.replace(/\*\*/g, '').replace(/\*/g, '').replace(/\_\_/g, '').replace(/\_/g, '').trim();
 };
@@ -61,11 +71,12 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
   const hasDailyAction = data?.hasDailyAction || false;
   
   const colors = NODE_COLORS[nodeType] || NODE_COLORS.trait;
+  const Icon = NODE_ICONS[nodeType] || Trophy;
   const [showChange, setShowChange] = useState(false);
   const [displayedChange, setDisplayedChange] = useState<number | null>(null);
   
-  // Size based on strength (40-70px)
-  const nodeSize = 40 + (nodeStrength / 100) * 30;
+  // Larger size to accommodate text (80-120px)
+  const nodeSize = 100 + (nodeStrength / 100) * 20;
   
   // Detect strength changes
   useEffect(() => {
@@ -79,28 +90,48 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
 
   return (
     <>
-      <Handle type="target" position={Position.Top} className="opacity-0" />
-      <Handle type="target" position={Position.Left} className="opacity-0" />
-      <Handle type="source" position={Position.Bottom} className="opacity-0" />
-      <Handle type="source" position={Position.Right} className="opacity-0" />
+      <Handle 
+        type="target" 
+        position={Position.Top} 
+        className="opacity-0"
+        style={{ top: 30, left: '50%' }}
+      />
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        className="opacity-0"
+        style={{ left: 30, top: '50%' }}
+      />
+      <Handle 
+        type="source" 
+        position={Position.Bottom} 
+        className="opacity-0"
+        style={{ bottom: 30, left: '50%' }}
+      />
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        className="opacity-0"
+        style={{ right: 30, top: '50%' }}
+      />
       
       <motion.div
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-        className="relative cursor-pointer group"
-        style={{ width: nodeSize + 20, height: nodeSize + 20 }}
+        className="relative cursor-pointer group flex items-center justify-center"
+        style={{ width: nodeSize + 60, height: nodeSize + 60 }}
       >
-        {/* Strength change popup */}
+        {/* Strength change popup - above node */}
         <AnimatePresence>
           {showChange && displayedChange !== null && displayedChange !== 0 && (
             <motion.div
               initial={{ opacity: 0, y: 0, scale: 0.5 }}
-              animate={{ opacity: 1, y: -30, scale: 1 }}
-              exit={{ opacity: 0, y: -50 }}
-              className="absolute left-1/2 -translate-x-1/2 -top-2 z-50"
+              animate={{ opacity: 1, y: -40, scale: 1 }}
+              exit={{ opacity: 0, y: -60, scale: 0.5 }}
+              className="absolute left-1/2 top-0 -translate-x-1/2 z-50"
             >
-              <div className={`px-2 py-1 rounded-full text-xs font-bold ${
+              <div className={`px-2 py-1 rounded-full text-xs font-bold shadow-lg ${
                 displayedChange > 0 ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
               }`}>
                 {displayedChange > 0 ? '+' : ''}{displayedChange}%
@@ -109,72 +140,57 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
           )}
         </AnimatePresence>
 
-        {/* Daily Action indicator - "TODAY'S FOCUS" */}
+        {/* Daily Action indicator - "TODAY" badge - outside top right, very close */}
         {hasDailyAction && (
-          <>
-            {/* Pulsing ring */}
-            <motion.div
-              className="absolute rounded-full pointer-events-none"
+          <motion.div
+            className="absolute z-50 pointer-events-none"
+            style={{
+              right: 5,
+              top: 0,
+            }}
+            initial={{ scale: 0, rotate: -20 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 300 }}
+          >
+            <div 
+              className="px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider"
               style={{
-                left: '50%',
-                top: '50%',
-                width: nodeSize + 16,
-                height: nodeSize + 16,
-                transform: 'translate(-50%, -50%)',
-                border: '2px solid #fbbf24',
+                background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                color: '#000',
+                boxShadow: '0 4px 12px rgba(251, 191, 36, 0.6)',
               }}
-              animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.8, 0.3, 0.8],
-              }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            />
-            
-            {/* TODAY badge */}
-            <motion.div
-              className="absolute z-50 pointer-events-none"
-              style={{
-                left: '50%',
-                top: -8,
-                transform: 'translateX(-50%)',
-              }}
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: 'spring', stiffness: 300 }}
             >
-              <div 
-                className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider"
-                style={{
-                  background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-                  color: '#000',
-                  boxShadow: '0 2px 8px rgba(251, 191, 36, 0.4)',
-                }}
-              >
-                Today
-              </div>
-            </motion.div>
-          </>
+              Today
+            </div>
+          </motion.div>
         )}
 
 
 
         {/* Main node orb */}
         <motion.div
-          className="absolute rounded-full overflow-hidden"
+          className="rounded-full overflow-hidden relative"
           style={{
-            left: '50%',
-            top: '50%',
             width: nodeSize,
             height: nodeSize,
-            transform: 'translate(-50%, -50%)',
-            background: 'transparent',
-            border: `2px solid ${colors.primary}`,
+            background: 'rgba(20, 20, 30, 0.8)',
+            border: `3px solid ${colors.primary}`,
+            boxShadow: hasDailyAction 
+              ? `0 0 30px ${colors.glow}, 0 0 60px ${colors.glow}, 0 0 90px ${colors.glow}50`
+              : `0 0 20px ${colors.glow}`,
           }}
-          whileHover={{ scale: 1.1 }}
+          animate={hasDailyAction ? {
+            boxShadow: [
+              `0 0 30px ${colors.glow}, 0 0 60px ${colors.glow}, 0 0 90px ${colors.glow}50`,
+              `0 0 40px ${colors.glow}, 0 0 80px ${colors.glow}, 0 0 120px ${colors.glow}70`,
+              `0 0 30px ${colors.glow}, 0 0 60px ${colors.glow}, 0 0 90px ${colors.glow}50`,
+            ]
+          } : {}}
+          transition={{ duration: 2, repeat: Infinity }}
         >
-          {/* Inner strength fill */}
+          {/* Strength fill from bottom - circular progress */}
           <div
-            className="absolute bottom-0 left-0 right-0"
+            className="absolute bottom-0 left-0 right-0 transition-all duration-300"
             style={{
               height: `${nodeStrength}%`,
               background: colors.gradient,
@@ -182,88 +198,40 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
             }}
           />
           
-          {/* Center percentage */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span 
-              className="font-bold text-white"
+          {/* Content inside node */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-3 text-center z-10">
+            {/* Icon at top */}
+            <Icon 
+              size={nodeSize * 0.22} 
+              className="text-white mb-1.5"
+              strokeWidth={2.5}
+            />
+            
+            {/* Node label */}
+            <div 
+              className="font-bold text-white leading-tight mb-1 px-1"
               style={{ 
-                fontSize: nodeSize * 0.32,
+                fontSize: nodeSize * 0.11,
+                maxWidth: '85%',
+                wordBreak: 'break-word',
+                lineHeight: '1.1',
               }}
             >
-              {Math.round(nodeStrength)}
-            </span>
+              {nodeLabel}
+            </div>
+            
+            {/* Percentage */}
+            <div 
+              className="font-bold text-white"
+              style={{ 
+                fontSize: nodeSize * 0.14,
+              }}
+            >
+              {Math.round(nodeStrength)}%
+            </div>
           </div>
         </motion.div>
 
-        {/* Selected state label card */}
-        {selected && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="absolute left-1/2 -translate-x-1/2 z-50"
-            style={{ top: nodeSize + 15 }}
-          >
-            <div 
-              className="px-4 py-3 rounded-xl text-center backdrop-blur-xl min-w-[200px]"
-              style={{
-                background: 'linear-gradient(135deg, rgba(0,0,0,0.9) 0%, rgba(20,20,30,0.9) 100%)',
-                border: `1px solid ${colors.primary}50`,
-                boxShadow: `0 0 30px ${colors.glow}30, 0 10px 40px rgba(0,0,0,0.5)`,
-              }}
-            >
-              <div className="text-sm font-bold text-white mb-1">{nodeLabel}</div>
-              <div className="flex items-center justify-center gap-2 text-xs">
-                <span 
-                  className="px-2 py-0.5 rounded-full font-semibold"
-                  style={{ 
-                    background: `${colors.primary}30`,
-                    color: colors.primary,
-                  }}
-                >
-                  {nodeType.toUpperCase()}
-                </span>
-                <span className="text-gray-400">•</span>
-                <span 
-                  className="px-2 py-0.5 rounded-full font-semibold capitalize"
-                  style={{ 
-                    background: nodeStatus === 'mastered' ? 'rgba(16,185,129,0.2)' : 
-                               nodeStatus === 'active' ? 'rgba(59,130,246,0.2)' : 
-                               'rgba(255,255,255,0.1)',
-                    color: nodeStatus === 'mastered' ? '#10b981' : 
-                           nodeStatus === 'active' ? '#3b82f6' : 
-                           '#888',
-                  }}
-                >
-                  {nodeStatus}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Hover tooltip */}
-        {!selected && (
-          <div 
-            className="absolute left-1/2 -translate-x-1/2 z-40 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-            style={{ top: nodeSize + 10 }}
-          >
-            <div 
-              className="px-3 py-2 rounded-lg text-center whitespace-nowrap backdrop-blur-md"
-              style={{
-                background: 'rgba(0,0,0,0.85)',
-                border: `1px solid ${colors.primary}40`,
-                maxWidth: '180px',
-              }}
-            >
-              <div className="text-xs font-semibold text-white truncate">{nodeLabel}</div>
-              <div className="text-[10px] text-gray-400 mt-0.5 flex items-center justify-center gap-1">
-                <span style={{ color: colors.primary }}>{Math.round(nodeStrength)}%</span>
-                <span>•</span>
-                <span className="capitalize">{nodeStatus}</span>
-              </div>
-            </div>
-          </div>
-        )}
       </motion.div>
     </>
   );

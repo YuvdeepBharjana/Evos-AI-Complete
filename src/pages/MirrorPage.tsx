@@ -6,7 +6,7 @@ import { TrackingReminder } from '../components/tracking/TrackingReminder';
 export const MirrorPage = () => {
   return (
     <>
-      <Header title="Psychological Mirror" />
+      <Header title="Evos AI" />
       <TrackingReminder variant="banner" />
       <motion.div
         initial={{ opacity: 0 }}

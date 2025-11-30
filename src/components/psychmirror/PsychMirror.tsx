@@ -200,25 +200,25 @@ export const PsychMirror = () => {
       <motion.div
         initial={{ x: -20, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        className="hidden md:block absolute bottom-4 left-4 max-w-xs"
+        className="hidden md:block absolute bottom-4 left-4 max-w-[320px]"
         style={{
           background: 'linear-gradient(135deg, rgba(15,15,25,0.95) 0%, rgba(20,20,35,0.9) 100%)',
           backdropFilter: 'blur(20px)',
-          borderRadius: '20px',
+          borderRadius: '18px',
           border: '1px solid rgba(139, 92, 246, 0.15)',
           boxShadow: '0 20px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
-          padding: '20px',
+          padding: '16px',
         }}
       >
-        <div className="flex items-center gap-3 mb-5">
+        <div className="flex items-center gap-2.5 mb-4">
           <div 
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            className="w-9 h-9 rounded-lg flex items-center justify-center"
             style={{
               background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%)',
               border: '1px solid rgba(139, 92, 246, 0.3)',
             }}
           >
-            <Brain className="w-5 h-5 text-purple-400" />
+            <Brain className="w-4.5 h-4.5 text-purple-400" />
           </div>
           <div>
             <span className="font-bold text-sm text-white">Neural Map</span>
@@ -235,7 +235,7 @@ export const PsychMirror = () => {
               <motion.button
                 key={region.type}
                 onClick={() => setFilterType(isActive ? 'all' : region.type as NodeType)}
-                className="w-full flex items-center gap-3 p-2.5 rounded-xl transition-all"
+                className="w-full flex items-center gap-2.5 p-2.5 rounded-lg transition-all"
                 style={{
                   background: isActive 
                     ? `linear-gradient(135deg, ${region.color}15 0%, ${region.color}08 100%)`
@@ -252,13 +252,13 @@ export const PsychMirror = () => {
                 whileTap={{ scale: 0.98 }}
               >
                 <div 
-                  className="w-9 h-9 rounded-xl flex items-center justify-center relative overflow-hidden"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center relative overflow-hidden"
                   style={{ 
                     background: `linear-gradient(135deg, ${region.color}25 0%, ${region.color}10 100%)`,
                     border: `1px solid ${region.color}30`,
                   }}
                 >
-                  <Icon size={18} style={{ color: region.color }} />
+                  <Icon size={16} style={{ color: region.color }} />
                   {isActive && (
                     <motion.div
                       className="absolute inset-0"
@@ -281,7 +281,7 @@ export const PsychMirror = () => {
                       {count}
                     </span>
                   </div>
-                  <div className="text-[11px] text-gray-500">{region.region}</div>
+                  <div className="text-[10px] text-gray-500">{region.region}</div>
                 </div>
               </motion.button>
             );
@@ -291,12 +291,12 @@ export const PsychMirror = () => {
         {/* Stats summary */}
         {stats && (
           <div 
-            className="mt-5 pt-4 grid grid-cols-3 gap-3"
+            className="mt-4 pt-3 grid grid-cols-3 gap-3"
             style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
           >
             <div className="text-center">
               <div 
-                className="text-xl font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent"
+                className="text-lg font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent"
               >
                 {stats.total}
               </div>
@@ -304,7 +304,7 @@ export const PsychMirror = () => {
             </div>
             <div className="text-center">
               <div 
-                className="text-xl font-black bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent"
+                className="text-lg font-black bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent"
               >
                 {stats.avgStrength}%
               </div>
@@ -312,7 +312,7 @@ export const PsychMirror = () => {
             </div>
             <div className="text-center">
               <div 
-                className="text-xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
+                className="text-lg font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
               >
                 {stats.mastered}
               </div>
@@ -323,7 +323,7 @@ export const PsychMirror = () => {
 
         {/* Status indicators */}
         <div 
-          className="mt-4 pt-3 flex flex-wrap gap-3 text-[11px]"
+          className="mt-3 pt-3 flex flex-wrap gap-2.5 text-[10px]"
           style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
         >
           <span className="flex items-center gap-1.5 text-gray-400">

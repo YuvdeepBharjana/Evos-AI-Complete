@@ -2,7 +2,7 @@ import type { IdentityNode } from '../types';
 import type { Node, Edge } from 'reactflow';
 
 // Large canvas with hexagon arrangement for maximum separation between categories
-const CANVAS_CENTER = { x: 1000, y: 800 };
+const CANVAS_CENTER = { x: 1200, y: 800 }; // Shifted right for better centering with legend
 const OUTER_RADIUS = 600; // Distance from center to each type's center
 
 // Hexagon positions for 6 node types - evenly distributed around center (60° apart)
@@ -35,7 +35,7 @@ export const generateReactFlowElements = (
   flowNodes.push({
     id: 'growth-core',
     type: 'growthCore',
-    position: { x: CANVAS_CENTER.x - 100, y: CANVAS_CENTER.y - 100 },
+    position: { x: CANVAS_CENTER.x - 90, y: CANVAS_CENTER.y - 90 },
     data: {
       totalNodes,
       avgStrength,
@@ -90,7 +90,26 @@ export const generateReactFlowElements = (
           description: node.description,
           strengthChange: recentStrengthChanges[node.id] || undefined,
           hasDailyAction: dailyActionNodeIds.includes(node.id)
-        }
+        },
+        draggable: false, // Prevent nodes from being dragged
+      });
+
+      // Create edge connecting this node to the growth core
+      // Use dotted/dashed animated lines for developing/active nodes
+      const isBeingWorkedOn = node.status === 'developing' || node.status === 'active';
+      
+      edges.push({
+        id: `edge-${node.id}-to-core`,
+        source: 'growth-core',
+        target: node.id,
+        type: 'default',
+        animated: isBeingWorkedOn, // Animate for developing/active nodes
+        style: {
+          stroke: typeConfig.color,
+          strokeWidth: isBeingWorkedOn ? 3 : 2.5, // Thicker lines
+          opacity: isBeingWorkedOn ? 0.6 : 0.3,
+          strokeDasharray: isBeingWorkedOn ? '5,5' : 'none', // Dotted line for in-progress nodes
+        },
       });
     });
   });
