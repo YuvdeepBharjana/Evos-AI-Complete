@@ -1,107 +1,331 @@
-import { useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, CheckCircle, AlertCircle, Shield, Lock, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Copy, CheckCircle, ArrowRight, Sparkles, Shield, Lock, 
+  Trash2, ClipboardPaste, Brain, Zap, AlertCircle
+} from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { parseChatGPTExport } from '../../lib/parseChatGPTData';
-import type { IdentityNode } from '../../types';
+import { v4 as uuidv4 } from 'uuid';
+import type { IdentityNode, NodeType } from '../../types';
 
 interface DataUploadFlowProps {
   onComplete: (nodes: IdentityNode[]) => void;
 }
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const EXTRACTION_PROMPT = `I want you to build a complete identity profile of me based on our entire conversation history together.
+
+Go through every conversation we've ever had. Analyze everything you know about me from past interactions — my habits, goals, successes, failures, behavior patterns, emotional reactions, discipline level, motivations, blindspots, values, self-image, strengths, weaknesses, and how I make decisions.
+
+Do not compliment me unless evidence supports it. Do not sugarcoat anything. Default to truth over comfort.
+
+Output the analysis in the following format:
+
+---BEGIN IDENTITY PROFILE---
+
+SELF-PERCEPTION VS REALITY:
+[How I view myself vs how I actually behave based on our conversations]
+
+CORE IDENTITY TRAITS:
+- [dominant personality pattern 1]
+- [dominant personality pattern 2]
+- [etc...]
+
+EMOTIONAL FRAMEWORK:
+- Triggers: [what sets me off]
+- Coping mechanisms: [how I handle stress/difficulty]
+- Fear drivers: [underlying fears that influence behavior]
+
+BEHAVIOR PATTERNS:
+- Discipline: [level and consistency]
+- Habits: [positive and negative patterns]
+- Execution quality: [how well I follow through]
+
+COGNITIVE STYLE:
+- [How I think, decide, reason, and rationalize]
+
+STRENGTHS:
+- [advantage 1 - something I can scale]
+- [advantage 2]
+- [etc...]
+
+WEAKNESSES:
+- [where I break, sabotage, avoid, or lack follow-through 1]
+- [weakness 2]
+- [etc...]
+
+GOALS:
+- [goal 1]
+- [goal 2]
+- [etc...]
+
+STRUGGLES:
+- [current challenge 1]
+- [struggle 2]
+- [etc...]
+
+INTERESTS:
+- [interest/passion 1]
+- [interest 2]
+- [etc...]
+
+IDENTITY TRAJECTORY:
+[Where this version of me is likely headed if nothing changes]
+
+IF OPTIMIZED:
+[What my ceiling looks like with identity upgrades]
+
+ACTION CODE:
+1. [behavioral change 1 - sharp, actionable, no fluff]
+2. [behavioral change 2]
+3. [etc... 5-10 total]
+
+---END IDENTITY PROFILE---
+
+Be blunt. Be precise. Expose me. Analyze now.`;
 
 export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
-  const [uploadState, setUploadState] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
-  const [fileName, setFileName] = useState('');
+  const [step, setStep] = useState<'copy' | 'paste' | 'processing' | 'success' | 'error'>('copy');
+  const [copied, setCopied] = useState(false);
+  const [pastedContent, setPastedContent] = useState('');
   const [extractedNodes, setExtractedNodes] = useState<IdentityNode[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
-    // Handle rejected files
-    if (rejectedFiles.length > 0) {
-      const rejection = rejectedFiles[0];
-      if (rejection.errors[0]?.code === 'file-too-large') {
-        setErrorMessage('File is too large. Maximum size is 50MB.');
-      } else if (rejection.errors[0]?.code === 'file-invalid-type') {
-        setErrorMessage('Invalid file type. Please upload a .json or .txt file.');
-      } else {
-        setErrorMessage('Could not process this file. Please try another.');
+  const handleCopyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(EXTRACTION_PROMPT);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    } catch {
+      // Fallback for browsers without clipboard API
+      const textarea = document.createElement('textarea');
+      textarea.value = EXTRACTION_PROMPT;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    }
+  };
+
+  // Strip markdown formatting from labels
+  const cleanLabel = (label: string): string => {
+    return label
+      .replace(/\*\*/g, '')
+      .replace(/\*/g, '')
+      .replace(/\_\_/g, '')
+      .replace(/\_/g, '')
+      .trim();
+  };
+
+  const parseIdentityExtraction = (content: string): IdentityNode[] => {
+    const nodes: IdentityNode[] = [];
+    
+    // Map sections to node types (strength is 0-100)
+    const sectionMap: Record<string, { type: NodeType; strength: number }> = {
+      'CORE IDENTITY TRAITS': { type: 'trait', strength: 80 },
+      'STRENGTHS': { type: 'trait', strength: 85 },
+      'WEAKNESSES': { type: 'struggle', strength: 45 },
+      'GOALS': { type: 'goal', strength: 70 },
+      'STRUGGLES': { type: 'struggle', strength: 40 },
+      'INTERESTS': { type: 'interest', strength: 75 },
+    };
+
+    // Extract content between markers if present
+    const startMarker = '---BEGIN IDENTITY PROFILE---';
+    const endMarker = '---END IDENTITY PROFILE---';
+    let extractContent = content;
+    
+    if (content.includes(startMarker) && content.includes(endMarker)) {
+      const startIdx = content.indexOf(startMarker) + startMarker.length;
+      const endIdx = content.indexOf(endMarker);
+      extractContent = content.substring(startIdx, endIdx);
+    }
+
+    // Also try alternate markers
+    const altStartMarker = '---BEGIN IDENTITY EXTRACTION---';
+    const altEndMarker = '---END IDENTITY EXTRACTION---';
+    if (content.includes(altStartMarker) && content.includes(altEndMarker)) {
+      const startIdx = content.indexOf(altStartMarker) + altStartMarker.length;
+      const endIdx = content.indexOf(altEndMarker);
+      extractContent = content.substring(startIdx, endIdx);
+    }
+
+    // Parse list-based sections
+    for (const [section, config] of Object.entries(sectionMap)) {
+      const sectionRegex = new RegExp(`${section}:?\\s*([\\s\\S]*?)(?=(?:SELF-PERCEPTION|CORE IDENTITY|EMOTIONAL FRAMEWORK|BEHAVIOR PATTERNS|COGNITIVE STYLE|STRENGTHS|WEAKNESSES|GOALS|STRUGGLES|INTERESTS|IDENTITY TRAJECTORY|IF OPTIMIZED|ACTION CODE|---END|$))`, 'i');
+      const match = extractContent.match(sectionRegex);
+      
+      if (match && match[1]) {
+        const items = match[1]
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.startsWith('-') || line.startsWith('•') || line.startsWith('*') || /^\d+\./.test(line))
+          .map(line => line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim())
+          .filter(item => item.length > 2 && !item.toLowerCase().includes('none identified') && !item.toLowerCase().includes('n/a'));
+
+        for (const item of items) {
+          if (item.length < 3 || item.length > 150) continue;
+          
+          nodes.push({
+            id: uuidv4(),
+            type: config.type,
+            label: cleanLabel(item),
+            strength: Math.round(config.strength + (Math.random() * 20 - 10)), // Add ±10 variation
+            connections: [],
+            position: { x: 0, y: 0 }
+          });
+        }
       }
-      setUploadState('error');
+    }
+
+    // Extract emotional patterns from EMOTIONAL FRAMEWORK
+    const emotionalMatch = extractContent.match(/EMOTIONAL FRAMEWORK:?\s*([\s\S]*?)(?=(?:BEHAVIOR PATTERNS|COGNITIVE STYLE|STRENGTHS|---END|$))/i);
+    if (emotionalMatch && emotionalMatch[1]) {
+      const emotionalContent = emotionalMatch[1];
+      
+      // Extract triggers
+      const triggersMatch = emotionalContent.match(/Triggers?:?\s*([^\n]+)/i);
+      if (triggersMatch && triggersMatch[1] && triggersMatch[1].length > 3) {
+        nodes.push({
+          id: uuidv4(),
+          type: 'emotion',
+          label: cleanLabel(`Trigger: ${triggersMatch[1].trim()}`),
+          strength: 65,
+          connections: [],
+          position: { x: 0, y: 0 }
+        });
+      }
+      
+      // Extract fears
+      const fearsMatch = emotionalContent.match(/Fear drivers?:?\s*([^\n]+)/i);
+      if (fearsMatch && fearsMatch[1] && fearsMatch[1].length > 3) {
+        nodes.push({
+          id: uuidv4(),
+          type: 'emotion',
+          label: cleanLabel(`Fear: ${fearsMatch[1].trim()}`),
+          strength: 55,
+          connections: [],
+          position: { x: 0, y: 0 }
+        });
+      }
+      
+      // Extract coping mechanisms
+      const copingMatch = emotionalContent.match(/Coping mechanisms?:?\s*([^\n]+)/i);
+      if (copingMatch && copingMatch[1] && copingMatch[1].length > 3) {
+        nodes.push({
+          id: uuidv4(),
+          type: 'habit',
+          label: cleanLabel(`Coping: ${copingMatch[1].trim()}`),
+          strength: 50,
+          connections: [],
+          position: { x: 0, y: 0 }
+        });
+      }
+    }
+
+    // Extract habits from BEHAVIOR PATTERNS
+    const behaviorMatch = extractContent.match(/BEHAVIOR PATTERNS:?\s*([\s\S]*?)(?=(?:COGNITIVE STYLE|STRENGTHS|---END|$))/i);
+    if (behaviorMatch && behaviorMatch[1]) {
+      const behaviorContent = behaviorMatch[1];
+      
+      const habitsMatch = behaviorContent.match(/Habits?:?\s*([^\n]+)/i);
+      if (habitsMatch && habitsMatch[1] && habitsMatch[1].length > 3) {
+        const habits = habitsMatch[1].split(/[,;]/).map(h => h.trim()).filter(h => h.length > 2);
+        for (const habit of habits) {
+          nodes.push({
+            id: uuidv4(),
+            type: 'habit',
+            label: cleanLabel(habit),
+            strength: 60,
+            connections: [],
+            position: { x: 0, y: 0 }
+          });
+        }
+      }
+      
+      const disciplineMatch = behaviorContent.match(/Discipline:?\s*([^\n]+)/i);
+      if (disciplineMatch && disciplineMatch[1] && disciplineMatch[1].length > 3) {
+        nodes.push({
+          id: uuidv4(),
+          type: 'trait',
+          label: cleanLabel(`Discipline: ${disciplineMatch[1].trim()}`),
+          strength: 70,
+          connections: [],
+          position: { x: 0, y: 0 }
+        });
+      }
+    }
+
+    // Extract ACTION CODE items as goals/habits
+    const actionMatch = extractContent.match(/ACTION CODE:?\s*([\s\S]*?)(?=---END|$)/i);
+    if (actionMatch && actionMatch[1]) {
+      const actions = actionMatch[1]
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => /^\d+\./.test(line) || line.startsWith('-'))
+        .map(line => line.replace(/^\d+\.\s*/, '').replace(/^-\s*/, '').trim())
+        .filter(item => item.length > 3);
+
+      for (const action of actions.slice(0, 10)) {
+        nodes.push({
+          id: uuidv4(),
+          type: 'goal',
+          label: cleanLabel(`Action: ${action}`),
+          strength: 75,
+          connections: [],
+          position: { x: 0, y: 0 }
+        });
+      }
+    }
+
+    return nodes;
+  };
+
+  const handleProcessContent = () => {
+    if (!pastedContent.trim()) {
+      setErrorMessage('Please paste the AI response first.');
       return;
     }
 
-    const file = acceptedFiles[0];
-    if (!file) return;
-
-    setFileName(file.name);
-    setUploadState('processing');
+    setStep('processing');
     setErrorMessage('');
 
-    const reader = new FileReader();
-    
-    reader.onerror = () => {
-      setErrorMessage('Failed to read file. Please try again.');
-      setUploadState('error');
-    };
-
-    reader.onload = (e) => {
+    // Simulate processing for better UX
+    setTimeout(() => {
       try {
-        const content = e.target?.result as string;
+        const nodes = parseIdentityExtraction(pastedContent);
         
-        // Validate content
-        if (!content || content.length < 10) {
-          throw new Error('File appears to be empty or too small');
-        }
-
-        // Try to parse as JSON first
-        let nodes: IdentityNode[];
-        try {
-          nodes = parseChatGPTExport(content);
-        } catch (parseError) {
-          throw new Error('Could not extract identity patterns from this file. Please ensure it contains conversation data.');
-        }
-
         if (nodes.length === 0) {
-          throw new Error('No identity patterns found. Please try a file with more conversation content.');
+          setErrorMessage('Could not extract any identity patterns. Make sure you copied the complete AI response.');
+          setStep('error');
+          return;
         }
-        
-        // Simulate processing delay for better UX
-        setTimeout(() => {
-          setExtractedNodes(nodes);
-          setUploadState('success');
-        }, 2500);
-      } catch (error: any) {
-        console.error('Error processing file:', error);
-        setErrorMessage(error.message || 'Failed to process file. Please try again.');
-        setUploadState('error');
-      }
-    };
-    
-    reader.readAsText(file);
-  }, []);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/json': ['.json'],
-      'text/plain': ['.txt']
-    },
-    multiple: false,
-    maxSize: MAX_FILE_SIZE
-  });
+        if (nodes.length < 3) {
+          setErrorMessage('Only found a few patterns. Try asking the AI to be more thorough.');
+          setStep('error');
+          return;
+        }
+
+        setExtractedNodes(nodes);
+        setStep('success');
+      } catch (error) {
+        console.error('Parse error:', error);
+        setErrorMessage('Failed to parse the response. Please check the format and try again.');
+        setStep('error');
+      }
+    }, 2000);
+  };
 
   const handleComplete = () => {
     onComplete(extractedNodes);
   };
 
   const handleRetry = () => {
-    setUploadState('idle');
+    setStep('paste');
     setErrorMessage('');
-    setFileName('');
   };
 
   return (
@@ -126,176 +350,341 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           <div className="flex items-start gap-3">
             <Shield className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm">
-              <p className="text-green-400 font-medium mb-1">Your data is protected</p>
+              <p className="text-green-400 font-medium mb-1">Your data stays private</p>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-gray-400 text-xs">
                 <span className="flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> Encrypted in transit
+                  <Lock className="w-3 h-3" /> Processed locally
                 </span>
                 <span className="flex items-center gap-1">
                   <Trash2 className="w-3 h-3" /> Delete anytime
                 </span>
-                <span>Never sold or shared</span>
+                <span>Never used for AI training</span>
               </div>
             </div>
           </div>
         </motion.div>
 
+        {/* Header */}
         <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-indigo-500/10 to-cyan-500/10 border border-indigo-500/20 mb-4">
+            <Zap className="w-4 h-4 text-cyan-400" />
+            <span className="text-sm text-gray-300">Deep analysis — 2 minutes</span>
+          </div>
           <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent mb-4">
-            Import Your AI History
+            Identity Profile Extraction
           </h1>
           <p className="text-gray-400">
-            Upload your ChatGPT export to instantly build your identity profile
+            Let your AI expose your patterns — the good, the bad, and the blind spots
           </p>
         </div>
 
+        {/* Progress Steps */}
+        <div className="flex items-center justify-center gap-4 mb-8">
+          {[
+            { key: 'copy', label: 'Copy Prompt' },
+            { key: 'paste', label: 'Paste Response' },
+            { key: 'success', label: 'Done' }
+          ].map((s, i) => {
+            const isActive = ['copy', 'paste', 'processing', 'error'].includes(step) ? 
+              (s.key === 'copy' && step === 'copy') || 
+              (s.key === 'paste' && ['paste', 'processing', 'error'].includes(step)) ||
+              (s.key === 'success' && step === 'success') : false;
+            const isComplete = 
+              (s.key === 'copy' && ['paste', 'processing', 'success', 'error'].includes(step)) ||
+              (s.key === 'paste' && step === 'success');
+            
+            return (
+              <div key={s.key} className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
+                  isComplete ? 'bg-green-500 text-white' :
+                  isActive ? 'bg-indigo-500 text-white' :
+                  'bg-white/10 text-gray-500'
+                }`}>
+                  {isComplete ? <CheckCircle className="w-4 h-4" /> : i + 1}
+                </div>
+                <span className={`text-sm ${isActive || isComplete ? 'text-white' : 'text-gray-500'}`}>
+                  {s.label}
+                </span>
+                {i < 2 && <div className="w-8 h-px bg-white/10" />}
+              </div>
+            );
+          })}
+        </div>
+
         <Card>
-          {uploadState === 'idle' && (
-            <div
-              {...getRootProps()}
-              className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all ${
-                isDragActive
-                  ? 'border-indigo-500 bg-indigo-500/10'
-                  : 'border-gray-700 hover:border-gray-600 hover:bg-white/[0.02]'
-              }`}
-            >
-              <input {...getInputProps()} />
+          <AnimatePresence mode="wait">
+            {step === 'copy' && (
               <motion.div
-                animate={{ y: isDragActive ? -10 : 0 }}
-                transition={{ duration: 0.2 }}
+                key="copy"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
               >
-                <Upload size={48} className={`mx-auto mb-4 ${isDragActive ? 'text-indigo-400' : 'text-gray-400'}`} />
-                <p className="text-xl mb-2 text-white">
-                  {isDragActive ? 'Drop your file here' : 'Drag & drop your file here'}
-                </p>
-                <p className="text-gray-500 mb-4">or click to browse</p>
-                <div className="flex items-center justify-center gap-4 text-sm text-gray-600">
-                  <span>Supports: .json, .txt</span>
-                  <span>•</span>
-                  <span>Max: 50MB</span>
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 mb-4">
+                    <Copy className="w-8 h-8 text-indigo-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Step 1: Copy this prompt</h3>
+                  <p className="text-gray-400 text-sm">
+                    Paste it into ChatGPT, Claude, or any AI you've been using
+                  </p>
+                </div>
+
+                <div className="relative">
+                  <div className="bg-gray-900/50 border border-white/10 rounded-xl p-4 font-mono text-sm text-gray-300 max-h-48 overflow-y-auto">
+                    <pre className="whitespace-pre-wrap">{EXTRACTION_PROMPT.slice(0, 300)}...</pre>
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-gray-900 to-transparent pointer-events-none rounded-b-xl" />
+                </div>
+
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={handleCopyPrompt} 
+                    className="flex-1"
+                    variant={copied ? 'secondary' : 'primary'}
+                  >
+                    {copied ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy Prompt
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    onClick={() => setStep('paste')} 
+                    variant="secondary"
+                    className="flex items-center gap-2"
+                  >
+                    Next
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <p className="text-sm text-gray-400">
+                    <span className="text-white font-medium">💡 Pro tip:</span> Use the AI you've been most honest with. 
+                    It's seen your wins, failures, excuses, and real patterns. Let it expose you.
+                  </p>
                 </div>
               </motion.div>
-            </div>
-          )}
+            )}
 
-          {uploadState === 'processing' && (
-            <div className="text-center py-12">
+            {step === 'paste' && (
               <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                className="inline-block mb-4"
+                key="paste"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
               >
-                <FileText size={48} className="text-indigo-400" />
-              </motion.div>
-              <p className="text-xl mb-2 text-white">Analyzing {fileName}...</p>
-              <p className="text-gray-500 mb-6">This may take a moment</p>
-              <div className="space-y-3 text-left max-w-md mx-auto">
-                {[
-                  'Parsing conversations...',
-                  'Extracting identity patterns...',
-                  'Identifying goals & habits...',
-                  'Building your neural map...'
-                ].map((step, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.6 }}
-                    className="flex items-center gap-3 text-gray-400"
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-green-500/20 border border-cyan-500/30 mb-4">
+                    <ClipboardPaste className="w-8 h-8 text-cyan-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Step 2: Paste the AI's response</h3>
+                  <p className="text-gray-400 text-sm">
+                    Copy the entire response from your AI and paste it below
+                  </p>
+                </div>
+
+                <div className="relative">
+                  <textarea
+                    value={pastedContent}
+                    onChange={(e) => setPastedContent(e.target.value)}
+                    placeholder="Paste the AI's response here...
+
+Example:
+---BEGIN IDENTITY EXTRACTION---
+
+GOALS:
+- Build a successful startup
+- Become financially independent
+- ..."
+                    className="w-full h-64 bg-gray-900/50 border border-white/10 rounded-xl p-4 text-gray-300 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none font-mono text-sm"
+                  />
+                  {pastedContent.length > 0 && (
+                    <div className="absolute bottom-3 right-3 text-xs text-gray-500">
+                      {pastedContent.length} characters
+                    </div>
+                  )}
+                </div>
+
+                {errorMessage && (
+                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                    {errorMessage}
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={() => setStep('copy')} 
+                    variant="ghost"
                   >
+                    Back
+                  </Button>
+                  <Button 
+                    onClick={handleProcessContent}
+                    className="flex-1"
+                    disabled={!pastedContent.trim()}
+                  >
+                    <Brain className="w-4 h-4 mr-2" />
+                    Extract Identity
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 'processing' && (
+              <motion.div
+                key="processing"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-center py-12"
+              >
+                <motion.div
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    rotate: [0, 180, 360]
+                  }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                  className="inline-block mb-6"
+                >
+                  <Brain size={56} className="text-indigo-400" />
+                </motion.div>
+                <p className="text-xl mb-2 text-white">Building your identity profile...</p>
+                <p className="text-gray-500 mb-8">Extracting traits, patterns, and blind spots</p>
+                <div className="space-y-3 text-left max-w-md mx-auto">
+                  {[
+                    'Parsing identity data...',
+                    'Mapping strengths & weaknesses...',
+                    'Extracting behavioral patterns...',
+                    'Building action framework...',
+                  ].map((step, i) => (
                     <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: i * 0.6 + 0.3 }}
+                      key={i}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.5 }}
+                      className="flex items-center gap-3 text-gray-400"
                     >
-                      <CheckCircle size={18} className="text-green-500" />
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: i * 0.5 + 0.3 }}
+                      >
+                        <CheckCircle size={18} className="text-green-500" />
+                      </motion.div>
+                      {step}
                     </motion.div>
-                    {step}
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {uploadState === 'success' && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center py-12"
-            >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', bounce: 0.5 }}
-              >
-                <CheckCircle size={64} className="mx-auto mb-4 text-green-500" />
+                  ))}
+                </div>
               </motion.div>
-              <h3 className="text-2xl font-bold mb-2 text-white">Identity Map Created!</h3>
-              <p className="text-gray-400 mb-6">
-                We extracted {extractedNodes.length} identity patterns from your data
-              </p>
-              
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8 max-w-lg mx-auto">
-                {Object.entries(
-                  extractedNodes.reduce((acc, node) => {
-                    acc[node.type] = (acc[node.type] || 0) + 1;
-                    return acc;
-                  }, {} as Record<string, number>)
-                ).map(([type, count]) => (
-                  <motion.div 
-                    key={type} 
-                    className="bg-white/5 border border-white/10 rounded-xl p-3"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <div className="text-2xl font-bold text-white">{count}</div>
-                    <div className="text-sm text-gray-400 capitalize">{type}s</div>
-                  </motion.div>
-                ))}
-              </div>
+            )}
 
-              <Button onClick={handleComplete} size="lg">
-                View Your Identity Mirror
-              </Button>
-            </motion.div>
-          )}
+            {step === 'success' && (
+              <motion.div
+                key="success"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center py-8"
+              >
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', bounce: 0.5 }}
+                >
+                  <CheckCircle size={64} className="mx-auto mb-4 text-green-500" />
+                </motion.div>
+                <h3 className="text-2xl font-bold mb-2 text-white">Identity Map Created!</h3>
+                <p className="text-gray-400 mb-6">
+                  Extracted {extractedNodes.length} identity patterns
+                </p>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8 max-w-lg mx-auto">
+                  {Object.entries(
+                    extractedNodes.reduce((acc, node) => {
+                      acc[node.type] = (acc[node.type] || 0) + 1;
+                      return acc;
+                    }, {} as Record<string, number>)
+                  ).map(([type, count]) => (
+                    <motion.div 
+                      key={type} 
+                      className="bg-white/5 border border-white/10 rounded-xl p-3"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                      <div className="text-2xl font-bold text-white">{count}</div>
+                      <div className="text-sm text-gray-400 capitalize">{type}s</div>
+                    </motion.div>
+                  ))}
+                </div>
 
-          {uploadState === 'error' && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-12"
-            >
-              <AlertCircle size={64} className="mx-auto mb-4 text-red-500" />
-              <h3 className="text-2xl font-bold mb-2 text-white">Upload Failed</h3>
-              <p className="text-gray-400 mb-2">
-                {errorMessage || "We couldn't process your file."}
-              </p>
-              <p className="text-gray-500 text-sm mb-6">
-                Try again or use the questionnaire instead.
-              </p>
-              <div className="flex gap-3 justify-center">
-                <Button onClick={handleRetry} variant="secondary">
-                  Try Again
+                <Button onClick={handleComplete} size="lg">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  View Your Identity Mirror
                 </Button>
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            )}
+
+            {step === 'error' && (
+              <motion.div
+                key="error"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-12"
+              >
+                <AlertCircle size={64} className="mx-auto mb-4 text-red-500" />
+                <h3 className="text-2xl font-bold mb-2 text-white">Extraction Failed</h3>
+                <p className="text-gray-400 mb-2">{errorMessage}</p>
+                <p className="text-gray-500 text-sm mb-6">
+                  Make sure the AI followed the format correctly.
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <Button onClick={handleRetry} variant="secondary">
+                    Try Again
+                  </Button>
+                  <Button onClick={() => setStep('copy')} variant="ghost">
+                    Get New Prompt
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Card>
 
+        {/* Supported AIs */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="mt-6 bg-white/5 border border-white/10 rounded-xl p-4"
+          transition={{ delay: 0.3 }}
+          className="mt-6 text-center"
         >
-          <p className="font-semibold text-white mb-3">How to export from ChatGPT:</p>
-          <ol className="list-decimal list-inside space-y-2 text-sm text-gray-400">
-            <li>Open ChatGPT → Click your profile</li>
-            <li>Go to <span className="text-white">Settings → Data Controls</span></li>
-            <li>Click <span className="text-white">"Export data"</span></li>
-            <li>Wait for email, download the ZIP, extract the JSON</li>
-            <li>Upload the <code className="text-indigo-400 bg-indigo-500/10 px-1 rounded">conversations.json</code> file here</li>
-          </ol>
+          <p className="text-xs text-gray-500 mb-3">Works with any AI that has your conversation history</p>
+          <div className="flex items-center justify-center gap-6 text-gray-400">
+            <span className="flex items-center gap-2 text-sm">
+              <span className="w-2 h-2 rounded-full bg-green-500" />
+              ChatGPT
+            </span>
+            <span className="flex items-center gap-2 text-sm">
+              <span className="w-2 h-2 rounded-full bg-orange-500" />
+              Claude
+            </span>
+            <span className="flex items-center gap-2 text-sm">
+              <span className="w-2 h-2 rounded-full bg-blue-500" />
+              Gemini
+            </span>
+            <span className="flex items-center gap-2 text-sm">
+              <span className="w-2 h-2 rounded-full bg-purple-500" />
+              Any AI
+            </span>
+          </div>
         </motion.div>
       </motion.div>
     </div>

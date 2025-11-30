@@ -14,3 +14,4 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 console.log('📦 Environment loaded');
 console.log(`   OPENAI_API_KEY: ${process.env.OPENAI_API_KEY ? '✅ Set' : '❌ Not set'}`);
 
+

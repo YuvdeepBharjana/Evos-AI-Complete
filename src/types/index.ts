@@ -34,6 +34,7 @@ export interface UserProfile {
   alignmentScore?: number; // 0-100
   lastDailySummary?: DailySummary;
   trackingData?: TrackingData[]; // Daily tracking history
+  trackingGoals?: TrackingGoals; // User's custom daily goals
 }
 
 export interface OnboardingQuestion {
@@ -93,4 +94,13 @@ export interface TrackingData {
   deepWorkHours?: number;
   sleepHours?: number;
   mood?: number; // 1-10
+}
+
+// Customizable tracking goals
+export interface TrackingGoals {
+  calories?: number;      // e.g., 2800
+  exerciseMinutes?: number; // e.g., 60
+  deepWorkHours?: number;   // e.g., 4
+  sleepHours?: number;      // e.g., 8
+  mood?: number;            // e.g., 7
 }

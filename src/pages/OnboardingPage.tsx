@@ -18,41 +18,42 @@ export const OnboardingPage = () => {
     const { setUser, completeOnboarding } = useUserStore();
 
     const handleMethodSelect = (method: 'questionnaire' | 'upload' | 'manual') => {
-        // Create user profile
-        const profile = createDefaultProfile('User');
-        setUser(profile);
-
+        // Only create profile if user doesn't exist (not logged in)
+        if (!useUserStore.getState().user) {
+            const profile = createDefaultProfile('User');
+            setUser(profile);
+        }
         setStep(method);
     };
 
-    const handleManualComplete = (nodes: IdentityNode[]) => {
-        completeOnboarding('manual', nodes);
+    const handleManualComplete = async (nodes: IdentityNode[]) => {
+        await completeOnboarding('manual', nodes);
         setStep('complete');
 
-        // Navigate after animation
+        // Navigate to Mirror after animation
         setTimeout(() => {
-            navigate('/dashboard');
+            navigate('/mirror');
         }, 2000);
     };
 
-    const handleQuestionnaireComplete = (answers: Record<string, string>) => {
+    const handleQuestionnaireComplete = async (answers: Record<string, string>) => {
         const nodes = generateNodesFromQuestionnaire(answers);
-        completeOnboarding('questionnaire', nodes);
+        await completeOnboarding('questionnaire', nodes);
         setStep('complete');
 
-        // Navigate after animation
+        // Navigate to Mirror after animation
         setTimeout(() => {
-            navigate('/dashboard');
+            navigate('/mirror');
         }, 2000);
     };
 
-    const handleUploadComplete = (nodes: IdentityNode[]) => {
-        completeOnboarding('upload', nodes);
+    const handleUploadComplete = async (nodes: IdentityNode[]) => {
+        await completeOnboarding('upload', nodes);
         setStep('complete');
 
-        // Navigate after animation
+        // Navigate to Mirror after animation
         setTimeout(() => {
-            navigate('/dashboard');
+            navigate('/mirror');
         }, 2000);
     };
 

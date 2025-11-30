@@ -123,6 +123,40 @@ export function logout() {
 }
 
 // ============================================
+// ONBOARDING
+// ============================================
+
+export interface OnboardingResult {
+  success: boolean;
+  user: User;
+  nodes: any[];
+}
+
+export async function completeOnboarding(
+  method: 'questionnaire' | 'upload' | 'manual',
+  nodes: any[]
+): Promise<OnboardingResult | null> {
+  try {
+    const response = await fetch(`${API_BASE}/onboarding/complete`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ method, nodes }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Onboarding error:', error);
+      return null;
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Onboarding request failed:', error);
+    return null;
+  }
+}
+
+// ============================================
 // DATA PROTECTION
 // ============================================
 
@@ -710,23 +744,6 @@ export async function analyzeIdentity(text: string): Promise<any> {
     return await response.json();
   } catch (error) {
     console.error('Analysis API error:', error);
-    return null;
-  }
-}
-
-export async function completeOnboarding(method: string, nodes: IdentityNode[]): Promise<User | null> {
-  try {
-    const response = await fetch(`${API_BASE}/onboarding/complete`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({ method, nodes }),
-    });
-    
-    if (!response.ok) return null;
-    
-    const data = await response.json();
-    return data.user;
-  } catch {
     return null;
   }
 }

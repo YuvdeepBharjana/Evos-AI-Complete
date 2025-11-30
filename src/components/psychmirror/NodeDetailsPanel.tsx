@@ -10,6 +10,16 @@ interface NodeDetailsPanelProps {
   onClose: () => void;
 }
 
+// Strip markdown formatting from text
+const cleanText = (text: string): string => {
+  return text
+    .replace(/\*\*/g, '')
+    .replace(/\*/g, '')
+    .replace(/\_\_/g, '')
+    .replace(/\_/g, '')
+    .trim();
+};
+
 export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
   const navigate = useNavigate();
   const { startWorkSession, setNodeDesiredStrength } = useUserStore();
@@ -51,7 +61,7 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
   };
 
   const handleWorkOnThis = () => {
-    startWorkSession(node.id, node.label);
+    startWorkSession(node.id, cleanText(node.label));
     onClose();
     navigate('/work-session');
   };
@@ -73,7 +83,7 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
         className="fixed right-0 top-0 h-full w-96 glass border-l border-gray-700 p-6 overflow-y-auto z-50"
       >
         <div className="flex justify-between items-start mb-6">
-          <h2 className="text-2xl font-bold gradient-text">{node.label}</h2>
+          <h2 className="text-2xl font-bold gradient-text">{cleanText(node.label)}</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
@@ -148,7 +158,7 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
             <div>
               <h3 className="text-sm font-semibold mb-2 text-gray-400">Description</h3>
               <p className="text-gray-300 text-sm leading-relaxed">
-                {node.description}
+                {cleanText(node.description)}
               </p>
             </div>
           )}

@@ -29,22 +29,23 @@ export const DashboardPage = () => {
       />
 
       {/* View Toggle */}
-      <div className="px-4 py-2 border-b border-gray-800">
+      <div className="px-3 sm:px-4 py-2 border-b border-gray-800">
         <div className="flex gap-2">
           <button
             onClick={() => setViewMode('dashboard')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               viewMode === 'dashboard'
                 ? 'bg-purple-500 text-white'
                 : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
             <LayoutGrid className="w-4 h-4" />
-            Daily Actions
+            <span className="hidden sm:inline">Daily Actions</span>
+            <span className="sm:hidden">Actions</span>
           </button>
           <button
             onClick={() => setViewMode('chat')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               viewMode === 'chat'
                 ? 'bg-purple-500 text-white'
                 : 'bg-white/5 text-gray-400 hover:bg-white/10'
@@ -64,8 +65,8 @@ export const DashboardPage = () => {
         {viewMode === 'chat' ? (
           <ChatInterface />
         ) : (
-          <div className="h-full overflow-y-auto p-4">
-            <div className="max-w-4xl mx-auto space-y-6">
+          <div className="h-full overflow-y-auto p-3 sm:p-4">
+            <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
               {/* Tracking reminder banner */}
               <motion.div
                 initial={{ opacity: 0, y: -10 }}

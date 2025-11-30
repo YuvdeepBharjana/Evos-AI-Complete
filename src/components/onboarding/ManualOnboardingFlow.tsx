@@ -347,3 +347,4 @@ export const ManualOnboardingFlow = ({ onComplete }: ManualOnboardingFlowProps) 
   );
 };
 
+

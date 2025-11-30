@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { UserProfile, IdentityNode, Message, DailyAction, WorkSession, DailySummary, NodeStatus, TrackingData } from '../types';
+import type { UserProfile, IdentityNode, Message, DailyAction, WorkSession, DailySummary, NodeStatus, TrackingData, TrackingGoals } from '../types';
 import { createDemoProfile } from '../data/demoProfile';
-import { getNodes, setAuthToken, logout as apiLogout, type User as ApiUser } from '../lib/api';
+import { getNodes, setAuthToken, logout as apiLogout, completeOnboarding as apiCompleteOnboarding, type User as ApiUser } from '../lib/api';
 
 interface UserStore {
   user: UserProfile | null;
@@ -18,7 +18,7 @@ interface UserStore {
   updateNodes: (nodes: IdentityNode[]) => void;
   addNodes: (nodes: IdentityNode[]) => void;
   addMessage: (message: Message) => void;
-  completeOnboarding: (method: 'questionnaire' | 'upload', nodes: IdentityNode[]) => void;
+  completeOnboarding: (method: 'questionnaire' | 'upload' | 'manual', nodes: IdentityNode[]) => Promise<void>;
   clearUser: () => void;
   clearRecentStrengthChanges: () => void;
   
@@ -41,6 +41,7 @@ interface UserStore {
   
   // Tracking
   updateTrackingData: (data: TrackingData) => void;
+  setTrackingGoals: (goals: TrackingGoals) => void;
 }
 
 // Calculate alignment score based on gaps
@@ -138,14 +139,59 @@ export const useUserStore = create<UserStore>()(
         } : null
       })),
       
-      completeOnboarding: (method, nodes) => set((state) => ({
-        user: state.user ? {
-          ...state.user,
-          onboardingComplete: true,
-          onboardingMethod: method,
-          identityNodes: nodes
-        } : null
-      })),
+      completeOnboarding: async (method, nodes) => {
+        const state = get();
+        
+        // If user is authenticated (has authToken), save to backend
+        if (state.authToken) {
+          try {
+            const result = await apiCompleteOnboarding(method, nodes);
+            if (result && result.nodes && Array.isArray(result.nodes)) {
+              // Transform API nodes to local format
+              const identityNodes: IdentityNode[] = result.nodes.map((node: any) => ({
+                id: node.id,
+                label: node.label,
+                type: node.type as IdentityNode['type'],
+                strength: node.strength,
+                status: node.status as NodeStatus,
+                description: node.description,
+                connections: [],
+                lastUpdated: new Date(),
+                createdAt: new Date()
+              }));
+              
+              set({
+                user: state.user ? {
+                  ...state.user,
+                  onboardingComplete: true,
+                  onboardingMethod: method,
+                  identityNodes
+                } : null
+              });
+              return;
+            }
+          } catch (error) {
+            console.error('Failed to save onboarding to backend:', error);
+          }
+        }
+        
+        // Fallback to local-only update (use original nodes with proper formatting)
+        const formattedNodes: IdentityNode[] = nodes.map(node => ({
+          ...node,
+          connections: node.connections || [],
+          lastUpdated: new Date(),
+          createdAt: new Date()
+        }));
+        
+        set({
+          user: state.user ? {
+            ...state.user,
+            onboardingComplete: true,
+            onboardingMethod: method,
+            identityNodes: formattedNodes
+          } : null
+        });
+      },
       
       clearUser: () => {
         apiLogout();
@@ -406,6 +452,20 @@ export const useUserStore = create<UserStore>()(
           user: {
             ...state.user,
             trackingData: updatedData
+          }
+        };
+      }),
+      
+      setTrackingGoals: (goals: TrackingGoals) => set((state) => {
+        if (!state.user) return state;
+        
+        return {
+          user: {
+            ...state.user,
+            trackingGoals: {
+              ...state.user.trackingGoals,
+              ...goals
+            }
           }
         };
       })

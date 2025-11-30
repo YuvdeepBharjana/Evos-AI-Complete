@@ -618,6 +618,129 @@ app.post('/api/nodes', authMiddleware, (req: AuthRequest, res) => {
   }
 });
 
+// Bulk create nodes (for onboarding)
+app.post('/api/nodes/bulk', authMiddleware, (req: AuthRequest, res) => {
+  try {
+    const { nodes } = req.body;
+    
+    if (!Array.isArray(nodes) || nodes.length === 0) {
+      return res.status(400).json({ error: 'Nodes array is required' });
+    }
+    
+    const stmt = db.prepare(`
+      INSERT INTO nodes (id, user_id, label, type, strength, status, description)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    const createdNodes: any[] = [];
+    
+    const insertMany = db.transaction((nodesToInsert: any[]) => {
+      for (const node of nodesToInsert) {
+        const id = node.id || uuidv4();
+        const status = node.strength >= 80 ? 'mastered' : 
+                      node.strength >= 50 ? 'active' : 
+                      node.strength >= 20 ? 'developing' : 'neglected';
+        
+        stmt.run(
+          id,
+          req.user!.id,
+          node.label,
+          node.type,
+          node.strength || 50,
+          status,
+          node.description || null
+        );
+        
+        createdNodes.push({
+          id,
+          label: node.label,
+          type: node.type,
+          strength: node.strength || 50,
+          status,
+          description: node.description
+        });
+      }
+    });
+    
+    insertMany(nodes);
+    
+    res.json({ nodes: createdNodes, count: createdNodes.length });
+  } catch (error: any) {
+    console.error('Bulk create nodes error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Complete onboarding
+app.post('/api/onboarding/complete', authMiddleware, (req: AuthRequest, res) => {
+  try {
+    const { method, nodes } = req.body;
+    
+    if (!method || !['questionnaire', 'upload', 'manual'].includes(method)) {
+      return res.status(400).json({ error: 'Valid onboarding method is required' });
+    }
+    
+    // Update user's onboarding status
+    db.prepare(`
+      UPDATE users 
+      SET onboarding_complete = 1, onboarding_method = ?
+      WHERE id = ?
+    `).run(method, req.user!.id);
+    
+    // If nodes provided, create them
+    if (Array.isArray(nodes) && nodes.length > 0) {
+      // First, delete any existing nodes for this user (clean slate for onboarding)
+      db.prepare('DELETE FROM nodes WHERE user_id = ?').run(req.user!.id);
+      
+      const stmt = db.prepare(`
+        INSERT INTO nodes (id, user_id, label, type, strength, status, description)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      
+      const insertMany = db.transaction((nodesToInsert: any[]) => {
+        for (const node of nodesToInsert) {
+          // Always generate new UUID on backend to avoid conflicts
+          const id = uuidv4();
+          const status = node.strength >= 80 ? 'mastered' : 
+                        node.strength >= 50 ? 'active' : 
+                        node.strength >= 20 ? 'developing' : 'neglected';
+          
+          stmt.run(
+            id,
+            req.user!.id,
+            node.label,
+            node.type,
+            node.strength || 50,
+            status,
+            node.description || null
+          );
+        }
+      });
+      
+      insertMany(nodes);
+    }
+    
+    // Get updated user
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user!.id);
+    const createdNodes = db.prepare('SELECT * FROM nodes WHERE user_id = ?').all(req.user!.id);
+    
+    res.json({ 
+      success: true, 
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        onboarding_complete: Boolean(user.onboarding_complete),
+        onboarding_method: user.onboarding_method
+      },
+      nodes: createdNodes
+    });
+  } catch (error: any) {
+    console.error('Complete onboarding error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Update node
 app.patch('/api/nodes/:id', authMiddleware, (req: AuthRequest, res) => {
   try {
@@ -877,7 +1000,34 @@ app.post('/api/chat', authMiddleware, async (req: AuthRequest, res) => {
       content: msg.content
     }));
     
-    const response = await chat(message, formattedHistory);
+    // Get user's identity nodes for context
+    const nodes = db.prepare(`
+      SELECT label, type, strength, status, description
+      FROM nodes
+      WHERE user_id = ?
+      ORDER BY strength DESC
+      LIMIT 15
+    `).all(req.user!.id) as any[];
+
+    // Build identity context string
+    let identityContext = '';
+    if (nodes.length > 0) {
+      const nodesByType: Record<string, any[]> = {};
+      nodes.forEach(node => {
+        if (!nodesByType[node.type]) nodesByType[node.type] = [];
+        nodesByType[node.type].push(node);
+      });
+
+      identityContext = 'Key Identity Patterns:\n';
+      Object.entries(nodesByType).forEach(([type, typeNodes]) => {
+        identityContext += `\n${type.toUpperCase()}:\n`;
+        typeNodes.slice(0, 5).forEach(node => {
+          identityContext += `- ${node.label} (${node.strength}% strength, ${node.status})\n`;
+        });
+      });
+    }
+    
+    const response = await chat(message, formattedHistory, undefined, identityContext);
     
     // Save messages
     const saveMsg = db.prepare(`
@@ -903,8 +1053,21 @@ app.post('/api/chat/work-session', authMiddleware, async (req: AuthRequest, res)
       content: msg.content
     }));
 
+    // Get the specific node being worked on for context
+    const node = db.prepare(`
+      SELECT label, type, strength, status, description
+      FROM nodes
+      WHERE user_id = ? AND label = ?
+      LIMIT 1
+    `).get(req.user!.id, nodeName) as any;
+
+    let identityContext = '';
+    if (node) {
+      identityContext = `Current Focus Node:\n- ${node.label} (${node.type}, ${node.strength}% strength, ${node.status})\n${node.description ? `- Description: ${node.description}\n` : ''}`;
+    }
+
     const contextPrompt = `The user is working on: "${nodeName}"\n\n${SYSTEM_PROMPTS.workSession}`;
-    const response = await chat(message, formattedHistory, contextPrompt);
+    const response = await chat(message, formattedHistory, contextPrompt, identityContext);
 
     res.json({ response });
   } catch (error: any) {

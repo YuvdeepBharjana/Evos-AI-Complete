@@ -261,15 +261,20 @@ export const ExperimentPage = () => {
                   return (
                     <div
                       key={i}
-                      className={`aspect-square rounded-lg flex items-center justify-center text-xs font-medium transition-all ${
+                      className={`aspect-square rounded-lg flex items-center justify-center text-xs font-medium transition-all relative ${
                         !isValidDay ? 'opacity-0' :
                         isToday ? 'ring-2 ring-indigo-500 bg-indigo-500/20 text-white' :
-                        hasActivity ? 'bg-green-500/30 text-green-300' :
+                        hasActivity ? 'bg-gradient-to-br from-green-500/40 to-emerald-500/30 text-green-300 border border-green-500/30' :
                         isPast ? 'bg-red-500/20 text-red-400' :
                         'bg-white/5 text-gray-500'
                       }`}
                     >
-                      {isValidDay ? dayNum : ''}
+                      {isValidDay && hasActivity ? (
+                        <div className="flex flex-col items-center">
+                          <CheckCircle className="w-4 h-4 text-green-400" />
+                          <span className="text-[10px] mt-0.5">{dayNum}</span>
+                        </div>
+                      ) : isValidDay ? dayNum : ''}
                     </div>
                   );
                 })}
@@ -277,16 +282,22 @@ export const ExperimentPage = () => {
               
               <div className="flex items-center gap-6 mt-4 text-xs text-gray-500">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-green-500/30" />
-                  <span>Active</span>
+                  <div className="w-4 h-4 rounded bg-gradient-to-br from-green-500/40 to-emerald-500/30 border border-green-500/30 flex items-center justify-center">
+                    <CheckCircle className="w-2.5 h-2.5 text-green-400" />
+                  </div>
+                  <span>Completed</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-red-500/20" />
+                  <div className="w-4 h-4 rounded bg-red-500/20" />
                   <span>Missed</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded ring-2 ring-indigo-500 bg-indigo-500/20" />
+                  <div className="w-4 h-4 rounded ring-2 ring-indigo-500 bg-indigo-500/20" />
                   <span>Today</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-white/5" />
+                  <span>Upcoming</span>
                 </div>
               </div>
             </motion.div>

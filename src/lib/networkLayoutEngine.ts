@@ -1,46 +1,82 @@
 import type { IdentityNode } from '../types';
 import type { Node, Edge } from 'reactflow';
 
-// Brain region positions - inspired by brain anatomy
-const BRAIN_REGIONS = {
-  // Prefrontal cortex - planning and goals (top)
-  goal: { centerX: 400, centerY: 100, radius: 120 },
-  // Motor cortex - habits and actions (left)
-  habit: { centerX: 150, centerY: 300, radius: 100 },
-  // Temporal lobe - traits and personality (right)
-  trait: { centerX: 650, centerY: 250, radius: 110 },
-  // Limbic system - emotions (bottom center)
-  emotion: { centerX: 400, centerY: 450, radius: 100 },
-  // Amygdala - struggles and fears (bottom right)
-  struggle: { centerX: 580, centerY: 400, radius: 90 }
+// Large canvas with hexagon arrangement for maximum separation between categories
+const CANVAS_CENTER = { x: 1000, y: 800 };
+const OUTER_RADIUS = 600; // Distance from center to each type's center
+
+// Hexagon positions for 6 node types - evenly distributed around center (60° apart)
+const TYPE_POSITIONS: Record<string, { angle: number; color: string }> = {
+  goal: { angle: -90, color: '#3b82f6' },      // Top (12 o'clock)
+  trait: { angle: -30, color: '#a855f7' },     // Top right (2 o'clock)
+  interest: { angle: 30, color: '#06b6d4' },   // Right (4 o'clock)
+  struggle: { angle: 90, color: '#ef4444' },   // Bottom (6 o'clock)
+  emotion: { angle: 150, color: '#f59e0b' },   // Bottom left (8 o'clock)
+  habit: { angle: 210, color: '#10b981' },     // Top left (10 o'clock)
 };
 
 export const generateReactFlowElements = (
   nodes: IdentityNode[],
-  recentStrengthChanges: Record<string, number> = {}
+  recentStrengthChanges: Record<string, number> = {},
+  dailyActionNodeIds: string[] = []
 ) => {
   const flowNodes: Node[] = [];
   const edges: Edge[] = [];
+  
+  // Calculate stats for Growth Core
+  const totalNodes = nodes.length;
+  const avgStrength = totalNodes > 0 
+    ? Math.round(nodes.reduce((sum, n) => sum + (n.strength || 50), 0) / totalNodes)
+    : 0;
+  const masteredCount = nodes.filter(n => n.status === 'mastered').length;
+  const level = Math.floor((totalNodes + masteredCount * 3 + avgStrength / 10) / 5) + 1;
+  
+  // Add the central Growth Core node
+  flowNodes.push({
+    id: 'growth-core',
+    type: 'growthCore',
+    position: { x: CANVAS_CENTER.x - 100, y: CANVAS_CENTER.y - 100 },
+    data: {
+      totalNodes,
+      avgStrength,
+      masteredCount,
+      level,
+    },
+    draggable: false,
+  });
 
   // Group nodes by type
   const nodesByType: Record<string, IdentityNode[]> = {};
   nodes.forEach(node => {
-    if (!nodesByType[node.type]) {
-      nodesByType[node.type] = [];
+    const type = node.type || 'trait';
+    if (!nodesByType[type]) {
+      nodesByType[type] = [];
     }
-    nodesByType[node.type].push(node);
+    nodesByType[type].push(node);
   });
 
-  // Position nodes within their brain region
+  // Position nodes in clusters around the hexagon
   Object.entries(nodesByType).forEach(([type, typeNodes]) => {
-    const region = BRAIN_REGIONS[type as keyof typeof BRAIN_REGIONS];
-    if (!region) return;
+    const typeConfig = TYPE_POSITIONS[type] || TYPE_POSITIONS.trait;
+    const angleRad = (typeConfig.angle * Math.PI) / 180;
+    
+    // Calculate center of this type's region
+    const regionCenter = {
+      x: CANVAS_CENTER.x + Math.cos(angleRad) * OUTER_RADIUS,
+      y: CANVAS_CENTER.y + Math.sin(angleRad) * OUTER_RADIUS
+    };
 
-    // Sort by strength - stronger nodes closer to center
-    const sorted = [...typeNodes].sort((a, b) => b.strength - a.strength);
-
+    // Sort by strength for visual hierarchy
+    const sorted = [...typeNodes].sort((a, b) => (b.strength || 50) - (a.strength || 50));
+    
+    // Arrange in a circular cluster pattern
     sorted.forEach((node, index) => {
-      const position = calculateNodePosition(index, sorted.length, region, node.strength);
+      const position = calculateClusterPosition(
+        index, 
+        sorted.length, 
+        regionCenter,
+        node.strength || 50
+      );
       
       flowNodes.push({
         id: node.id,
@@ -52,28 +88,9 @@ export const generateReactFlowElements = (
           strength: node.strength,
           status: node.status,
           description: node.description,
-          strengthChange: recentStrengthChanges[node.id] || undefined
+          strengthChange: recentStrengthChanges[node.id] || undefined,
+          hasDailyAction: dailyActionNodeIds.includes(node.id)
         }
-      });
-
-      // Create axon-like edges (connections between neurons)
-      node.connections.forEach(targetId => {
-        const targetNode = nodes.find(n => n.id === targetId);
-        if (!targetNode) return;
-
-        edges.push({
-          id: `${node.id}-${targetId}`,
-          source: node.id,
-          target: targetId,
-          type: 'smoothstep',
-          animated: node.status === 'active' || node.status === 'mastered',
-          style: {
-            stroke: getEdgeColor(node.type, targetNode.type),
-            strokeWidth: calculateAxonWidth(node.strength),
-            opacity: calculateAxonOpacity(node.strength, node.status),
-            strokeDasharray: node.status === 'developing' ? '5,5' : undefined
-          }
-        });
       });
     });
   });
@@ -81,62 +98,44 @@ export const generateReactFlowElements = (
   return { nodes: flowNodes, edges };
 };
 
-const calculateNodePosition = (
+const calculateClusterPosition = (
   index: number,
-  totalInRegion: number,
-  region: { centerX: number; centerY: number; radius: number },
+  total: number,
+  regionCenter: { x: number; y: number },
   strength: number
 ): { x: number; y: number } => {
-  if (totalInRegion === 1) {
-    return { x: region.centerX, y: region.centerY };
+  // Single node goes at center
+  if (total === 1) {
+    return { x: regionCenter.x, y: regionCenter.y };
   }
 
-  // Spiral layout within region - stronger nodes at center
-  const strengthFactor = strength / 100;
-  const distanceFromCenter = region.radius * (1 - strengthFactor * 0.6);
+  // Calculate spacing based on number of nodes
+  const baseRadius = 60;
+  const radiusPerNode = 20;
+  const clusterRadius = baseRadius + Math.min(total, 8) * radiusPerNode;
   
-  // Golden angle spiral for even distribution
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  const angle = index * goldenAngle;
+  // Strength affects distance from center (stronger = closer to center)
+  const strengthFactor = (strength || 50) / 100;
+  const adjustedRadius = clusterRadius * (1.05 - strengthFactor * 0.15);
   
-  // Add slight random offset for organic feel
-  const jitter = 10;
-  const randomX = (Math.random() - 0.5) * jitter;
-  const randomY = (Math.random() - 0.5) * jitter;
-
+  // Arrange in concentric rings if many nodes
+  const nodesPerRing = 8;
+  const ring = Math.floor(index / nodesPerRing);
+  const indexInRing = index % nodesPerRing;
+  const totalInRing = Math.min(nodesPerRing, total - ring * nodesPerRing);
+  
+  // Calculate angle for this node
+  const startAngle = ring * 0.3;
+  const angleStep = (2 * Math.PI) / totalInRing;
+  const angle = startAngle + indexInRing * angleStep;
+  
+  // Ring distance increases for outer rings
+  const ringRadius = adjustedRadius + ring * 80;
+  
   return {
-    x: region.centerX + Math.cos(angle) * distanceFromCenter + randomX,
-    y: region.centerY + Math.sin(angle) * distanceFromCenter + randomY
+    x: regionCenter.x + Math.cos(angle) * ringRadius,
+    y: regionCenter.y + Math.sin(angle) * ringRadius
   };
 };
 
-const getEdgeColor = (sourceType: string, targetType: string): string => {
-  // Blend colors for cross-type connections
-  const colors: Record<string, string> = {
-    habit: '#10b981',
-    goal: '#3b82f6',
-    trait: '#a855f7',
-    emotion: '#f59e0b',
-    struggle: '#ef4444'
-  };
-
-  if (sourceType === targetType) {
-    return colors[sourceType] || '#6b7280';
-  }
-
-  // Return gradient-like color for cross-type
-  return `${colors[sourceType]}88`;
-};
-
-const calculateAxonWidth = (strength: number): number => {
-  // Thicker axons for stronger connections
-  return 1 + (strength / 100) * 2; // 1-3px
-};
-
-const calculateAxonOpacity = (strength: number, status: string): number => {
-  const baseOpacity = strength / 150;
-  if (status === 'mastered') return Math.min(baseOpacity + 0.3, 0.8);
-  if (status === 'active') return Math.min(baseOpacity + 0.2, 0.7);
-  if (status === 'neglected') return Math.max(baseOpacity - 0.2, 0.15);
-  return baseOpacity;
-};
+export { CANVAS_CENTER };

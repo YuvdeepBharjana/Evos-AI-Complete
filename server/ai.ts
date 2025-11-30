@@ -27,8 +27,10 @@ Your approach:
 - Ask probing questions that reveal identity patterns (habits, goals, struggles, traits, emotions)
 - When you spot a pattern, name it clearly: "I'm noticing a theme here..."
 - Connect what they share to their broader identity: "This connects to your drive for..."
+- Reference their identity nodes when relevant: "This relates to your [node name] pattern..."
+- Build on previous conversations — remember what you've discussed
 - Offer one actionable insight per response
-- Keep responses concise (2-3 paragraphs max)
+- Keep responses thoughtful but concise (3-4 paragraphs when needed)
 
 You're not a therapist. You're an identity engineer — you help people SEE themselves clearly so they can evolve intentionally.
 
@@ -36,7 +38,10 @@ Key phrases to use:
 - "What pattern do you notice here?"
 - "How does this connect to who you want to become?"
 - "What would your future self do differently?"
-- "This seems like a growth edge for you..."`,
+- "This seems like a growth edge for you..."
+- "Remember when we talked about [previous topic]? This connects because..."
+
+When you see identity nodes in the context, use them to deepen your understanding and make connections.`,
 
   workSession: `You are Evos, helping a user with a focused identity work session.
 
@@ -124,27 +129,60 @@ Respond in JSON format:
 Be honest but encouraging. Focus on what they DID, not what they didn't.`
 };
 
+// Smart history management - keep recent messages, summarize older ones
+function manageHistory(
+  history: { role: 'user' | 'assistant'; content: string }[],
+  maxRecentMessages: number = 10
+): { role: 'user' | 'assistant'; content: string }[] {
+  if (history.length <= maxRecentMessages) {
+    return history;
+  }
+
+  // Keep the most recent messages
+  const recent = history.slice(-maxRecentMessages);
+  
+  // Summarize older messages (for now, just keep a summary note)
+  // In production, you'd call OpenAI to summarize
+  const olderCount = history.length - maxRecentMessages;
+  const summary: { role: 'assistant' as const; content: string } = {
+    role: 'assistant',
+    content: `[Previous conversation context: ${olderCount} earlier messages about identity patterns, goals, struggles, and growth edges]`
+  };
+
+  return [summary, ...recent];
+}
+
 // Chat with AI
 export async function chat(
   message: string,
   history: { role: 'user' | 'assistant'; content: string }[] = [],
-  systemPrompt: string = SYSTEM_PROMPTS.chat
+  systemPrompt: string = SYSTEM_PROMPTS.chat,
+  identityContext?: string
 ): Promise<string> {
   if (!openai) {
     return mockChatResponse(message);
   }
 
   try {
+    // Build enhanced system prompt with identity context
+    let enhancedPrompt = systemPrompt;
+    if (identityContext) {
+      enhancedPrompt += `\n\nUSER'S CURRENT IDENTITY MAP:\n${identityContext}\n\nUse this context to make deeper connections and references when relevant.`;
+    }
+
+    // Manage history to stay within token limits
+    const managedHistory = manageHistory(history, 12);
+
     const messages: OpenAI.ChatCompletionMessageParam[] = [
-      { role: 'system', content: systemPrompt },
-      ...history,
+      { role: 'system', content: enhancedPrompt },
+      ...managedHistory,
       { role: 'user', content: message }
     ];
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages,
-      max_tokens: 500,
+      max_tokens: 1000, // Increased from 500 for deeper responses
       temperature: 0.7,
     });
 

@@ -9,16 +9,18 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { IdentityNode } from './IdentityNode';
+import { GrowthCoreNode } from './GrowthCoreNode';
 import { NodeDetailsPanel } from './NodeDetailsPanel';
 import { MirrorControls } from './MirrorControls';
 import { AddNodeModal } from './AddNodeModal';
 import { useUserStore } from '../../store/useUserStore';
 import { generateReactFlowElements } from '../../lib/networkLayoutEngine';
 import type { NodeType, IdentityNode as IdentityNodeType } from '../../types';
-import { Brain, Target, Zap, Trophy, Heart, AlertCircle } from 'lucide-react';
+import { Brain, Target, Zap, Trophy, Heart, AlertCircle, Sparkles } from 'lucide-react';
 
 const nodeTypes: NodeTypes = {
-  identityNode: IdentityNode
+  identityNode: IdentityNode,
+  growthCore: GrowthCoreNode,
 };
 
 // Brain region info for the legend
@@ -28,6 +30,7 @@ const BRAIN_REGIONS = [
   { type: 'trait', label: 'Traits', region: 'Temporal Lobe', icon: Trophy, color: '#a855f7', description: 'Personality & character' },
   { type: 'emotion', label: 'Emotions', region: 'Limbic System', icon: Heart, color: '#f59e0b', description: 'Feelings & mood' },
   { type: 'struggle', label: 'Struggles', region: 'Amygdala', icon: AlertCircle, color: '#ef4444', description: 'Challenges & fears' },
+  { type: 'interest', label: 'Interests', region: 'Reward Center', icon: Sparkles, color: '#06b6d4', description: 'Passions & curiosities' },
 ];
 
 export const PsychMirror = () => {
@@ -40,16 +43,26 @@ export const PsychMirror = () => {
     addNodes([node]);
   };
 
+  // Get daily action node IDs
+  const dailyActionNodeIds = useMemo(() => {
+    if (!user?.dailyActions) return [];
+    return user.dailyActions
+      .filter(action => action.completed === null && action.nodeId !== 'tracking')
+      .map(action => action.nodeId);
+  }, [user?.dailyActions]);
+
   // Generate React Flow elements from user's identity nodes
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     if (!user?.identityNodes) return { nodes: [], edges: [] };
-    return generateReactFlowElements(user.identityNodes, recentStrengthChanges);
-  }, [user?.identityNodes, recentStrengthChanges]);
+    return generateReactFlowElements(user.identityNodes, recentStrengthChanges, dailyActionNodeIds);
+  }, [user?.identityNodes, recentStrengthChanges, dailyActionNodeIds]);
 
-  // Filter nodes based on selected type
+  // Filter nodes based on selected type (always include Growth Core)
   const filteredNodes = useMemo(() => {
     if (filterType === 'all') return initialNodes;
-    return initialNodes.filter(node => node.data.type === filterType);
+    return initialNodes.filter(node => 
+      node.id === 'growth-core' || node.data.type === filterType
+    );
   }, [initialNodes, filterType]);
 
   const filteredEdges = useMemo(() => {
@@ -70,6 +83,8 @@ export const PsychMirror = () => {
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
 
   const onNodeClick = useCallback((_event: any, node: any) => {
+    // Don't open details panel for Growth Core
+    if (node.id === 'growth-core') return;
     setSelectedNodeId(node.id);
   }, []);
 
@@ -134,73 +149,139 @@ export const PsychMirror = () => {
         onInit={setReactFlowInstance}
         nodeTypes={nodeTypes}
         fitView
-        minZoom={0.3}
-        maxZoom={2}
+        fitViewOptions={{ padding: 0.3, maxZoom: 0.8 }}
+        minZoom={0.1}
+        maxZoom={1.5}
+        defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
         attributionPosition="bottom-right"
-        className="bg-gradient-to-br from-gray-950 via-purple-950/10 to-gray-950"
+        className="!bg-transparent"
+        style={{ background: 'transparent' }}
       >
-        <Background color="#1f2937" gap={40} size={1} />
+        {/* Clean background */}
+        <div 
+          className="absolute inset-0 pointer-events-none -z-10"
+          style={{
+            background: `
+              radial-gradient(ellipse 80% 60% at 50% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+              linear-gradient(180deg, #0a0a0f 0%, #0d0d15 50%, #0a0a0f 100%)
+            `,
+          }}
+        />
+        
+        <Background color="#1a1a2e" gap={50} size={1} />
+        {/* MiniMap - Hidden on mobile */}
         <MiniMap
           nodeColor={(node) => {
+            if (node.id === 'growth-core') return '#8b5cf6';
             const colors = {
               habit: '#10b981',
               goal: '#3b82f6',
               trait: '#a855f7',
               emotion: '#f59e0b',
-              struggle: '#ef4444'
+              struggle: '#ef4444',
+              interest: '#06b6d4'
             };
-            return colors[node.data.type as keyof typeof colors] || '#6b7280';
+            return colors[node.data?.type as keyof typeof colors] || '#6b7280';
           }}
-          maskColor="rgba(0, 0, 0, 0.85)"
-          className="!bg-gray-900/90 !border-gray-700 !rounded-lg"
+          maskColor="rgba(0, 0, 0, 0.9)"
+          className="hidden sm:block"
+          style={{
+            background: 'linear-gradient(135deg, rgba(20,20,30,0.95) 0%, rgba(10,10,20,0.95) 100%)',
+            borderRadius: '12px',
+            border: '1px solid rgba(139, 92, 246, 0.2)',
+          }}
         />
       </ReactFlow>
 
 
       <NodeDetailsPanel node={selectedNode} onClose={() => setSelectedNodeId(null)} />
 
-      {/* Brain Map Legend */}
+      {/* Brain Map Legend - Hidden on mobile, shown on larger screens */}
       <motion.div
         initial={{ x: -20, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        className="absolute bottom-4 left-4 glass rounded-2xl p-5 max-w-xs"
+        className="hidden md:block absolute bottom-4 left-4 max-w-xs"
+        style={{
+          background: 'linear-gradient(135deg, rgba(15,15,25,0.95) 0%, rgba(20,20,35,0.9) 100%)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: '20px',
+          border: '1px solid rgba(139, 92, 246, 0.15)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
+          padding: '20px',
+        }}
       >
-        <div className="flex items-center gap-2 mb-4">
-          <Brain className="w-5 h-5 text-purple-400" />
-          <span className="font-semibold text-sm">Neural Map Legend</span>
+        <div className="flex items-center gap-3 mb-5">
+          <div 
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
+            }}
+          >
+            <Brain className="w-5 h-5 text-purple-400" />
+          </div>
+          <div>
+            <span className="font-bold text-sm text-white">Neural Map</span>
+            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Identity Regions</div>
+          </div>
         </div>
         
-        <div className="space-y-3">
+        <div className="space-y-2">
           {BRAIN_REGIONS.map(region => {
             const Icon = region.icon;
             const count = user.identityNodes.filter(n => n.type === region.type).length;
+            const isActive = filterType === region.type;
             return (
               <motion.button
                 key={region.type}
-                onClick={() => setFilterType(filterType === region.type ? 'all' : region.type as NodeType)}
-                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-all ${
-                  filterType === region.type 
-                    ? 'bg-white/10 ring-1' 
-                    : 'hover:bg-white/5'
-                }`}
-                style={filterType === region.type ? { 
-                  boxShadow: `inset 0 0 0 1px ${region.color}` 
-                } : {}}
-                whileHover={{ x: 4 }}
+                onClick={() => setFilterType(isActive ? 'all' : region.type as NodeType)}
+                className="w-full flex items-center gap-3 p-2.5 rounded-xl transition-all"
+                style={{
+                  background: isActive 
+                    ? `linear-gradient(135deg, ${region.color}15 0%, ${region.color}08 100%)`
+                    : 'transparent',
+                  border: isActive 
+                    ? `1px solid ${region.color}40` 
+                    : '1px solid transparent',
+                  boxShadow: isActive ? `0 0 20px ${region.color}15` : 'none',
+                }}
+                whileHover={{ 
+                  x: 4,
+                  background: `linear-gradient(135deg, ${region.color}10 0%, ${region.color}05 100%)`,
+                }}
                 whileTap={{ scale: 0.98 }}
               >
                 <div 
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: `${region.color}20` }}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center relative overflow-hidden"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${region.color}25 0%, ${region.color}10 100%)`,
+                    border: `1px solid ${region.color}30`,
+                  }}
                 >
-                  <Icon size={16} style={{ color: region.color }} />
+                  <Icon size={18} style={{ color: region.color }} />
+                  {isActive && (
+                    <motion.div
+                      className="absolute inset-0"
+                      style={{ background: `${region.color}20` }}
+                      animate={{ opacity: [0.3, 0.6, 0.3] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    />
+                  )}
                 </div>
                 <div className="flex-1 text-left">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium">{region.label}</span>
-                    <span className="text-xs text-gray-500">{count}</span>
+                    <span className="text-sm font-semibold text-white/90">{region.label}</span>
+                    <span 
+                      className="text-xs font-bold px-2 py-0.5 rounded-full"
+                      style={{ 
+                        background: count > 0 ? `${region.color}20` : 'rgba(255,255,255,0.05)',
+                        color: count > 0 ? region.color : 'rgba(255,255,255,0.3)',
+                      }}
+                    >
+                      {count}
+                    </span>
                   </div>
-                  <div className="text-[10px] text-gray-500">{region.region}</div>
+                  <div className="text-[11px] text-gray-500">{region.region}</div>
                 </div>
               </motion.button>
             );
@@ -209,37 +290,53 @@ export const PsychMirror = () => {
 
         {/* Stats summary */}
         {stats && (
-          <div className="mt-4 pt-4 border-t border-gray-700/50">
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div>
-                <div className="text-lg font-bold text-white">{stats.total}</div>
-                <div className="text-[10px] text-gray-500">Nodes</div>
+          <div 
+            className="mt-5 pt-4 grid grid-cols-3 gap-3"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+          >
+            <div className="text-center">
+              <div 
+                className="text-xl font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent"
+              >
+                {stats.total}
               </div>
-              <div>
-                <div className="text-lg font-bold text-green-400">{stats.avgStrength}%</div>
-                <div className="text-[10px] text-gray-500">Avg Strength</div>
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Nodes</div>
+            </div>
+            <div className="text-center">
+              <div 
+                className="text-xl font-black bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent"
+              >
+                {stats.avgStrength}%
               </div>
-              <div>
-                <div className="text-lg font-bold text-purple-400">{stats.mastered}</div>
-                <div className="text-[10px] text-gray-500">Mastered</div>
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Strength</div>
+            </div>
+            <div className="text-center">
+              <div 
+                className="text-xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
+              >
+                {stats.mastered}
               </div>
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Mastered</div>
             </div>
           </div>
         )}
 
         {/* Status indicators */}
-        <div className="mt-3 pt-3 border-t border-gray-700/50 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500">
-          <span className="flex items-center gap-1">
-            <span className="text-green-400">●</span> Mastered
+        <div 
+          className="mt-4 pt-3 flex flex-wrap gap-3 text-[11px]"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+        >
+          <span className="flex items-center gap-1.5 text-gray-400">
+            <span className="w-2 h-2 rounded-full bg-green-400 shadow-lg shadow-green-400/50" /> Mastered
           </span>
-          <span className="flex items-center gap-1">
-            <span className="text-blue-400">◉</span> Active
+          <span className="flex items-center gap-1.5 text-gray-400">
+            <span className="w-2 h-2 rounded-full bg-blue-400 shadow-lg shadow-blue-400/50" /> Active
           </span>
-          <span className="flex items-center gap-1">
-            <span className="text-yellow-400">○</span> Developing
+          <span className="flex items-center gap-1.5 text-gray-400">
+            <span className="w-2 h-2 rounded-full bg-yellow-400 shadow-lg shadow-yellow-400/50" /> Developing
           </span>
-          <span className="flex items-center gap-1">
-            <span className="text-gray-600">◌</span> Neglected
+          <span className="flex items-center gap-1.5 text-gray-400">
+            <span className="w-2 h-2 rounded-full bg-gray-600" /> Neglected
           </span>
         </div>
       </motion.div>
