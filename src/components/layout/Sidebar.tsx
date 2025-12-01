@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Brain, User, LogOut, FlaskConical, Menu, X } from 'lucide-react';
+import { MessageSquare, Brain, User, LogOut, FlaskConical, Menu, X, AlertCircle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserStore } from '../../store/useUserStore';
 
@@ -9,16 +9,22 @@ export const Sidebar = () => {
   const location = useLocation();
   const { user, clearUser } = useUserStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const navItems = [
-    { icon: MessageSquare, label: 'Chat', path: '/dashboard' },
-    { icon: Brain, label: 'Mirror', path: '/mirror' },
-    { icon: FlaskConical, label: '30-Day', path: '/experiment' }
+    { icon: MessageSquare, label: 'Chat', path: '/dashboard', tooltip: 'Chat with your AI companion' },
+    { icon: Brain, label: 'Mirror', path: '/mirror', tooltip: 'View your Psychological Mirror' },
+    { icon: FlaskConical, label: '30-Day', path: '/experiment', tooltip: '30-Day Growth Experiment' }
   ];
 
   const handleLogout = () => {
     clearUser();
     navigate('/');
+    setShowLogoutConfirm(false);
+  };
+
+  const confirmLogout = () => {
+    setShowLogoutConfirm(true);
   };
 
   const handleNavigate = (path: string) => {
@@ -60,7 +66,7 @@ export const Sidebar = () => {
                     ? 'bg-gradient-to-br from-indigo-500 to-cyan-500 text-white'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
-                title={item.label}
+                title={item.tooltip}
               >
                 <Icon size={24} />
                 {isActive && (
@@ -80,14 +86,14 @@ export const Sidebar = () => {
           <button
             onClick={() => navigate('/profile')}
             className="p-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-            title="Profile"
+            title="View your profile and settings"
           >
             <User size={24} />
           </button>
           <button
-            onClick={handleLogout}
+            onClick={confirmLogout}
             className="p-3 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-            title="Logout"
+            title="Sign out of your account"
           >
             <LogOut size={24} />
           </button>
@@ -177,7 +183,7 @@ export const Sidebar = () => {
                   <span>Profile</span>
                 </button>
                 <button
-                  onClick={handleLogout}
+                  onClick={confirmLogout}
                   className="w-full flex items-center gap-3 p-3 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                 >
                   <LogOut size={20} />
@@ -224,6 +230,69 @@ export const Sidebar = () => {
           </button>
         </div>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100]"
+              onClick={() => setShowLogoutConfirm(false)}
+            />
+            
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-full max-w-md mx-4"
+            >
+              <div className="glass rounded-2xl border border-gray-800 p-6 shadow-2xl">
+                {/* Icon */}
+                <div className="flex justify-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <AlertCircle className="w-8 h-8 text-red-400" />
+                  </div>
+                </div>
+
+                {/* Title */}
+                <h3 className="text-xl font-bold text-white text-center mb-2">
+                  Sign Out?
+                </h3>
+
+                {/* Message */}
+                <p className="text-gray-400 text-center mb-6">
+                  Are you sure you want to sign out? Your data will be saved and you can log back in anytime.
+                </p>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowLogoutConfirm(false)}
+                    className="flex-1 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium transition-colors"
+                  >
+                    Cancel
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleLogout}
+                    className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium transition-all shadow-lg shadow-red-500/20"
+                  >
+                    Sign Out
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 };

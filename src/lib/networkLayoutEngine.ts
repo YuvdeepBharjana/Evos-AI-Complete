@@ -2,8 +2,8 @@ import type { IdentityNode } from '../types';
 import type { Node, Edge } from 'reactflow';
 
 // Large canvas with hexagon arrangement for maximum separation between categories
-const CANVAS_CENTER = { x: 1000, y: 800 };
-const OUTER_RADIUS = 600; // Distance from center to each type's center
+const CANVAS_CENTER = { x: 1100, y: 700 }; // Shifted right for better centering with legend
+const OUTER_RADIUS = 450; // Distance from center to each type's center (reduced for better zoom)
 
 // Hexagon positions for 6 node types - evenly distributed around center (60° apart)
 const TYPE_POSITIONS: Record<string, { angle: number; color: string }> = {
@@ -35,7 +35,7 @@ export const generateReactFlowElements = (
   flowNodes.push({
     id: 'growth-core',
     type: 'growthCore',
-    position: { x: CANVAS_CENTER.x - 100, y: CANVAS_CENTER.y - 100 },
+    position: { x: CANVAS_CENTER.x - 90, y: CANVAS_CENTER.y - 90 },
     data: {
       totalNodes,
       avgStrength,
@@ -90,7 +90,26 @@ export const generateReactFlowElements = (
           description: node.description,
           strengthChange: recentStrengthChanges[node.id] || undefined,
           hasDailyAction: dailyActionNodeIds.includes(node.id)
-        }
+        },
+        draggable: false, // Prevent nodes from being dragged
+      });
+
+      // Create edge connecting this node to the growth core
+      // Use dotted/dashed animated lines for developing/active nodes
+      const isBeingWorkedOn = node.status === 'developing' || node.status === 'active';
+      
+      edges.push({
+        id: `edge-${node.id}-to-core`,
+        source: 'growth-core',
+        target: node.id,
+        type: 'default',
+        animated: isBeingWorkedOn, // Animate for developing/active nodes
+        style: {
+          stroke: typeConfig.color,
+          strokeWidth: isBeingWorkedOn ? 3 : 2.5, // Thicker lines
+          opacity: isBeingWorkedOn ? 0.6 : 0.3,
+          strokeDasharray: isBeingWorkedOn ? '5,5' : 'none', // Dotted line for in-progress nodes
+        },
       });
     });
   });
@@ -109,9 +128,9 @@ const calculateClusterPosition = (
     return { x: regionCenter.x, y: regionCenter.y };
   }
 
-  // Calculate spacing based on number of nodes
-  const baseRadius = 60;
-  const radiusPerNode = 20;
+  // Calculate spacing based on number of nodes (reduced for tighter clustering)
+  const baseRadius = 50;
+  const radiusPerNode = 15;
   const clusterRadius = baseRadius + Math.min(total, 8) * radiusPerNode;
   
   // Strength affects distance from center (stronger = closer to center)
@@ -129,8 +148,8 @@ const calculateClusterPosition = (
   const angleStep = (2 * Math.PI) / totalInRing;
   const angle = startAngle + indexInRing * angleStep;
   
-  // Ring distance increases for outer rings
-  const ringRadius = adjustedRadius + ring * 80;
+  // Ring distance increases for outer rings (reduced spacing)
+  const ringRadius = adjustedRadius + ring * 60;
   
   return {
     x: regionCenter.x + Math.cos(angle) * ringRadius,
