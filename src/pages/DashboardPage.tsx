@@ -27,7 +27,7 @@ export const DashboardPage = () => {
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="glass border-b border-gray-800 px-4 sm:px-8 py-4 sm:py-5 relative"
+        className="glass border-b border-gray-800 px-4 sm:px-8 py-6 sm:py-7 relative min-h-[100px] sm:min-h-[110px]"
       >
         <div className="flex items-center justify-between">
           {/* Spacer for balance */}

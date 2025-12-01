@@ -90,7 +90,11 @@ export const PsychMirror = () => {
 
   const handleZoomIn = () => reactFlowInstance?.zoomIn();
   const handleZoomOut = () => reactFlowInstance?.zoomOut();
-  const handleFitView = () => reactFlowInstance?.fitView({ padding: 0.2 });
+  const handleFitView = () => reactFlowInstance?.fitView({ 
+    padding: 0.15, 
+    maxZoom: 1.2,
+    duration: 800 
+  });
 
   const selectedNode = user?.identityNodes.find(n => n.id === selectedNodeId) || null;
 
@@ -149,10 +153,14 @@ export const PsychMirror = () => {
         onInit={setReactFlowInstance}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.3, maxZoom: 0.8 }}
-        minZoom={0.1}
-        maxZoom={1.5}
-        defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
+        fitViewOptions={{ 
+          padding: 0.15, 
+          maxZoom: 1.2,
+          duration: 800,
+        }}
+        minZoom={0.3}
+        maxZoom={2}
+        defaultViewport={{ x: 150, y: 0, zoom: 0.8 }}
         attributionPosition="bottom-right"
         className="!bg-transparent"
         style={{ background: 'transparent' }}

@@ -2,8 +2,8 @@ import type { IdentityNode } from '../types';
 import type { Node, Edge } from 'reactflow';
 
 // Large canvas with hexagon arrangement for maximum separation between categories
-const CANVAS_CENTER = { x: 1200, y: 800 }; // Shifted right for better centering with legend
-const OUTER_RADIUS = 600; // Distance from center to each type's center
+const CANVAS_CENTER = { x: 1100, y: 700 }; // Shifted right for better centering with legend
+const OUTER_RADIUS = 450; // Distance from center to each type's center (reduced for better zoom)
 
 // Hexagon positions for 6 node types - evenly distributed around center (60° apart)
 const TYPE_POSITIONS: Record<string, { angle: number; color: string }> = {
@@ -128,9 +128,9 @@ const calculateClusterPosition = (
     return { x: regionCenter.x, y: regionCenter.y };
   }
 
-  // Calculate spacing based on number of nodes
-  const baseRadius = 60;
-  const radiusPerNode = 20;
+  // Calculate spacing based on number of nodes (reduced for tighter clustering)
+  const baseRadius = 50;
+  const radiusPerNode = 15;
   const clusterRadius = baseRadius + Math.min(total, 8) * radiusPerNode;
   
   // Strength affects distance from center (stronger = closer to center)
@@ -148,8 +148,8 @@ const calculateClusterPosition = (
   const angleStep = (2 * Math.PI) / totalInRing;
   const angle = startAngle + indexInRing * angleStep;
   
-  // Ring distance increases for outer rings
-  const ringRadius = adjustedRadius + ring * 80;
+  // Ring distance increases for outer rings (reduced spacing)
+  const ringRadius = adjustedRadius + ring * 60;
   
   return {
     x: regionCenter.x + Math.cos(angle) * ringRadius,
