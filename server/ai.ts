@@ -144,8 +144,8 @@ function manageHistory(
   // Summarize older messages (for now, just keep a summary note)
   // In production, you'd call OpenAI to summarize
   const olderCount = history.length - maxRecentMessages;
-  const summary = {
-    role: 'assistant' as const,
+  const summary: { role: 'assistant'; content: string } = {
+    role: 'assistant',
     content: `[Previous conversation context: ${olderCount} earlier messages about identity patterns, goals, struggles, and growth edges]`
   };
 

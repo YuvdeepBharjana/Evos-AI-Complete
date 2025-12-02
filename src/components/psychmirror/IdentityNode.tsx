@@ -1,8 +1,8 @@
-import { memo, useState, useEffect } from 'react';
+import { memo } from 'react';
 import { Handle, Position } from 'reactflow';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Target, Zap, Trophy, Heart, AlertCircle, Sparkles } from 'lucide-react';
+import { motion } from 'framer-motion';
 import type { NodeType, NodeStatus } from '../../types';
+import { Target, Zap, Trophy, Heart, AlertCircle, Sparkles } from 'lucide-react';
 
 interface IdentityNodeProps {
   data: {
@@ -11,228 +11,184 @@ interface IdentityNodeProps {
     strength: number;
     status: NodeStatus;
     description?: string;
-    strengthChange?: number;
     hasDailyAction?: boolean;
   };
   selected?: boolean;
 }
 
-const NODE_COLORS: Record<string, { primary: string; glow: string; gradient: string }> = {
-  habit: { 
-    primary: '#10b981', 
-    glow: 'rgba(16, 185, 129, 0.6)', 
-    gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-  },
-  goal: { 
-    primary: '#3b82f6', 
-    glow: 'rgba(59, 130, 246, 0.6)', 
-    gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
-  },
-  trait: { 
-    primary: '#a855f7', 
-    glow: 'rgba(168, 85, 247, 0.6)', 
-    gradient: 'linear-gradient(135deg, #a855f7 0%, #9333ea 100%)'
-  },
-  emotion: { 
-    primary: '#f59e0b', 
-    glow: 'rgba(245, 158, 11, 0.6)', 
-    gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
-  },
-  struggle: { 
-    primary: '#ef4444', 
-    glow: 'rgba(239, 68, 68, 0.6)', 
-    gradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
-  },
-  interest: { 
-    primary: '#06b6d4', 
-    glow: 'rgba(6, 182, 212, 0.6)', 
-    gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)'
-  },
+const getNodeIcon = (type: NodeType) => {
+  switch (type) {
+    case 'habit':
+      return Zap;
+    case 'goal':
+      return Target;
+    case 'trait':
+      return Trophy;
+    case 'emotion':
+      return Heart;
+    case 'struggle':
+      return AlertCircle;
+    case 'interest':
+      return Sparkles;
+  }
 };
 
-const NODE_ICONS: Record<string, any> = {
-  goal: Target,
-  habit: Zap,
-  trait: Trophy,
-  emotion: Heart,
-  struggle: AlertCircle,
-  interest: Sparkles,
+const getNodeColor = (type: NodeType) => {
+  switch (type) {
+    case 'habit':
+      return { from: '#10b981', to: '#059669' }; // green
+    case 'goal':
+      return { from: '#3b82f6', to: '#2563eb' }; // blue
+    case 'trait':
+      return { from: '#a855f7', to: '#9333ea' }; // purple
+    case 'emotion':
+      return { from: '#f59e0b', to: '#d97706' }; // orange
+    case 'struggle':
+      return { from: '#ef4444', to: '#dc2626' }; // red
+    case 'interest':
+      return { from: '#06b6d4', to: '#0891b2' }; // cyan
+  }
 };
 
-const cleanLabel = (label: string): string => {
-  return label.replace(/\*\*/g, '').replace(/\*/g, '').replace(/\_\_/g, '').replace(/\_/g, '').trim();
+const getStatusEmoji = (status: NodeStatus) => {
+  switch (status) {
+    case 'mastered':
+      return '💚';
+    case 'active':
+      return '⚡';
+    case 'developing':
+      return '🌱';
+    case 'neglected':
+      return '💤';
+  }
 };
 
 export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
-  const nodeLabel = cleanLabel(data?.label || 'Unknown');
-  const nodeType = data?.type || 'trait';
-  const nodeStrength = typeof data?.strength === 'number' ? data.strength : 50;
-  const nodeStatus = data?.status || 'developing';
-  const hasDailyAction = data?.hasDailyAction || false;
-  
-  const colors = NODE_COLORS[nodeType] || NODE_COLORS.trait;
-  const Icon = NODE_ICONS[nodeType] || Trophy;
-  const [showChange, setShowChange] = useState(false);
-  const [displayedChange, setDisplayedChange] = useState<number | null>(null);
-  
-  // Larger size to accommodate text (80-120px)
-  const nodeSize = 100 + (nodeStrength / 100) * 20;
-  
-  // Detect strength changes
-  useEffect(() => {
-    if (data.strengthChange && data.strengthChange !== 0) {
-      setDisplayedChange(data.strengthChange);
-      setShowChange(true);
-      const timer = setTimeout(() => setShowChange(false), 2500);
-      return () => clearTimeout(timer);
-    }
-  }, [data?.strengthChange]);
+  const Icon = getNodeIcon(data.type);
+  const color = getNodeColor(data.type);
+  const opacity = data.strength / 100;
+
+  // Size based on strength
+  const size = 80 + (data.strength / 100) * 40; // 80-120px
+
+  // Clean and truncate label to 2-3 words max
+  const cleanLabel = data.label.replace(/\*/g, '').replace(/\*\*/g, '').trim();
+  const truncatedLabel = cleanLabel.split(' ').slice(0, 3).join(' ');
 
   return (
     <>
-      <Handle 
-        type="target" 
-        position={Position.Top} 
-        className="opacity-0"
-        style={{ top: 30, left: '50%' }}
-      />
-      <Handle 
-        type="target" 
-        position={Position.Left} 
-        className="opacity-0"
-        style={{ left: 30, top: '50%' }}
-      />
-      <Handle 
-        type="source" 
-        position={Position.Bottom} 
-        className="opacity-0"
-        style={{ bottom: 30, left: '50%' }}
-      />
-      <Handle 
-        type="source" 
-        position={Position.Right} 
-        className="opacity-0"
-        style={{ right: 30, top: '50%' }}
-      />
-      
+      <Handle type="target" position={Position.Top} className="opacity-0" />
+
       <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-        className="relative cursor-pointer group flex items-center justify-center"
-        style={{ width: nodeSize + 60, height: nodeSize + 60 }}
+        initial={{ scale: 0 }}
+        animate={{
+          scale: selected ? 1.1 : 1,
+          boxShadow: selected
+            ? `0 0 50px rgba(168, 85, 247, 0.8), 0 0 100px rgba(168, 85, 247, 0.4), inset 0 0 30px rgba(168, 85, 247, 0.2)`
+            : data.status === 'active'
+            ? `0 0 20px ${color.from}40`
+            : 'none'
+        }}
+        transition={{
+          duration: 0.3,
+          type: selected ? 'spring' : 'tween',
+          stiffness: selected ? 300 : undefined
+        }}
+        style={{
+          width: size,
+          height: size,
+          opacity: Math.max(opacity, 0.3)
+        }}
+        className={`rounded-full flex flex-col items-center justify-center cursor-pointer relative
+          ${data.status === 'active' ? 'animate-pulse-slow' : ''}
+          ${selected ? 'ring-6 ring-purple-400 ring-opacity-70 shadow-2xl animate-pulse' : ''}
+        `}
       >
-        {/* Strength change popup - above node */}
-        <AnimatePresence>
-          {showChange && displayedChange !== null && displayedChange !== 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 0, scale: 0.5 }}
-              animate={{ opacity: 1, y: -40, scale: 1 }}
-              exit={{ opacity: 0, y: -60, scale: 0.5 }}
-              className="absolute left-1/2 top-0 -translate-x-1/2 z-50"
-            >
-              <div className={`px-2 py-1 rounded-full text-xs font-bold shadow-lg ${
-                displayedChange > 0 ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-              }`}>
-                {displayedChange > 0 ? '+' : ''}{displayedChange}%
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Daily Action indicator - "TODAY" badge - outside top right, very close */}
-        {hasDailyAction && (
+        {/* Selected Node Indicator */}
+        {selected && (
           <motion.div
-            className="absolute z-50 pointer-events-none"
+            className="absolute inset-0 rounded-full border-4 border-purple-300 border-opacity-60"
             style={{
-              right: 5,
-              top: 0,
+              width: size + 16,
+              height: size + 16,
+              marginLeft: -8,
+              marginTop: -8,
             }}
-            initial={{ scale: 0, rotate: -20 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', stiffness: 300 }}
-          >
-            <div 
-              className="px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider"
-              style={{
-                background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-                color: '#000',
-                boxShadow: '0 4px 12px rgba(251, 191, 36, 0.6)',
-              }}
-            >
-              Today
-            </div>
-          </motion.div>
-        )}
-
-
-
-        {/* Main node orb */}
-        <motion.div
-          className="rounded-full overflow-hidden relative"
-          style={{
-            width: nodeSize,
-            height: nodeSize,
-            background: 'rgba(20, 20, 30, 0.8)',
-            border: `3px solid ${colors.primary}`,
-            boxShadow: hasDailyAction 
-              ? `0 0 30px ${colors.glow}, 0 0 60px ${colors.glow}, 0 0 90px ${colors.glow}50`
-              : `0 0 20px ${colors.glow}`,
-          }}
-          animate={hasDailyAction ? {
-            boxShadow: [
-              `0 0 30px ${colors.glow}, 0 0 60px ${colors.glow}, 0 0 90px ${colors.glow}50`,
-              `0 0 40px ${colors.glow}, 0 0 80px ${colors.glow}, 0 0 120px ${colors.glow}70`,
-              `0 0 30px ${colors.glow}, 0 0 60px ${colors.glow}, 0 0 90px ${colors.glow}50`,
-            ]
-          } : {}}
-          transition={{ duration: 2, repeat: Infinity }}
-        >
-          {/* Strength fill from bottom - circular progress */}
-          <div
-            className="absolute bottom-0 left-0 right-0 transition-all duration-300"
-            style={{
-              height: `${nodeStrength}%`,
-              background: colors.gradient,
-              borderRadius: nodeStrength >= 95 ? '100%' : '0 0 100% 100%',
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{
+              scale: 1.1,
+              opacity: 0.8,
+              borderColor: ['rgba(196, 181, 253, 0.8)', 'rgba(168, 85, 247, 0.6)', 'rgba(196, 181, 253, 0.8)']
+            }}
+            transition={{
+              duration: 0.5,
+              borderColor: { duration: 2, repeat: Infinity, ease: 'easeInOut' }
             }}
           />
-          
-          {/* Content inside node */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-3 text-center z-10">
-            {/* Icon at top */}
-            <Icon 
-              size={nodeSize * 0.22} 
-              className="text-white mb-1.5"
-              strokeWidth={2.5}
-            />
-            
-            {/* Node label */}
-            <div 
-              className="font-bold text-white leading-tight mb-1 px-1"
-              style={{ 
-                fontSize: nodeSize * 0.11,
-                maxWidth: '85%',
-                wordBreak: 'break-word',
-                lineHeight: '1.1',
-              }}
-            >
-              {nodeLabel}
-            </div>
-            
-            {/* Percentage */}
-            <div 
-              className="font-bold text-white"
-              style={{ 
-                fontSize: nodeSize * 0.14,
-              }}
-            >
-              {Math.round(nodeStrength)}%
-            </div>
-          </div>
-        </motion.div>
+        )}
 
+        {/* Daily Action Indicator Ring */}
+        {data.hasDailyAction && (
+          <motion.div
+            className="absolute inset-0 rounded-full border-2 border-dashed border-blue-400"
+            style={{
+              width: size + 20,
+              height: size + 20,
+              marginLeft: -10,
+              marginTop: -10,
+            }}
+            animate={{
+              borderColor: ['rgba(59, 130, 246, 0.8)', 'rgba(59, 130, 246, 0.3)', 'rgba(59, 130, 246, 0.8)'],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: 'easeInOut'
+            }}
+          />
+        )}
+
+        {/* Gradient background */}
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: `linear-gradient(135deg, ${color.from}, ${color.to})`,
+            opacity: opacity
+          }}
+        />
+
+        {/* Glow effect for mastered nodes */}
+        {data.status === 'mastered' && (
+          <motion.div
+            animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="absolute inset-0 rounded-full blur-xl"
+            style={{
+              background: `linear-gradient(135deg, ${color.from}, ${color.to})`
+            }}
+          />
+        )}
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col items-center justify-center gap-1">
+          <Icon size={size * 0.3} className="text-white" />
+          <span className="text-xs font-semibold text-center px-2 text-white leading-tight">
+            {truncatedLabel}
+          </span>
+        </div>
+
+        {/* Status indicator */}
+        <div className="absolute -top-1 -right-1 text-lg">
+          {getStatusEmoji(data.status)}
+        </div>
+
+        {/* Strength indicator */}
+        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 text-xs font-bold text-white bg-black/50 px-2 py-0.5 rounded-full">
+          {data.strength}%
+        </div>
       </motion.div>
+
+      <Handle type="source" position={Position.Bottom} className="opacity-0" />
     </>
   );
 });

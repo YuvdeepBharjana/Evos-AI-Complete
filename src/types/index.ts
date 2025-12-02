@@ -1,4 +1,4 @@
-export type NodeType = 'habit' | 'goal' | 'trait' | 'emotion' | 'struggle';
+export type NodeType = 'habit' | 'goal' | 'trait' | 'emotion' | 'struggle' | 'interest';
 export type NodeStatus = 'developing' | 'active' | 'mastered' | 'neglected';
 
 export interface IdentityNode {
@@ -10,6 +10,7 @@ export interface IdentityNode {
   status: NodeStatus;
   connections: string[];
   lastUpdated: Date;
+  createdAt?: Date;
   description?: string;
 }
 
@@ -24,6 +25,7 @@ export interface Message {
 export interface UserProfile {
   id: string;
   name: string;
+  email?: string;
   onboardingComplete: boolean;
   onboardingMethod?: 'questionnaire' | 'upload' | 'manual';
   identityNodes: IdentityNode[];
@@ -103,4 +105,30 @@ export interface TrackingGoals {
   deepWorkHours?: number;   // e.g., 4
   sleepHours?: number;      // e.g., 8
   mood?: number;            // e.g., 7
+}
+
+// ============================================
+// Daily Tracker Types (with Psych Mirror sync)
+// ============================================
+
+export type MetricType = 'number' | 'boolean' | 'scale_1_10';
+
+export interface DailyMetric {
+  id: string;
+  label: string;          // e.g. "Calories", "Exercise", "Sleep"
+  unit?: string;          // "cal", "min", "hrs", etc.
+  type: MetricType;
+  target?: number;        // optional target for progress bar
+  linkedNodeId?: string;  // optional: link to a PsychNode in the mirror
+  isDefault: boolean;     // built-ins like Calories/Exercise, etc.
+  isActive: boolean;
+  icon?: string;          // icon name for display
+  color?: string;         // hex color for display
+}
+
+export interface DailyMetricEntry {
+  id: string;
+  date: string;           // "YYYY-MM-DD"
+  metricId: string;
+  value: number;          // 0/1 for boolean, 1–10 for scale, any number otherwise
 }

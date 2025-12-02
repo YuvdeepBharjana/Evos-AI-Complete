@@ -4,6 +4,8 @@ import { PsychMirror } from '../components/psychmirror/PsychMirror';
 import { TrackingReminder } from '../components/tracking/TrackingReminder';
 
 export const MirrorPage = () => {
+  console.log('📄 MirrorPage rendering');
+  
   return (
     <>
       <Header title="Evos AI" />
@@ -12,6 +14,7 @@ export const MirrorPage = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="flex-1 overflow-hidden"
+        style={{ minHeight: '500px' }}
       >
         <PsychMirror />
       </motion.div>

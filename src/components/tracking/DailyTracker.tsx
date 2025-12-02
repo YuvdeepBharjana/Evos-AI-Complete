@@ -1,75 +1,176 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Flame, Dumbbell, Briefcase, Moon, 
   Heart, ChevronDown, ChevronUp, Check, AlertCircle,
-  TrendingUp, Zap, Settings, X, Target
+  TrendingUp, Zap, Settings, X, Target, Plus,
+  ChevronLeft, ChevronRight, Calendar, Trash2, Link2,
+  ToggleLeft, ToggleRight, Edit2, RefreshCw
 } from 'lucide-react';
 import { useUserStore } from '../../store/useUserStore';
-import type { TrackingGoals } from '../../types';
+import { useIdentityStore } from '../../store/useIdentityStore';
+import type { DailyMetric, MetricType } from '../../types';
+
+// ============================================
+// Icon Mapping
+// ============================================
+
+const ICON_MAP: Record<string, React.ReactNode> = {
+  'Flame': <Flame className="w-5 h-5" />,
+  'Dumbbell': <Dumbbell className="w-5 h-5" />,
+  'Briefcase': <Briefcase className="w-5 h-5" />,
+  'Moon': <Moon className="w-5 h-5" />,
+  'Heart': <Heart className="w-5 h-5" />,
+  'Target': <Target className="w-5 h-5" />,
+  'Zap': <Zap className="w-5 h-5" />,
+  'TrendingUp': <TrendingUp className="w-5 h-5" />,
+};
+
+const getIcon = (iconName?: string) => {
+  return ICON_MAP[iconName || 'Target'] || <Target className="w-5 h-5" />;
+};
+
+// ============================================
+// Date Helpers
+// ============================================
+
+const formatDate = (date: Date): string => {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  
+  return date.toLocaleDateString('en-US', { 
+    weekday: 'short', 
+    month: 'short', 
+    day: 'numeric' 
+  });
+};
+
+const getDateString = (date: Date): string => {
+  return date.toISOString().split('T')[0];
+};
+
+// ============================================
+// Tracker Input Component
+// ============================================
 
 interface TrackerInputProps {
-  icon: React.ReactNode;
-  label: string;
-  value: number | string;
+  metric: DailyMetric;
+  value: number | undefined;
   onChange: (value: number) => void;
-  unit: string;
-  placeholder: string;
-  color: string;
-  logged?: boolean;
-  goal?: number;
+  onSettingsClick: () => void;
 }
 
-const TrackerInput = ({ icon, label, value, onChange, unit, placeholder, color, logged, goal }: TrackerInputProps) => {
-  const numValue = Number(value) || 0;
-  const progress = goal && goal > 0 ? Math.min((numValue / goal) * 100, 100) : 0;
-  const isGoalMet = goal && numValue >= goal;
+const TrackerInput = ({ metric, value, onChange, onSettingsClick }: TrackerInputProps) => {
+  const numValue = value ?? 0;
+  const progress = metric.target && metric.target > 0 
+    ? Math.min((numValue / metric.target) * 100, 100) 
+    : 0;
+  const isGoalMet = metric.target && numValue >= metric.target;
+  const logged = numValue > 0;
+  
+  const renderInput = () => {
+    switch (metric.type) {
+      case 'boolean':
+        return (
+          <button
+            onClick={() => onChange(numValue === 1 ? 0 : 1)}
+            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+              numValue === 1 
+                ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
+                : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/20'
+            }`}
+          >
+            {numValue === 1 ? '✓ Done' : 'Mark Done'}
+          </button>
+        );
+      
+      case 'scale_1_10':
+        return (
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={numValue || 5}
+              onChange={(e) => onChange(Number(e.target.value))}
+              className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-pink-500"
+            />
+            <span className="w-8 text-center font-bold text-white">{numValue || '-'}</span>
+          </div>
+        );
+      
+      default: // 'number'
+        return (
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={value ?? ''}
+              onChange={(e) => onChange(Number(e.target.value))}
+              placeholder="0"
+              className="w-20 bg-transparent border-none text-white font-bold text-lg focus:outline-none"
+            />
+            {metric.unit && <span className="text-gray-500 text-sm">{metric.unit}</span>}
+          </div>
+        );
+    }
+  };
   
   return (
     <div className={`p-3 rounded-xl border transition-all ${
       isGoalMet 
         ? 'bg-green-500/20 border-green-500/50' 
         : logged 
-        ? `bg-white/5 border-white/20` 
+        ? 'bg-white/5 border-white/20' 
         : 'bg-white/5 border-white/10 hover:border-white/20'
     }`}>
       <div className="flex items-center gap-3">
         <div 
           className="w-10 h-10 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: `${color}20`, color }}
+          style={{ backgroundColor: `${metric.color || '#6366f1'}20`, color: metric.color || '#6366f1' }}
         >
-          {icon}
+          {getIcon(metric.icon)}
         </div>
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
-            <label className="text-xs text-gray-400">{label}</label>
-            {goal && (
-              <span className="text-[10px] text-gray-500">
-                Goal: {goal} {unit}
-              </span>
-            )}
+            <label className="text-xs text-gray-400 flex items-center gap-1">
+              {metric.label}
+              {metric.linkedNodeId && (
+                <Link2 className="w-3 h-3 text-purple-400" title="Linked to Psych Mirror" />
+              )}
+            </label>
+            <div className="flex items-center gap-2">
+              {metric.target && (
+                <span className="text-[10px] text-gray-500">
+                  Goal: {metric.target} {metric.unit}
+                </span>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); onSettingsClick(); }}
+                className="p-1 hover:bg-white/10 rounded transition-colors opacity-50 hover:opacity-100"
+              >
+                <Settings className="w-3 h-3 text-gray-400" />
+              </button>
+            </div>
           </div>
+          
           <div className="flex items-center gap-2">
-            <input
-              type="number"
-              value={value || ''}
-              onChange={(e) => onChange(Number(e.target.value))}
-              placeholder={placeholder}
-              className="w-20 bg-transparent border-none text-white font-bold text-lg focus:outline-none"
-            />
-            <span className="text-gray-500 text-sm">{unit}</span>
+            {renderInput()}
             {isGoalMet && <Check className="w-4 h-4 text-green-400 ml-auto" />}
           </div>
           
           {/* Progress bar towards goal */}
-          {goal && goal > 0 && (
+          {metric.target && metric.target > 0 && metric.type !== 'boolean' && (
             <div className="mt-2 h-1.5 bg-gray-700 rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${progress}%` }}
                 className="h-full rounded-full"
                 style={{ 
-                  backgroundColor: isGoalMet ? '#10b981' : color,
+                  backgroundColor: isGoalMet ? '#10b981' : metric.color || '#6366f1',
                 }}
                 transition={{ duration: 0.3 }}
               />
@@ -81,31 +182,92 @@ const TrackerInput = ({ icon, label, value, onChange, unit, placeholder, color, 
   );
 };
 
-// Goals Setting Modal
-const GoalsModal = ({ 
-  isOpen, 
-  onClose, 
-  goals, 
-  onSave 
-}: { 
-  isOpen: boolean; 
-  onClose: () => void; 
-  goals: TrackingGoals;
-  onSave: (goals: TrackingGoals) => void;
-}) => {
-  const [localGoals, setLocalGoals] = useState<TrackingGoals>(goals);
+// ============================================
+// Add/Edit Metric Modal
+// ============================================
+
+interface MetricModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  metric?: DailyMetric | null;
+  nodes: { id: string; label: string }[];
+  onSave: (metric: Omit<DailyMetric, 'id' | 'isDefault' | 'isActive'>) => void;
+  onUpdate?: (id: string, updates: Partial<DailyMetric>) => void;
+  onDelete?: (id: string) => void;
+  onToggleActive?: (id: string) => void;
+}
+
+const MetricModal = ({ 
+  isOpen, onClose, metric, nodes, onSave, onUpdate, onDelete, onToggleActive 
+}: MetricModalProps) => {
+  const [label, setLabel] = useState(metric?.label || '');
+  const [type, setType] = useState<MetricType>(metric?.type || 'number');
+  const [unit, setUnit] = useState(metric?.unit || '');
+  const [target, setTarget] = useState<number | undefined>(metric?.target);
+  const [linkedNodeId, setLinkedNodeId] = useState<string | undefined>(metric?.linkedNodeId);
+  const [color, setColor] = useState(metric?.color || '#6366f1');
+  const [icon, setIcon] = useState(metric?.icon || 'Target');
   
   useEffect(() => {
-    setLocalGoals(goals);
-  }, [goals]);
-
+    if (metric) {
+      setLabel(metric.label);
+      setType(metric.type);
+      setUnit(metric.unit || '');
+      setTarget(metric.target);
+      setLinkedNodeId(metric.linkedNodeId);
+      setColor(metric.color || '#6366f1');
+      setIcon(metric.icon || 'Target');
+    } else {
+      setLabel('');
+      setType('number');
+      setUnit('');
+      setTarget(undefined);
+      setLinkedNodeId(undefined);
+      setColor('#6366f1');
+      setIcon('Target');
+    }
+  }, [metric]);
+  
   if (!isOpen) return null;
-
+  
   const handleSave = () => {
-    onSave(localGoals);
+    if (!label.trim()) return;
+    
+    const metricData = {
+      label: label.trim(),
+      type,
+      unit: unit || undefined,
+      target: target || undefined,
+      linkedNodeId: linkedNodeId || undefined,
+      color,
+      icon
+    };
+    
+    if (metric && onUpdate) {
+      onUpdate(metric.id, metricData);
+    } else {
+      onSave(metricData);
+    }
     onClose();
   };
-
+  
+  const handleDelete = () => {
+    if (metric && onDelete && !metric.isDefault) {
+      onDelete(metric.id);
+      onClose();
+    }
+  };
+  
+  const handleToggleActive = () => {
+    if (metric && onToggleActive) {
+      onToggleActive(metric.id);
+      onClose();
+    }
+  };
+  
+  const COLORS = ['#f97316', '#22c55e', '#3b82f6', '#6366f1', '#ec4899', '#eab308', '#14b8a6', '#f43f5e'];
+  const ICONS = ['Flame', 'Dumbbell', 'Briefcase', 'Moon', 'Heart', 'Target', 'Zap', 'TrendingUp'];
+  
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -118,212 +280,298 @@ const GoalsModal = ({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-gray-900 border border-white/10 rounded-2xl p-6 max-w-md w-full"
+        className="bg-gray-900 border border-white/10 rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-              <Target className="w-5 h-5 text-white" />
+            <div 
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: `${color}20`, color }}
+            >
+              {getIcon(icon)}
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Set Your Goals</h3>
-              <p className="text-xs text-gray-400">Customize your daily targets</p>
+              <h3 className="text-lg font-bold text-white">
+                {metric ? 'Edit Metric' : 'Add New Metric'}
+              </h3>
+              <p className="text-xs text-gray-400">
+                {metric ? 'Customize this metric' : 'Create a custom tracking metric'}
+              </p>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
-
+        
         <div className="space-y-4">
+          {/* Label */}
           <div className="space-y-2">
-            <label className="text-sm text-gray-400 flex items-center gap-2">
-              <Flame className="w-4 h-4 text-orange-400" />
-              Daily Calories
-            </label>
+            <label className="text-sm text-gray-400">Label *</label>
             <input
-              type="number"
-              value={localGoals.calories || ''}
-              onChange={(e) => setLocalGoals(g => ({ ...g, calories: Number(e.target.value) || undefined }))}
-              placeholder="e.g., 2800"
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="e.g., Water Intake"
               className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500"
             />
           </div>
-
+          
+          {/* Type */}
           <div className="space-y-2">
-            <label className="text-sm text-gray-400 flex items-center gap-2">
-              <Dumbbell className="w-4 h-4 text-green-400" />
-              Exercise (minutes)
-            </label>
-            <input
-              type="number"
-              value={localGoals.exerciseMinutes || ''}
-              onChange={(e) => setLocalGoals(g => ({ ...g, exerciseMinutes: Number(e.target.value) || undefined }))}
-              placeholder="e.g., 60"
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500"
-            />
+            <label className="text-sm text-gray-400">Type</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['number', 'boolean', 'scale_1_10'] as MetricType[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setType(t)}
+                  className={`py-2 px-3 rounded-lg text-sm transition-all ${
+                    type === t 
+                      ? 'bg-purple-500/20 border border-purple-500/50 text-purple-400' 
+                      : 'bg-white/5 border border-white/10 text-gray-400 hover:border-white/20'
+                  }`}
+                >
+                  {t === 'number' ? 'Number' : t === 'boolean' ? 'Yes/No' : 'Scale 1-10'}
+                </button>
+              ))}
+            </div>
           </div>
-
+          
+          {/* Unit (for number type) */}
+          {type === 'number' && (
+            <div className="space-y-2">
+              <label className="text-sm text-gray-400">Unit (optional)</label>
+              <input
+                type="text"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                placeholder="e.g., glasses, steps, pages"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500"
+              />
+            </div>
+          )}
+          
+          {/* Target */}
+          {type !== 'boolean' && (
+            <div className="space-y-2">
+              <label className="text-sm text-gray-400">Target Goal (optional)</label>
+              <input
+                type="number"
+                value={target ?? ''}
+                onChange={(e) => setTarget(e.target.value ? Number(e.target.value) : undefined)}
+                placeholder={type === 'scale_1_10' ? 'e.g., 7' : 'e.g., 8'}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500"
+              />
+            </div>
+          )}
+          
+          {/* Link to Psych Mirror Node */}
           <div className="space-y-2">
             <label className="text-sm text-gray-400 flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-blue-400" />
-              Deep Work (hours)
+              <Link2 className="w-4 h-4 text-purple-400" />
+              Link to Psych Mirror Node (optional)
             </label>
-            <input
-              type="number"
-              value={localGoals.deepWorkHours || ''}
-              onChange={(e) => setLocalGoals(g => ({ ...g, deepWorkHours: Number(e.target.value) || undefined }))}
-              placeholder="e.g., 4"
+            <select
+              value={linkedNodeId || ''}
+              onChange={(e) => setLinkedNodeId(e.target.value || undefined)}
               className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500"
-            />
+            >
+              <option value="">No link</option>
+              {nodes.map((node) => (
+                <option key={node.id} value={node.id}>{node.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500">
+              Linking syncs this metric's progress to your identity graph
+            </p>
           </div>
-
+          
+          {/* Color */}
           <div className="space-y-2">
-            <label className="text-sm text-gray-400 flex items-center gap-2">
-              <Moon className="w-4 h-4 text-indigo-400" />
-              Sleep (hours)
-            </label>
-            <input
-              type="number"
-              value={localGoals.sleepHours || ''}
-              onChange={(e) => setLocalGoals(g => ({ ...g, sleepHours: Number(e.target.value) || undefined }))}
-              placeholder="e.g., 8"
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500"
-            />
+            <label className="text-sm text-gray-400">Color</label>
+            <div className="flex gap-2 flex-wrap">
+              {COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={`w-8 h-8 rounded-lg transition-all ${
+                    color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-900' : ''
+                  }`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
           </div>
-
+          
+          {/* Icon */}
           <div className="space-y-2">
-            <label className="text-sm text-gray-400 flex items-center gap-2">
-              <Heart className="w-4 h-4 text-pink-400" />
-              Target Mood (1-10)
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="10"
-              value={localGoals.mood || ''}
-              onChange={(e) => setLocalGoals(g => ({ ...g, mood: Math.min(10, Math.max(1, Number(e.target.value))) || undefined }))}
-              placeholder="e.g., 7"
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500"
-            />
+            <label className="text-sm text-gray-400">Icon</label>
+            <div className="flex gap-2 flex-wrap">
+              {ICONS.map((i) => (
+                <button
+                  key={i}
+                  onClick={() => setIcon(i)}
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+                    icon === i 
+                      ? 'bg-white/20 border border-white/30' 
+                      : 'bg-white/5 border border-white/10 hover:border-white/20'
+                  }`}
+                  style={{ color }}
+                >
+                  {getIcon(i)}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-
-        <div className="mt-6 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 hover:bg-white/5 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold hover:opacity-90 transition-opacity"
-          >
-            Save Goals
-          </button>
+        
+        {/* Actions */}
+        <div className="mt-6 space-y-3">
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 hover:bg-white/5 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!label.trim()}
+              className="flex-1 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {metric ? 'Save Changes' : 'Add Metric'}
+            </button>
+          </div>
+          
+          {/* Toggle active / Delete for existing metrics */}
+          {metric && (
+            <div className="flex gap-3">
+              <button
+                onClick={handleToggleActive}
+                className="flex-1 py-2 rounded-xl border border-white/10 text-gray-400 hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+              >
+                {metric.isActive ? (
+                  <>
+                    <ToggleRight className="w-4 h-4" />
+                    Deactivate
+                  </>
+                ) : (
+                  <>
+                    <ToggleLeft className="w-4 h-4" />
+                    Activate
+                  </>
+                )}
+              </button>
+              {!metric.isDefault && (
+                <button
+                  onClick={handleDelete}
+                  className="flex-1 py-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </motion.div>
     </motion.div>
   );
 };
 
+// ============================================
+// Main Daily Tracker Component
+// ============================================
+
 export const DailyTracker = () => {
-  const { user, updateTrackingData, setTrackingGoals } = useUserStore();
+  const { user, updateNodeStrength } = useUserStore();
+  const { 
+    metrics, 
+    entries,
+    getActiveMetrics, 
+    getValueFor, 
+    upsertEntry, 
+    getTrackingProgress,
+    addMetric,
+    updateMetric,
+    deleteMetric,
+    toggleMetricActive,
+    syncMirrorFromMetrics
+  } = useIdentityStore();
+  
   const [isExpanded, setIsExpanded] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [showGoalsModal, setShowGoalsModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [editingMetric, setEditingMetric] = useState<DailyMetric | null>(null);
+  const [showAddMetric, setShowAddMetric] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   
-  const goals = user?.trackingGoals || {};
+  // Get active metrics
+  const activeMetrics = useMemo(() => getActiveMetrics(), [metrics]);
   
-  // Get today's tracking data from store or initialize empty
-  const getTodayTracking = () => {
-    if (!user?.trackingData) return null;
-    const today = new Date().toDateString();
-    return user.trackingData.find(t => new Date(t.date).toDateString() === today);
+  // Get tracking progress for selected date
+  const progress = useMemo(
+    () => getTrackingProgress(selectedDate), 
+    [selectedDate, metrics, entries, getTrackingProgress]
+  );
+  
+  // Get nodes for linking
+  const availableNodes = useMemo(() => {
+    return user?.identityNodes?.map(n => ({ id: n.id, label: n.label })) || [];
+  }, [user?.identityNodes]);
+  
+  // Count goals met
+  const goalsMetCount = useMemo(() => {
+    return activeMetrics.filter(m => {
+      if (!m.target) return false;
+      const value = getValueFor(selectedDate, m.id) ?? 0;
+      return value >= m.target;
+    }).length;
+  }, [activeMetrics, selectedDate, entries, getValueFor]);
+  
+  const totalGoals = activeMetrics.filter(m => m.target).length;
+  
+  // Date navigation
+  const goToPreviousDay = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() - 1);
+    setSelectedDate(newDate);
   };
-
-  const todayData = getTodayTracking();
   
-  // Local state initialized from store
-  const [tracking, setTracking] = useState({
-    calories: todayData?.calories || 0,
-    exercise: todayData?.exerciseMinutes || 0,
-    workHours: todayData?.deepWorkHours || 0,
-    sleepHours: todayData?.sleepHours || 0,
-    mood: todayData?.mood || 0
-  });
-
-  // Sync local state when store changes
-  useEffect(() => {
-    const data = getTodayTracking();
-    if (data) {
-      setTracking({
-        calories: data.calories || 0,
-        exercise: data.exerciseMinutes || 0,
-        workHours: data.deepWorkHours || 0,
-        sleepHours: data.sleepHours || 0,
-        mood: data.mood || 0
-      });
+  const goToNextDay = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + 1);
+    // Don't allow future dates
+    if (newDate <= new Date()) {
+      setSelectedDate(newDate);
     }
-  }, [user?.trackingData]);
-
-  // Calculate goals met
-  const goalsMetCount = [
-    goals.calories && tracking.calories >= goals.calories,
-    goals.exerciseMinutes && tracking.exercise >= goals.exerciseMinutes,
-    goals.deepWorkHours && tracking.workHours >= goals.deepWorkHours,
-    goals.sleepHours && tracking.sleepHours >= goals.sleepHours,
-    goals.mood && tracking.mood >= goals.mood,
-  ].filter(Boolean).length;
-
-  const totalGoals = [
-    goals.calories,
-    goals.exerciseMinutes,
-    goals.deepWorkHours,
-    goals.sleepHours,
-    goals.mood,
-  ].filter(Boolean).length;
-
-  const trackedCount = Object.values(tracking).filter(v => v > 0).length;
-  const totalCategories = 5;
-  const trackingPercentage = Math.round((trackedCount / totalCategories) * 100);
-
-  // Auto-save when values change (debounced effect)
-  useEffect(() => {
-    const hasData = Object.values(tracking).some(v => v > 0);
-    if (hasData) {
-      const timer = setTimeout(() => {
-        updateTrackingData({
-          date: new Date(),
-          calories: tracking.calories || undefined,
-          exerciseMinutes: tracking.exercise || undefined,
-          deepWorkHours: tracking.workHours || undefined,
-          sleepHours: tracking.sleepHours || undefined,
-          mood: tracking.mood || undefined
-        });
-      }, 500); // Debounce 500ms
-      return () => clearTimeout(timer);
-    }
-  }, [tracking]);
-
-  const handleSaveTracking = () => {
-    updateTrackingData({
-      date: new Date(),
-      calories: tracking.calories || undefined,
-      exerciseMinutes: tracking.exercise || undefined,
-      deepWorkHours: tracking.workHours || undefined,
-      sleepHours: tracking.sleepHours || undefined,
-      mood: tracking.mood || undefined
-    });
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
   };
-
+  
+  const goToToday = () => {
+    setSelectedDate(new Date());
+  };
+  
+  const isToday = selectedDate.toDateString() === new Date().toDateString();
+  const isFuture = selectedDate > new Date();
+  
+  // Handle value change
+  const handleValueChange = (metricId: string, value: number) => {
+    upsertEntry(selectedDate, metricId, value);
+  };
+  
+  // Sync to Psych Mirror
+  const handleSyncToMirror = () => {
+    if (!user?.identityNodes) return;
+    
+    syncMirrorFromMetrics(user.identityNodes, updateNodeStrength);
+    setSyncMessage('✓ Psych Mirror updated from your tracking data!');
+    setTimeout(() => setSyncMessage(null), 3000);
+  };
+  
+  // Check if any metrics are linked
+  const hasLinkedMetrics = activeMetrics.some(m => m.linkedNodeId);
+  
   return (
     <>
       <motion.div
@@ -355,7 +603,7 @@ export const DailyTracker = () => {
                   )}
                 </h3>
                 <p className="text-xs text-gray-400">
-                  {trackingPercentage}% tracked today
+                  {progress.percentage}% tracked {isToday ? 'today' : 'on ' + formatDate(selectedDate)}
                 </p>
               </div>
             </div>
@@ -363,12 +611,12 @@ export const DailyTracker = () => {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowGoalsModal(true);
+                  setShowAddMetric(true);
                 }}
                 className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                title="Set Goals"
+                title="Add Metric"
               >
-                <Settings className="w-4 h-4 text-gray-400" />
+                <Plus className="w-4 h-4 text-gray-400" />
               </button>
               {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
             </div>
@@ -378,14 +626,13 @@ export const DailyTracker = () => {
           <div className="mt-3 h-2 bg-gray-700 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${trackingPercentage}%` }}
+              animate={{ width: `${progress.percentage}%` }}
               className="h-full bg-gradient-to-r from-orange-500 to-red-500"
               transition={{ duration: 0.5 }}
             />
           </div>
         </div>
 
-        {/* Why tracking matters callout */}
         <AnimatePresence>
           {isExpanded && (
             <motion.div
@@ -393,19 +640,56 @@ export const DailyTracker = () => {
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
             >
-              {/* Set goals prompt if no goals set */}
-              {totalGoals === 0 && (
-                <div 
-                  className="px-4 py-3 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-b border-white/5 cursor-pointer hover:from-purple-500/20 hover:to-blue-500/20 transition-colors"
-                  onClick={() => setShowGoalsModal(true)}
-                >
-                  <div className="flex items-center gap-2">
-                    <Target className="w-4 h-4 text-purple-400" />
-                    <p className="text-sm text-gray-300">
-                      <span className="text-purple-400 font-semibold">Set your daily goals</span>
-                      {' '}— Track progress towards your targets
-                    </p>
+              {/* Date Selector */}
+              <div className="px-4 py-3 bg-white/5 border-b border-white/5">
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={goToPreviousDay}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-gray-400" />
+                  </button>
+                  
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <span className="font-semibold text-white">{formatDate(selectedDate)}</span>
+                    {!isToday && (
+                      <button
+                        onClick={goToToday}
+                        className="text-xs px-2 py-1 bg-purple-500/20 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors"
+                      >
+                        Today
+                      </button>
+                    )}
                   </div>
+                  
+                  <button
+                    onClick={goToNextDay}
+                    disabled={isToday || isFuture}
+                    className={`p-2 rounded-lg transition-colors ${
+                      isToday || isFuture 
+                        ? 'opacity-30 cursor-not-allowed' 
+                        : 'hover:bg-white/10'
+                    }`}
+                  >
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Sync to Mirror Button */}
+              {hasLinkedMetrics && (
+                <div className="px-4 py-3 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-b border-white/5">
+                  <button
+                    onClick={handleSyncToMirror}
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 transition-colors"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    <span className="text-sm font-semibold">Update Psych Mirror from Tracking</span>
+                  </button>
+                  {syncMessage && (
+                    <p className="text-xs text-green-400 text-center mt-2">{syncMessage}</p>
+                  )}
                 </div>
               )}
 
@@ -424,101 +708,58 @@ export const DailyTracker = () => {
 
               {/* Tracking inputs */}
               <div className="p-4 space-y-3">
-                <TrackerInput
-                  icon={<Flame className="w-5 h-5" />}
-                  label="Calories"
-                  value={tracking.calories}
-                  onChange={(v) => setTracking(t => ({ ...t, calories: v }))}
-                  unit="cal"
-                  placeholder="2000"
-                  color="#f97316"
-                  logged={tracking.calories > 0}
-                  goal={goals.calories}
-                />
+                {activeMetrics.map((metric) => (
+                  <TrackerInput
+                    key={metric.id}
+                    metric={metric}
+                    value={getValueFor(selectedDate, metric.id)}
+                    onChange={(value) => handleValueChange(metric.id, value)}
+                    onSettingsClick={() => setEditingMetric(metric)}
+                  />
+                ))}
                 
-                <TrackerInput
-                  icon={<Dumbbell className="w-5 h-5" />}
-                  label="Exercise"
-                  value={tracking.exercise}
-                  onChange={(v) => setTracking(t => ({ ...t, exercise: v }))}
-                  unit="min"
-                  placeholder="30"
-                  color="#22c55e"
-                  logged={tracking.exercise > 0}
-                  goal={goals.exerciseMinutes}
-                />
-                
-                <TrackerInput
-                  icon={<Briefcase className="w-5 h-5" />}
-                  label="Deep Work"
-                  value={tracking.workHours}
-                  onChange={(v) => setTracking(t => ({ ...t, workHours: v }))}
-                  unit="hrs"
-                  placeholder="4"
-                  color="#3b82f6"
-                  logged={tracking.workHours > 0}
-                  goal={goals.deepWorkHours}
-                />
-                
-                <TrackerInput
-                  icon={<Moon className="w-5 h-5" />}
-                  label="Sleep"
-                  value={tracking.sleepHours}
-                  onChange={(v) => setTracking(t => ({ ...t, sleepHours: v }))}
-                  unit="hrs"
-                  placeholder="8"
-                  color="#6366f1"
-                  logged={tracking.sleepHours > 0}
-                  goal={goals.sleepHours}
-                />
-                
-                <TrackerInput
-                  icon={<Heart className="w-5 h-5" />}
-                  label="Mood (1-10)"
-                  value={tracking.mood}
-                  onChange={(v) => setTracking(t => ({ ...t, mood: Math.min(10, Math.max(1, v)) }))}
-                  unit=""
-                  placeholder="7"
-                  color="#ec4899"
-                  logged={tracking.mood > 0}
-                  goal={goals.mood}
-                />
-              </div>
-
-              {/* Save button and streak info */}
-              <div className="px-4 pb-4">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleSaveTracking}
-                  disabled={trackedCount === 0}
-                  className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-                    goalsMetCount === totalGoals && totalGoals > 0
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
-                      : trackedCount > 0
-                      ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white'
-                      : 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  {goalsMetCount === totalGoals && totalGoals > 0 ? (
-                    <>
-                      <Check className="w-5 h-5" />
-                      All Goals Met! Save Today
-                    </>
-                  ) : (
-                    <>
-                      <TrendingUp className="w-5 h-5" />
-                      Save Progress ({trackedCount}/{totalCategories})
-                    </>
-                  )}
-                </motion.button>
-                
-                {trackedCount < totalCategories && (
-                  <p className="text-center text-xs text-gray-500 mt-2">
-                    Track all 5 categories for maximum AI insight
-                  </p>
+                {activeMetrics.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No active metrics. Add one to start tracking!</p>
+                    <button
+                      onClick={() => setShowAddMetric(true)}
+                      className="mt-3 px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors"
+                    >
+                      <Plus className="w-4 h-4 inline mr-2" />
+                      Add Metric
+                    </button>
+                  </div>
                 )}
               </div>
+
+              {/* Summary */}
+              {activeMetrics.length > 0 && (
+                <div className="px-4 pb-4">
+                  <div className={`p-3 rounded-lg ${
+                    progress.percentage === 100 
+                      ? 'bg-green-500/20 border border-green-500/30' 
+                      : 'bg-white/5 border border-white/10'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-400">
+                        {progress.tracked}/{progress.total} metrics tracked
+                      </span>
+                      {progress.percentage === 100 && (
+                        <span className="text-green-400 text-sm flex items-center gap-1">
+                          <Check className="w-4 h-4" />
+                          Complete!
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {progress.tracked < progress.total && (
+                    <p className="text-center text-xs text-gray-500 mt-2">
+                      Track all metrics for maximum AI insight
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Success message */}
               <AnimatePresence>
@@ -542,14 +783,30 @@ export const DailyTracker = () => {
         </AnimatePresence>
       </motion.div>
 
-      {/* Goals Modal */}
+      {/* Add Metric Modal */}
       <AnimatePresence>
-        {showGoalsModal && (
-          <GoalsModal
-            isOpen={showGoalsModal}
-            onClose={() => setShowGoalsModal(false)}
-            goals={goals}
-            onSave={setTrackingGoals}
+        {showAddMetric && (
+          <MetricModal
+            isOpen={showAddMetric}
+            onClose={() => setShowAddMetric(false)}
+            nodes={availableNodes}
+            onSave={addMetric}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Edit Metric Modal */}
+      <AnimatePresence>
+        {editingMetric && (
+          <MetricModal
+            isOpen={!!editingMetric}
+            onClose={() => setEditingMetric(null)}
+            metric={editingMetric}
+            nodes={availableNodes}
+            onSave={addMetric}
+            onUpdate={updateMetric}
+            onDelete={deleteMetric}
+            onToggleActive={toggleMetricActive}
           />
         )}
       </AnimatePresence>
