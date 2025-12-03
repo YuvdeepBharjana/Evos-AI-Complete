@@ -2,8 +2,9 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom';
 import ForceGraph2D from 'react-force-graph-2d';
 import * as d3 from 'd3-force';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useUserStore } from '../../store/useUserStore';
-import { Play, X, TrendingUp, AlertTriangle, Target, Zap, Trophy, Heart, AlertCircle } from 'lucide-react';
+import { Play, X, TrendingUp, AlertTriangle, Target, Zap, Trophy, Heart, AlertCircle, Loader2 } from 'lucide-react';
 
 // ============================================================================
 // TYPES
@@ -144,7 +145,21 @@ export const PsychMirror: React.FC = () => {
   const [hoverNode, setHoverNode] = useState<PsychNode | null>(null);
   const [filterCategory, setFilterCategory] = useState<NodeCategory | 'all'>('all');
   const [showTodaysFocus, setShowTodaysFocus] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [graphReady, setGraphReady] = useState(false);
   const fgRef = useRef<any>(null);
+
+  // Smooth loading transition
+  useEffect(() => {
+    // Initial fade in after component mounts
+    const loadTimer = setTimeout(() => setIsLoaded(true), 100);
+    // Graph ready after force simulation settles
+    const graphTimer = setTimeout(() => setGraphReady(true), 800);
+    return () => {
+      clearTimeout(loadTimer);
+      clearTimeout(graphTimer);
+    };
+  }, []);
 
   // Get today's daily action node IDs for highlighting
   const todayActionNodeIds = useMemo(() => {
@@ -452,7 +467,7 @@ export const PsychMirror: React.FC = () => {
 
   return (
     <div 
-      className="h-full w-full flex flex-col"
+      className="h-full w-full flex flex-col relative"
       style={{
         backgroundColor: '#0a0a0f',
         backgroundImage: `
@@ -462,8 +477,84 @@ export const PsychMirror: React.FC = () => {
         `
       }}
     >
-      {/* Header with Stats */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
+      {/* Loading overlay with fade out */}
+      <AnimatePresence>
+        {!graphReady && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-[#0a0a0f]"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className="flex flex-col items-center gap-4"
+            >
+              {/* Animated brain/neural icon */}
+              <div className="relative">
+                <motion.div
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    opacity: [0.5, 1, 0.5]
+                  }}
+                  transition={{ 
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-cyan-500/30 blur-xl"
+                />
+                <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-500 flex items-center justify-center">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Loader2 className="w-8 h-8 text-white" />
+                  </motion.div>
+                </div>
+              </div>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-gray-400 text-sm font-medium"
+              >
+                Loading your identity map...
+              </motion.p>
+              {/* Animated dots */}
+              <div className="flex gap-1">
+                {[0, 1, 2].map(i => (
+                  <motion.div
+                    key={i}
+                    animate={{ 
+                      y: [0, -8, 0],
+                      opacity: [0.3, 1, 0.3]
+                    }}
+                    transition={{ 
+                      duration: 0.8,
+                      repeat: Infinity,
+                      delay: i * 0.15
+                    }}
+                    className="w-2 h-2 rounded-full bg-gradient-to-r from-indigo-400 to-cyan-400"
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Main content with fade in */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: isLoaded ? 1 : 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="flex flex-col h-full"
+      >
+        {/* Header with Stats */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold text-white">Identity Map</h1>
           <div className="flex items-center gap-3 text-sm">
@@ -699,6 +790,7 @@ export const PsychMirror: React.FC = () => {
           </p>
         </div>
       )}
+      </motion.div>
     </div>
   );
 };
