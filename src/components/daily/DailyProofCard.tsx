@@ -4,14 +4,28 @@ import { Check, X, Zap, Clock, RefreshCw, MessageSquare, ArrowRight } from 'luci
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../../store/useUserStore';
 import { generateDailyActions, getCompletionMessage } from '../../lib/generateDailyActions';
+import { checkIn } from '../../lib/api';
 import type { DailyAction } from '../../types';
 
 export const DailyProofCard = () => {
   const navigate = useNavigate();
-  const { user, setDailyActions, markActionComplete, addMessage } = useUserStore();
+  const { user, setDailyActions, markActionComplete, addMessage, lastUpdatedNodeId } = useUserStore();
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [showReflection, setShowReflection] = useState(false);
   const [reflectionText, setReflectionText] = useState('');
+  const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
+
+  // Helper to check if action is for today
+  const isActionForToday = (action: DailyAction): boolean => {
+    if (!action.createdAt) return false;
+    const actionDate = new Date(action.createdAt);
+    const today = new Date();
+    return (
+      actionDate.getDate() === today.getDate() &&
+      actionDate.getMonth() === today.getMonth() &&
+      actionDate.getFullYear() === today.getFullYear()
+    );
+  };
 
   useEffect(() => {
     if (user?.identityNodes && (!user.dailyActions || user.dailyActions.length === 0)) {
@@ -20,10 +34,36 @@ export const DailyProofCard = () => {
     }
   }, [user?.identityNodes]);
 
+  // Reset check-in flag at start of new day
+  useEffect(() => {
+    const today = new Date().toDateString();
+    const lastCheckInDate = localStorage.getItem('lastCheckInDate');
+    if (lastCheckInDate !== today) {
+      setHasCheckedInToday(false);
+      localStorage.setItem('lastCheckInDate', today);
+    }
+  }, []);
+
   const actions = user?.dailyActions || [];
   const completedCount = actions.filter(a => a.completed === true).length;
   const totalCount = actions.length;
   const allMarked = actions.every(a => a.completed !== null);
+  const allCompleted = actions.length > 0 && actions.every(a => a.completed === true);
+  
+  // Check if all actions are for today
+  const todayActions = actions.filter(isActionForToday);
+  const allTodayActionsComplete = todayActions.length > 0 && todayActions.every(a => a.completed === true);
+
+  // Auto-check-in when all today's actions are completed
+  // Note: This only checks actions. Tracking completion is handled in DailyTracker
+  // The actual check-in happens when BOTH are complete (handled in DailyTracker)
+  useEffect(() => {
+    // Just dispatch event for tracking component to handle combined check
+    if (allTodayActionsComplete && !hasCheckedInToday) {
+      console.log('✅ All actions complete, dispatching actions-complete event');
+      window.dispatchEvent(new CustomEvent('actions-complete'));
+    }
+  }, [allTodayActionsComplete, hasCheckedInToday]);
 
   const handleMarkComplete = (action: DailyAction, completed: boolean) => {
     markActionComplete(action.id, completed);
@@ -145,20 +185,42 @@ export const DailyProofCard = () => {
 
       {/* Actions list */}
       <div className="p-4 space-y-3">
-        {actions.map((action, index) => (
+        {actions.map((action, index) => {
+          const isToday = isActionForToday(action);
+          const isPendingToday = action.completed === null && isToday && action.nodeId !== 'tracking';
+          const isLastUpdated = lastUpdatedNodeId === action.nodeId;
+          
+          return (
           <motion.div
             key={action.id}
             initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className={`p-4 rounded-xl border transition-all ${
+            animate={{ 
+              opacity: 1, 
+              x: 0,
+              scale: isLastUpdated ? 1.02 : 1,
+              boxShadow: isLastUpdated 
+                ? '0 0 20px rgba(168, 85, 247, 0.5)' 
+                : 'none'
+            }}
+            transition={{ 
+              delay: index * 0.1,
+              scale: { duration: 0.3 },
+              boxShadow: { duration: 0.3 }
+            }}
+            className={`p-4 rounded-xl border transition-all relative ${
               action.completed === true
                 ? 'bg-green-500/10 border-green-500/30'
                 : action.completed === false
                 ? 'bg-red-500/10 border-red-500/30'
+                : isPendingToday
+                ? 'bg-purple-500/20 border-purple-500/50'
                 : 'bg-white/5 border-white/10 hover:border-white/20'
             }`}
           >
+            {/* "Must be taken today" indicator */}
+            {isPendingToday && (
+              <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-3/4 bg-gradient-to-b from-purple-400 to-blue-400 rounded-r-full" />
+            )}
             <div className="flex items-start gap-3">
               {/* Status indicator */}
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
@@ -183,6 +245,11 @@ export const DailyProofCard = () => {
                   <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-medium">
                     {action.nodeName}
                   </span>
+                  {isPendingToday && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-gradient-to-r from-purple-500/30 to-blue-500/30 text-purple-200 font-semibold border border-purple-400/50">
+                      Today's proof-move
+                    </span>
+                  )}
                   <span className="text-xs text-gray-500 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {action.timeEstimate}
@@ -241,7 +308,8 @@ export const DailyProofCard = () => {
               )}
             </div>
           </motion.div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Feedback message */}

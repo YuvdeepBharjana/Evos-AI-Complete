@@ -373,7 +373,7 @@ export interface ExperimentData {
   currentStreak?: number;
   longestStreak?: number;
   progress?: number;
-  activities?: Array<{ date: string; actions_done: number; tracked: number }>;
+  activities?: Array<{ date: string; actions_done: number; actions_total?: number; tracked: number }>;
   milestones?: Array<{ type: string; achieved_at: string; metadata: string }>;
   message?: string;
 }

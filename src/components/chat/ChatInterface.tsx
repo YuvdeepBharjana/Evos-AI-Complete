@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { v4 as uuidv4 } from 'uuid';
 import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
 import { useUserStore } from '../../store/useUserStore';
 import { extractIdentityFromChat } from '../../lib/extractIdentityFromChat';
-import { sendChatMessage, checkApiHealth } from '../../lib/api';
-import type { Message } from '../../types';
+import { sendChatMessage, checkApiHealth, createNode } from '../../lib/api';
+import type { Message, IdentityNode, NodeType } from '../../types';
 
 // Fallback AI responses when API is unavailable
 const generateLocalResponse = (userMessage: string, userName: string): string => {
@@ -53,6 +54,77 @@ export const ChatInterface = () => {
     checkApiHealth().then(setApiAvailable);
   }, []);
 
+  // Parse explicit node creation requests
+  const parseExplicitNodeCreation = (message: string, existingNodes: IdentityNode[]): IdentityNode[] => {
+    const lowerMessage = message.toLowerCase();
+    const newNodes: IdentityNode[] = [];
+    
+    // Check for explicit node creation patterns
+    const nodeCreationPatterns = [
+      /(?:add|create|make|new)\s+(?:a\s+)?(?:node|identity\s+node)\s+(?:called|named|with\s+label|:)?\s*["']?([^"'.!?]+)["']?/i,
+      /(?:add|create|make)\s+["']?([^"'.!?]+)["']?\s+(?:as\s+)?(?:a\s+)?(?:node|identity\s+node)/i,
+      /(?:add|create)\s+(?:a\s+)?(goal|habit|trait|emotion|struggle|interest)\s+(?:called|named)?\s*["']?([^"'.!?]+)["']?/i,
+    ];
+    
+    const existingLabels = new Set(existingNodes.map(n => n.label.toLowerCase()));
+    
+    for (const pattern of nodeCreationPatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        let nodeLabel = '';
+        let nodeType: NodeType = 'goal';
+        
+        // Check if type is specified
+        const typeMatch = lowerMessage.match(/(goal|habit|trait|emotion|struggle|interest)/);
+        if (typeMatch) {
+          nodeType = typeMatch[1] as NodeType;
+          nodeLabel = match[2] || match[1];
+        } else {
+          nodeLabel = match[1] || match[2];
+        }
+        
+        // Clean up the label
+        nodeLabel = nodeLabel.trim().replace(/^["']|["']$/g, '').slice(0, 50);
+        
+        if (nodeLabel.length > 2 && !existingLabels.has(nodeLabel.toLowerCase())) {
+          existingLabels.add(nodeLabel.toLowerCase());
+          
+          // Determine default strength based on type
+          let strength = 50;
+          let status: 'mastered' | 'active' | 'developing' | 'neglected' = 'developing';
+          
+          if (nodeType === 'goal') {
+            strength = 60;
+            status = 'active';
+          } else if (nodeType === 'struggle') {
+            strength = 40;
+            status = 'developing';
+          } else if (nodeType === 'habit') {
+            strength = 55;
+            status = 'active';
+          } else if (nodeType === 'trait') {
+            strength = 65;
+            status = 'active';
+          }
+          
+          newNodes.push({
+            id: `node-chat-${uuidv4()}`,
+            label: nodeLabel.charAt(0).toUpperCase() + nodeLabel.slice(1),
+            type: nodeType,
+            strength,
+            status,
+            connections: [],
+            lastUpdated: new Date(),
+            createdAt: new Date(),
+            description: `Created from chat: "${message.slice(0, 100)}"`
+          });
+        }
+      }
+    }
+    
+    return newNodes;
+  };
+
   const handleSendMessage = async (content: string) => {
     if (!user) return;
 
@@ -65,10 +137,29 @@ export const ChatInterface = () => {
     };
     addMessage(userMessage);
 
-    // Extract identity from user message and add new nodes
-    const newNodes = extractIdentityFromChat(content, user.identityNodes);
-    if (newNodes.length > 0) {
-      addNodes(newNodes);
+    // Check for explicit node creation first
+    const explicitNodes = parseExplicitNodeCreation(content, user.identityNodes);
+    
+    // Also extract identity from user message (natural language patterns)
+    const extractedNodes = extractIdentityFromChat(content, user.identityNodes);
+    
+    // Combine and deduplicate nodes
+    const allNewNodes = [...explicitNodes, ...extractedNodes];
+    const uniqueNodes = allNewNodes.filter((node, index, self) => 
+      index === self.findIndex(n => n.label.toLowerCase() === node.label.toLowerCase())
+    );
+    
+    if (uniqueNodes.length > 0) {
+      addNodes(uniqueNodes);
+      // Also save to backend
+      try {
+        for (const node of uniqueNodes) {
+          await createNode(node);
+        }
+      } catch (error) {
+        console.error('Failed to save nodes to backend:', error);
+        // Continue anyway - nodes are in local store
+      }
     }
 
     // Show typing indicator
@@ -90,9 +181,58 @@ export const ChatInterface = () => {
         aiResponseText = generateLocalResponse(content, user.name);
       }
       
+      // Parse AI response for node creation commands
+      const aiSuggestedNodes: IdentityNode[] = [];
+      const nodePattern = /\[ADD_NODE:(\w+):([^:]+):(\d+)\]/g;
+      let match;
+      
+      while ((match = nodePattern.exec(aiResponseText)) !== null) {
+        const [fullMatch, type, label, strengthStr] = match;
+        const nodeType = type.toLowerCase() as NodeType;
+        const strength = parseInt(strengthStr, 10);
+        const cleanLabel = label.trim();
+        
+        // Check if node already exists
+        const existingLabels = new Set(user.identityNodes.map(n => n.label.toLowerCase()));
+        if (!existingLabels.has(cleanLabel.toLowerCase()) && 
+            ['goal', 'habit', 'trait', 'emotion', 'struggle', 'interest'].includes(nodeType)) {
+          aiSuggestedNodes.push({
+            id: `node-ai-${uuidv4()}`,
+            label: cleanLabel,
+            type: nodeType,
+            strength: Math.min(100, Math.max(1, strength)),
+            status: strength >= 70 ? 'active' : 'developing',
+            connections: [],
+            lastUpdated: new Date(),
+            createdAt: new Date(),
+            description: 'Identified by AI from conversation'
+          });
+        }
+        
+        // Remove the command from the response text
+        aiResponseText = aiResponseText.replace(fullMatch, '').trim();
+      }
+      
+      // Add AI-suggested nodes
+      if (aiSuggestedNodes.length > 0) {
+        addNodes(aiSuggestedNodes);
+        // Save to backend
+        try {
+          for (const node of aiSuggestedNodes) {
+            await createNode(node);
+          }
+        } catch (error) {
+          console.error('Failed to save AI-suggested nodes to backend:', error);
+        }
+      }
+      
+      // Combine all new nodes for the confirmation message
+      const allNewNodes = [...uniqueNodes, ...aiSuggestedNodes];
+      
       // If new identity nodes were found, mention it
-      if (newNodes.length > 0) {
-        aiResponseText += `\n\n✨ I noticed something! I've added ${newNodes.length} new insight${newNodes.length > 1 ? 's' : ''} to your identity mirror: ${newNodes.map(n => n.label).join(', ')}.`;
+      if (allNewNodes.length > 0 && !aiResponseText.includes('identity mirror')) {
+        const nodeLabels = allNewNodes.map(n => n.label).join(', ');
+        aiResponseText += `\n\n✨ Added to your identity mirror: ${nodeLabels}.`;
       }
       
       const aiResponse: Message = {

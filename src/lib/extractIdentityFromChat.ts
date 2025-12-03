@@ -45,7 +45,38 @@ export const extractIdentityFromChat = (
     }
   });
 
-  // Extract struggles
+  // Extract habits FIRST (before struggles) to catch "struggling with a habit"
+  const habitPatterns = [
+    /i ([^.!?,]+) every day/gi,
+    /i ([^.!?,]+) daily/gi,
+    /my routine is ([^.!?,]+)/gi,
+    /i always ([^.!?,]+)/gi,
+    /i usually ([^.!?,]+)/gi,
+    /i'm trying to ([^.!?,]+) every day/gi,
+    /i want to ([^.!?,]+) daily/gi,
+  ];
+
+  habitPatterns.forEach(pattern => {
+    const matches = lowerMessage.matchAll(pattern);
+    for (const match of matches) {
+      const habit = match[1].trim().slice(0, 40);
+      if (habit.length > 3 && !existingLabels.has(habit)) {
+        existingLabels.add(habit);
+        newNodes.push({
+          id: `node-chat-${nodeId++}`,
+          label: habit.charAt(0).toUpperCase() + habit.slice(1),
+          type: 'habit',
+          strength: 55,
+          status: 'active',
+          connections: [],
+          lastUpdated: new Date(),
+          description: 'Habit mentioned in conversation'
+        });
+      }
+    }
+  });
+
+  // Extract struggles (but check if it's actually a habit they're struggling with)
   const strugglePatterns = [
     /i struggle with ([^.!?,]+)/gi,
     /i'm struggling with ([^.!?,]+)/gi,
@@ -53,6 +84,9 @@ export const extractIdentityFromChat = (
     /i can't ([^.!?,]+)/gi,
     /my problem is ([^.!?,]+)/gi,
     /i have trouble ([^.!?,]+)/gi,
+    /i'm having trouble ([^.!?,]+)/gi,
+    /i can't seem to ([^.!?,]+)/gi,
+    /i struggle to ([^.!?,]+)/gi,
   ];
 
   strugglePatterns.forEach(pattern => {
@@ -61,28 +95,36 @@ export const extractIdentityFromChat = (
       const struggle = match[1].trim().slice(0, 40);
       if (struggle.length > 3 && !existingLabels.has(struggle)) {
         existingLabels.add(struggle);
+        
+        // Check if it sounds like a habit they're struggling with
+        // Look for common habit-related words or patterns
+        const habitIndicators = [
+          'waking up', 'wake up', 'meditation', 'meditate', 'exercise', 'working out', 
+          'reading', 'writing', 'journaling', 'sleeping', 'eating', 'drinking', 
+          'studying', 'practicing', 'going to bed', 'getting up', 'morning routine',
+          'evening routine', 'workout', 'gym', 'run', 'walk', 'yoga', 'stretch'
+        ];
+        const struggleLower = struggle.toLowerCase();
+        const isHabitStruggle = habitIndicators.some(keyword => struggleLower.includes(keyword)) ||
+          // Also check if it's a verb phrase that sounds like a habit
+          /^(wake|get|do|go|make|take|have|keep|maintain|build|start|stop|quit)/i.test(struggle);
+        
         newNodes.push({
           id: `node-chat-${nodeId++}`,
           label: struggle.charAt(0).toUpperCase() + struggle.slice(1),
-          type: 'struggle',
-          strength: 40,
+          type: isHabitStruggle ? 'habit' : 'struggle',
+          strength: isHabitStruggle ? 35 : 40, // Lower strength if it's a habit they're struggling with
           status: 'developing',
           connections: [],
           lastUpdated: new Date(),
-          description: 'Challenge identified from conversation'
+          createdAt: new Date(),
+          description: isHabitStruggle 
+            ? 'Habit they are struggling with, identified from conversation'
+            : 'Challenge identified from conversation'
         });
       }
     }
   });
-
-  // Extract habits
-  const habitPatterns = [
-    /i ([^.!?,]+) every day/gi,
-    /i ([^.!?,]+) daily/gi,
-    /my routine is ([^.!?,]+)/gi,
-    /i always ([^.!?,]+)/gi,
-    /i usually ([^.!?,]+)/gi,
-  ];
 
   habitPatterns.forEach(pattern => {
     const matches = lowerMessage.matchAll(pattern);

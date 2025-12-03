@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { 
@@ -6,21 +6,92 @@ import {
   CheckCircle, Clock, Star, Zap, Award, TrendingUp
 } from 'lucide-react';
 import { getExperiment, startExperiment, type ExperimentData } from '../lib/api';
+import { useUserStore } from '../store/useUserStore';
 
 export const ExperimentPage = () => {
   const [experiment, setExperiment] = useState<ExperimentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const { user } = useUserStore();
+
+  const loadExperiment = useCallback(async () => {
+    console.log('📊 Loading experiment data...');
+    try {
+      const data = await getExperiment();
+      console.log('✅ Experiment data loaded:', data);
+      console.log('📅 Activities:', data?.activities);
+      setExperiment(data);
+      setLoading(false);
+    } catch (error) {
+      console.error('❌ Failed to load experiment:', error);
+      setLoading(false);
+    }
+  }, []);
+
+  // Watch for daily actions changes and refresh when all are completed
+  useEffect(() => {
+    if (!user?.dailyActions || !experiment?.started) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const todayActions = user.dailyActions.filter(a => {
+      if (!a.createdAt) return false;
+      const actionDate = new Date(a.createdAt).toISOString().split('T')[0];
+      return actionDate === today;
+    });
+
+    // Check if all today's actions are completed
+    const allCompleted = todayActions.length > 0 && 
+      todayActions.every(a => a.completed === true);
+
+    if (allCompleted) {
+      console.log('✅ All actions completed, refreshing experiment data...');
+      // Small delay to ensure backend has processed
+      const timer = setTimeout(() => {
+        loadExperiment();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [user?.dailyActions, experiment?.started, loadExperiment]);
 
   useEffect(() => {
     loadExperiment();
-  }, []);
+    
+    // Listen for check-in events to auto-refresh
+    const handleCheckIn = () => {
+      console.log('🔄 Experiment check-in event received, refreshing...');
+      // Add a small delay to ensure backend has processed the check-in
+      setTimeout(() => {
+        loadExperiment();
+      }, 1000);
+    };
+    
+    window.addEventListener('experiment-checkin', handleCheckIn);
+    
+    // Also listen for focus events to refresh when user returns to the page
+    const handleFocus = () => {
+      console.log('👁️ Page focused, refreshing experiment data...');
+      loadExperiment();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('experiment-checkin', handleCheckIn);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [loadExperiment]);
 
-  const loadExperiment = async () => {
-    const data = await getExperiment();
-    setExperiment(data);
-    setLoading(false);
-  };
+  // Poll every 30 seconds if experiment is active (as fallback)
+  useEffect(() => {
+    if (!experiment?.started) return;
+    
+    const pollInterval = setInterval(() => {
+      console.log('⏰ Polling experiment data...');
+      loadExperiment();
+    }, 30000);
+    
+    return () => clearInterval(pollInterval);
+  }, [experiment?.started, loadExperiment]);
 
   const handleStart = async () => {
     setStarting(true);
@@ -256,20 +327,41 @@ export const ExperimentPage = () => {
                   const activity = experiment.activities?.find(a => a.date === date);
                   const isToday = date === new Date().toISOString().split('T')[0];
                   const isPast = date && date < new Date().toISOString().split('T')[0];
-                  const hasActivity = activity && (activity.actions_done > 0 || activity.tracked > 0);
+                  
+                  // For today, check real-time from store if all actions are completed
+                  let allActionsComplete = false;
+                  if (isToday && user?.dailyActions) {
+                    const todayActions = user.dailyActions.filter(a => {
+                      if (!a.createdAt) return false;
+                      const actionDate = new Date(a.createdAt).toISOString().split('T')[0];
+                      return actionDate === date;
+                    });
+                    // All actions must exist and all must be completed
+                    allActionsComplete = todayActions.length > 0 && 
+                      todayActions.every(a => a.completed === true);
+                  } else if (activity) {
+                    // For past days, use activity data from backend
+                    allActionsComplete = activity.actions_total !== undefined && 
+                      activity.actions_total > 0 && 
+                      activity.actions_done === activity.actions_total;
+                  }
+                  
+                  // Show as having activity (but not all complete) if some actions are done
+                  const hasPartialActivity = activity && activity.actions_done > 0 && !allActionsComplete;
                   
                   return (
                     <div
                       key={i}
                       className={`aspect-square rounded-lg flex items-center justify-center text-xs font-medium transition-all relative ${
                         !isValidDay ? 'opacity-0' :
+                        allActionsComplete ? 'bg-gradient-to-br from-green-500/40 to-emerald-500/30 text-green-300 border border-green-500/30' + (isToday ? ' ring-2 ring-indigo-500' : '') :
                         isToday ? 'ring-2 ring-indigo-500 bg-indigo-500/20 text-white' :
-                        hasActivity ? 'bg-gradient-to-br from-green-500/40 to-emerald-500/30 text-green-300 border border-green-500/30' :
+                        hasPartialActivity ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
                         isPast ? 'bg-red-500/20 text-red-400' :
                         'bg-white/5 text-gray-500'
                       }`}
                     >
-                      {isValidDay && hasActivity ? (
+                      {isValidDay && allActionsComplete ? (
                         <div className="flex flex-col items-center">
                           <CheckCircle className="w-4 h-4 text-green-400" />
                           <span className="text-[10px] mt-0.5">{dayNum}</span>

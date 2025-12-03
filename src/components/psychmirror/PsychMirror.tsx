@@ -137,13 +137,40 @@ function generateEdges(nodes: PsychNode[]): PsychEdge[] {
 
 export const PsychMirror: React.FC = () => {
   const navigate = useNavigate();
-  const { user, startWorkSession } = useUserStore();
+  const { user, startWorkSession, lastUpdatedNodeId, clearLastUpdatedNode, recentStrengthChanges, clearRecentStrengthChanges, todayStrengthChanges, todayStrengthDate } = useUserStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 600, height: 600 });
   const [selectedNode, setSelectedNode] = useState<PsychNode | null>(null);
   const [hoverNode, setHoverNode] = useState<PsychNode | null>(null);
   const [filterCategory, setFilterCategory] = useState<NodeCategory | 'all'>('all');
-  const fgRef = useRef<any>();
+  const [showTodaysFocus, setShowTodaysFocus] = useState(false);
+  const fgRef = useRef<any>(null);
+
+  // Get today's daily action node IDs for highlighting
+  const todayActionNodeIds = useMemo(() => {
+    if (!user?.dailyActions) return new Set<string>();
+    const today = new Date();
+    return new Set(
+      user.dailyActions
+        .filter(a => {
+          if (!a.createdAt || a.nodeId === 'tracking') return false;
+          const actionDate = new Date(a.createdAt);
+          return actionDate.toDateString() === today.toDateString();
+        })
+        .map(a => a.nodeId)
+    );
+  }, [user?.dailyActions]);
+
+  // Auto-clear lastUpdatedNodeId after 3 seconds (increased for visibility)
+  useEffect(() => {
+    if (lastUpdatedNodeId) {
+      const timer = setTimeout(() => {
+        clearLastUpdatedNode();
+        clearRecentStrengthChanges?.();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [lastUpdatedNodeId, clearLastUpdatedNode, clearRecentStrengthChanges]);
 
   // Convert user's identity nodes to PsychNodes
   const graphData = useMemo(() => {
@@ -174,9 +201,14 @@ export const PsychMirror: React.FC = () => {
       nodes = nodes.filter(n => n.category === filterCategory);
     }
     
+    // Filter by today's focus if selected
+    if (showTodaysFocus) {
+      nodes = nodes.filter(n => todayActionNodeIds.has(n.id));
+    }
+    
     const edges = generateEdges(nodes);
     return { nodes, links: edges };
-  }, [user?.identityNodes, dimensions, filterCategory]);
+  }, [user?.identityNodes, dimensions, filterCategory, showTodaysFocus, todayActionNodeIds]);
 
   const stats = useMemo(() => computeSummaryStats(graphData.nodes), [graphData.nodes]);
 
@@ -232,8 +264,59 @@ export const PsychMirror: React.FC = () => {
     const state = psychNode.state || getNodeState(psychNode.value);
     const isSelected = selectedNode?.id === psychNode.id;
     const isHovered = hoverNode?.id === psychNode.id;
+    const isLastUpdated = lastUpdatedNodeId === psychNode.id;
+    const hasDailyAction = todayActionNodeIds.has(psychNode.id);
+    const strengthChange = recentStrengthChanges[psychNode.id];
+    
+    // Get today's accumulated strength change (persistent for the day)
+    const isToday = todayStrengthDate === new Date().toDateString();
+    const todayChange = isToday ? todayStrengthChanges[psychNode.id] : undefined;
     
     ctx.save();
+    
+    // Daily action indicator (subtle outer ring)
+    if (hasDailyAction && !isLastUpdated) {
+      ctx.strokeStyle = '#fbbf24'; // Amber/yellow
+      ctx.lineWidth = 2 / globalScale;
+      ctx.globalAlpha = 0.6;
+      ctx.setLineDash([4 / globalScale, 4 / globalScale]);
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, baseRadius + 8 / globalScale, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    
+    // Last updated highlight (brief pulse effect)
+    if (isLastUpdated) {
+      // Large glow
+      ctx.shadowColor = strengthChange && strengthChange > 0 ? '#22c55e' : '#ef4444';
+      ctx.shadowBlur = 60 / globalScale;
+      ctx.fillStyle = strengthChange && strengthChange > 0 ? '#22c55e' : '#ef4444';
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, baseRadius + 15 / globalScale, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      
+      // Pulsing outer ring
+      ctx.strokeStyle = strengthChange && strengthChange > 0 ? '#22c55e' : '#ef4444';
+      ctx.lineWidth = 4 / globalScale;
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, baseRadius + 8 / globalScale, 0, 2 * Math.PI);
+      ctx.stroke();
+      
+      // Show strength change value
+      if (strengthChange) {
+        ctx.globalAlpha = 1;
+        ctx.font = `bold ${14 / globalScale}px Arial`;
+        ctx.fillStyle = strengthChange > 0 ? '#22c55e' : '#ef4444';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const changeText = strengthChange > 0 ? `+${strengthChange}%` : `${strengthChange}%`;
+        ctx.fillText(changeText, node.x, node.y - baseRadius - 12 / globalScale);
+      }
+    }
     
     // Selection/hover highlight
     if (isSelected || isHovered) {
@@ -283,6 +366,30 @@ export const PsychMirror: React.FC = () => {
     ctx.textBaseline = "middle";
     ctx.fillText(psychNode.value.toString(), node.x, node.y);
     
+    // Today's change indicator (persistent - shown all day)
+    if (todayChange) {
+      // Draw background pill for better visibility
+      ctx.globalAlpha = 0.9;
+      const changeText = todayChange > 0 ? `+${todayChange}` : `${todayChange}`;
+      const textWidth = ctx.measureText(changeText).width || 20;
+      const pillWidth = (textWidth + 8) / globalScale;
+      const pillHeight = 14 / globalScale;
+      const pillY = node.y - baseRadius - 14 / globalScale;
+      
+      // Background pill
+      ctx.fillStyle = todayChange > 0 ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)';
+      ctx.beginPath();
+      ctx.roundRect(node.x - pillWidth / 2, pillY - pillHeight / 2, pillWidth, pillHeight, 4 / globalScale);
+      ctx.fill();
+      
+      // Text
+      ctx.font = `bold ${10 / globalScale}px system-ui`;
+      ctx.fillStyle = 'white';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(changeText, node.x, pillY);
+    }
+    
     // Label below - clean up asterisks and truncate
     ctx.font = `${9 / globalScale}px system-ui`;
     ctx.fillStyle = "rgba(255,255,255,0.7)";
@@ -291,7 +398,7 @@ export const PsychMirror: React.FC = () => {
     ctx.fillText(label, node.x, node.y + baseRadius + 10 / globalScale);
     
     ctx.restore();
-  }, [selectedNode, hoverNode]);
+  }, [selectedNode, hoverNode, lastUpdatedNodeId, todayActionNodeIds, recentStrengthChanges, todayStrengthChanges, todayStrengthDate]);
 
   // Link rendering
   const linkCanvasObject = useCallback((link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -380,9 +487,12 @@ export const PsychMirror: React.FC = () => {
       {/* Interactive Legend */}
       <div className="flex items-center justify-center gap-2 px-4 py-2 border-b border-white/5 bg-white/[0.02]">
         <button
-          onClick={() => setFilterCategory('all')}
+          onClick={() => {
+            setFilterCategory('all');
+            setShowTodaysFocus(false);
+          }}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            filterCategory === 'all' 
+            filterCategory === 'all' && !showTodaysFocus
               ? 'bg-white/10 text-white' 
               : 'text-gray-400 hover:text-white hover:bg-white/5'
           }`}
@@ -392,11 +502,14 @@ export const PsychMirror: React.FC = () => {
         {(["Goal", "Habit", "Trait", "Emotion", "Struggle"] as NodeCategory[]).map(cat => {
           const Icon = getCategoryIcon(cat);
           const count = user?.identityNodes.filter(n => mapNodeType(n.type) === cat).length || 0;
-          const isActive = filterCategory === cat;
+          const isActive = filterCategory === cat && !showTodaysFocus;
           return (
             <button
               key={cat}
-              onClick={() => setFilterCategory(isActive ? 'all' : cat)}
+              onClick={() => {
+                setFilterCategory(isActive ? 'all' : cat);
+                setShowTodaysFocus(false); // Reset today's focus when selecting category
+              }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 isActive 
                   ? 'text-white' 
@@ -418,12 +531,31 @@ export const PsychMirror: React.FC = () => {
             </button>
           );
         })}
+        {/* Daily Focus Indicator - Clickable to filter */}
+        {todayActionNodeIds.size > 0 && (
+          <button
+            onClick={() => {
+              setShowTodaysFocus(!showTodaysFocus);
+              if (!showTodaysFocus) setFilterCategory('all'); // Reset category filter when showing today's focus
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 border-l border-white/10 ml-2 rounded-lg transition-all ${
+              showTodaysFocus 
+                ? 'bg-amber-500/20 ring-1 ring-amber-400/50' 
+                : 'hover:bg-amber-500/10'
+            }`}
+          >
+            <div className={`w-2.5 h-2.5 rounded-full border-2 border-dashed border-amber-400 ${showTodaysFocus ? '' : 'animate-pulse'}`} />
+            <span className="text-amber-400 text-xs font-medium">
+              {showTodaysFocus ? '✓ ' : ''}Today's Focus ({todayActionNodeIds.size})
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Graph Container */}
       <div ref={containerRef} className="flex-1 flex items-center justify-center relative overflow-hidden">
         <ForceGraph2D
-          key={filterCategory}
+          key={`${filterCategory}-${showTodaysFocus}`}
           ref={fgRef}
           width={dimensions.width}
           height={dimensions.height}

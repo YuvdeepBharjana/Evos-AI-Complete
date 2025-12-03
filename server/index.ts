@@ -1039,17 +1039,41 @@ app.post('/api/chat', authMiddleware, async (req: AuthRequest, res) => {
       content: msg.content
     }));
     
-    // Get user's identity nodes for context
+    // Get user info including onboarding method
+    const userInfo = db.prepare(`
+      SELECT name, onboarding_method, created_at
+      FROM users
+      WHERE id = ?
+    `).get(req.user!.id) as any;
+
+    // Get ALL user's identity nodes for comprehensive context
     const nodes = db.prepare(`
-      SELECT label, type, strength, status, description
+      SELECT label, type, strength, status, description, created_at
       FROM nodes
       WHERE user_id = ?
-      ORDER BY strength DESC
-      LIMIT 15
+      ORDER BY strength DESC, created_at DESC
     `).all(req.user!.id) as any[];
 
-    // Build identity context string
+    // Build comprehensive identity context string
     let identityContext = '';
+    
+    // Add user background
+    if (userInfo) {
+      identityContext += `USER PROFILE:\n`;
+      identityContext += `Name: ${userInfo.name}\n`;
+      if (userInfo.onboarding_method) {
+        const methodDescriptions: Record<string, string> = {
+          'questionnaire': 'User completed a structured questionnaire about their identity, goals, and patterns',
+          'upload': 'User imported their identity data from external sources (chat history, documents, etc.)',
+          'manual': 'User manually created their identity nodes'
+        };
+        identityContext += `Onboarding Method: ${methodDescriptions[userInfo.onboarding_method] || userInfo.onboarding_method}\n`;
+        identityContext += `Account Created: ${new Date(userInfo.created_at).toLocaleDateString()}\n`;
+      }
+      identityContext += `\n`;
+    }
+
+    // Add comprehensive node information
     if (nodes.length > 0) {
       const nodesByType: Record<string, any[]> = {};
       nodes.forEach(node => {
@@ -1057,13 +1081,76 @@ app.post('/api/chat', authMiddleware, async (req: AuthRequest, res) => {
         nodesByType[node.type].push(node);
       });
 
-      identityContext = 'Key Identity Patterns:\n';
+      identityContext += `IDENTITY MAP (${nodes.length} total nodes):\n\n`;
+      
+      // Add nodes by type with full details
       Object.entries(nodesByType).forEach(([type, typeNodes]) => {
-        identityContext += `\n${type.toUpperCase()}:\n`;
-        typeNodes.slice(0, 5).forEach(node => {
-          identityContext += `- ${node.label} (${node.strength}% strength, ${node.status})\n`;
+        identityContext += `${type.toUpperCase()} (${typeNodes.length}):\n`;
+        typeNodes.forEach(node => {
+          identityContext += `  • ${node.label}`;
+          identityContext += ` (${node.strength}% strength, ${node.status})`;
+          if (node.description && node.description.trim()) {
+            identityContext += `\n    Description: ${node.description}`;
+          }
+          identityContext += `\n`;
         });
+        identityContext += `\n`;
       });
+
+      // Add summary insights
+      const masteredCount = nodes.filter(n => n.status === 'mastered').length;
+      const developingCount = nodes.filter(n => n.status === 'developing').length;
+      const strugglesCount = nodes.filter(n => n.type === 'struggle').length;
+      const goalsCount = nodes.filter(n => n.type === 'goal').length;
+      const avgStrength = nodes.length > 0 
+        ? Math.round(nodes.reduce((sum, n) => sum + n.strength, 0) / nodes.length)
+        : 50;
+      
+      identityContext += `KEY INSIGHTS:\n`;
+      identityContext += `- ${masteredCount} mastered patterns (strengths)\n`;
+      identityContext += `- ${developingCount} developing areas (growth edges)\n`;
+      identityContext += `- ${goalsCount} active goals\n`;
+      identityContext += `- ${strugglesCount} identified struggles\n`;
+      identityContext += `- Average strength: ${avgStrength}% (${avgStrength >= 60 ? 'strong overall' : avgStrength >= 40 ? 'moderate' : 'needs support'})\n`;
+      identityContext += `\n`;
+      
+      // Add tone indicators for AI
+      identityContext += `TONE GUIDANCE FOR AI:\n`;
+      if (strugglesCount > goalsCount) {
+        identityContext += `- User has more struggles than goals: Be more supportive and empathetic while still being direct.\n`;
+      }
+      if (masteredCount > developingCount) {
+        identityContext += `- User has strong mastered patterns: You can challenge them more and push for higher growth.\n`;
+      }
+      if (userInfo.onboarding_method === 'upload') {
+        identityContext += `- User imported deep personal data: Reference specific insights, patterns, or themes from their imported content. Show you've absorbed their complete history.\n`;
+      }
+      if (developingCount > masteredCount) {
+        identityContext += `- User is in active growth phase: Focus on their developing areas and provide actionable guidance.\n`;
+      }
+      identityContext += `\n`;
+      
+      // Add top patterns by strength
+      const topPatterns = nodes.slice(0, 5);
+      if (topPatterns.length > 0) {
+        identityContext += `STRONGEST IDENTITY PATTERNS:\n`;
+        topPatterns.forEach(node => {
+          identityContext += `- ${node.label} (${node.strength}%)\n`;
+        });
+        identityContext += `\n`;
+      }
+      
+      // Add active struggles for tone context
+      const activeStruggles = nodes.filter(n => n.type === 'struggle' && n.status !== 'mastered').slice(0, 3);
+      if (activeStruggles.length > 0) {
+        identityContext += `ACTIVE STRUGGLES (be aware of these in your responses):\n`;
+        activeStruggles.forEach(node => {
+          identityContext += `- ${node.label} (${node.strength}%, ${node.status})\n`;
+        });
+        identityContext += `\n`;
+      }
+    } else {
+      identityContext += `No identity nodes have been created yet. User is new to the platform.\n`;
     }
     
     const response = await chat(message, formattedHistory, undefined, identityContext);
@@ -1378,15 +1465,52 @@ app.get('/api/experiment', authMiddleware, (req: AuthRequest, res) => {
     const isCompleted = dayNumber > 30;
     
     // Get daily activity for calendar view
-    const activities = db.prepare(`
-      SELECT date, 
-             COUNT(DISTINCT CASE WHEN status = 'done' THEN id END) as actions_done,
-             (SELECT COUNT(*) FROM daily_tracking dt WHERE dt.user_id = ? AND dt.date = da.date) as tracked
-      FROM daily_actions da
+    // Simplified query that gets all dates and counts
+    const activities: Array<{ date: string; actions_done: number; tracked: number }> = [];
+    
+    // Get all dates from actions
+    const actionDates = db.prepare(`
+      SELECT DISTINCT date FROM daily_actions 
       WHERE user_id = ? AND date >= ?
-      GROUP BY date
       ORDER BY date
-    `).all(userId, userId, user.experiment_start_date);
+    `).all(userId, user.experiment_start_date) as Array<{ date: string }>;
+    
+    // Get all dates from tracking
+    const trackingDates = db.prepare(`
+      SELECT DISTINCT date FROM daily_tracking 
+      WHERE user_id = ? AND date >= ?
+      ORDER BY date
+    `).all(userId, user.experiment_start_date) as Array<{ date: string }>;
+    
+    // Combine all unique dates
+    const allDates = new Set<string>();
+    actionDates.forEach(row => allDates.add(row.date));
+    trackingDates.forEach(row => allDates.add(row.date));
+    
+    // Count actions and tracking for each date
+    for (const date of Array.from(allDates).sort()) {
+      const actionsDone = db.prepare(`
+        SELECT COUNT(*) as count FROM daily_actions 
+        WHERE user_id = ? AND date = ? AND status = 'done'
+      `).get(userId, date) as { count: number } | undefined;
+      
+      const totalActions = db.prepare(`
+        SELECT COUNT(*) as count FROM daily_actions 
+        WHERE user_id = ? AND date = ?
+      `).get(userId, date) as { count: number } | undefined;
+      
+      const tracked = db.prepare(`
+        SELECT COUNT(*) as count FROM daily_tracking 
+        WHERE user_id = ? AND date = ?
+      `).get(userId, date) as { count: number } | undefined;
+      
+      activities.push({
+        date,
+        actions_done: actionsDone?.count || 0,
+        actions_total: totalActions?.count || 0,
+        tracked: tracked?.count || 0
+      });
+    }
     
     // Get milestones achieved
     const milestones = db.prepare(`

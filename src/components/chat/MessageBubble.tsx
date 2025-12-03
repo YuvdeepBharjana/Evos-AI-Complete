@@ -27,7 +27,17 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
             ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
             : 'glass text-gray-100'
         }`}>
-          <p className="text-sm leading-relaxed">{message.content}</p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            {message.sender === 'ai' 
+              ? message.content
+                  .replace(/\*\*/g, '') // Remove bold markdown
+                  .replace(/\*/g, '') // Remove italic markdown
+                  .replace(/`/g, '') // Remove code markdown
+                  .replace(/#{1,6}\s/g, '') // Remove headers
+                  .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Convert links to plain text
+              : message.content
+            }
+          </p>
         </div>
         <p className="text-xs text-gray-500 mt-1 px-2">
           {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

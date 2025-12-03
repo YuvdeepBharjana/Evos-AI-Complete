@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Flame, Dumbbell, Briefcase, Moon, 
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useUserStore } from '../../store/useUserStore';
 import { useIdentityStore } from '../../store/useIdentityStore';
+import { checkIn } from '../../lib/api';
 import type { DailyMetric, MetricType } from '../../types';
 
 // ============================================
@@ -571,6 +572,105 @@ export const DailyTracker = () => {
   
   // Check if any metrics are linked
   const hasLinkedMetrics = activeMetrics.some(m => m.linkedNodeId);
+  
+  // Check if all tracking is complete for today
+  const allTrackingComplete = useMemo(() => {
+    if (!isToday || activeMetrics.length === 0) return false;
+    return activeMetrics.every(m => {
+      const value = getValueFor(selectedDate, m.id);
+      return value !== undefined && value > 0;
+    });
+  }, [isToday, activeMetrics, selectedDate, entries, getValueFor]);
+
+  const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
+
+  // Reset check-in flag at start of new day
+  useEffect(() => {
+    const today = new Date().toDateString();
+    const lastCheckInDate = localStorage.getItem('lastCheckInDate');
+    if (lastCheckInDate !== today) {
+      setHasCheckedInToday(false);
+      localStorage.setItem('lastCheckInDate', today);
+    }
+  }, []);
+
+  // Perform check-in function
+  const performCheckIn = useCallback(() => {
+    if (hasCheckedInToday) {
+      console.log('⏭️ Already checked in today, but refreshing experiment page anyway');
+      // Still dispatch event to refresh the page even if already checked in
+      window.dispatchEvent(new CustomEvent('experiment-checkin'));
+      return;
+    }
+    
+    console.log('🎯 Performing check-in: all actions + tracking complete!');
+    setHasCheckedInToday(true);
+    
+    // Small delay to ensure state is fully updated
+    setTimeout(async () => {
+      try {
+        const result = await checkIn();
+        console.log('✅ Check-in successful:', result);
+        // Trigger a custom event that ExperimentPage can listen to
+        // Always dispatch, even if "already checked in" - we still want to refresh
+        window.dispatchEvent(new CustomEvent('experiment-checkin'));
+      } catch (error) {
+        console.error('❌ Failed to check in:', error);
+        setHasCheckedInToday(false); // Reset on error so it can retry
+      }
+    }, 500);
+  }, [hasCheckedInToday]);
+
+  // Listen for actions completion
+  useEffect(() => {
+    const handleActionsComplete = () => {
+      console.log('📢 Actions complete event received. Tracking complete:', allTrackingComplete, 'Is today:', isToday);
+      // Actions are complete, check if tracking is also complete
+      if (allTrackingComplete && isToday && !hasCheckedInToday) {
+        console.log('✅ Both actions and tracking complete! Calling checkIn...');
+        performCheckIn();
+      } else {
+        console.log('⏳ Waiting for tracking to complete or not today yet');
+      }
+    };
+    
+    window.addEventListener('actions-complete', handleActionsComplete);
+    return () => window.removeEventListener('actions-complete', handleActionsComplete);
+  }, [allTrackingComplete, isToday, hasCheckedInToday, performCheckIn]);
+
+  // Auto-check-in when all tracking is complete (only if actions are also complete)
+  useEffect(() => {
+    if (allTrackingComplete && isToday && user?.authToken && !hasCheckedInToday) {
+      // Check if actions are also complete
+      const todayActions = user.dailyActions?.filter(a => {
+        if (!a.createdAt) return false;
+        const actionDate = new Date(a.createdAt);
+        const today = new Date();
+        return (
+          actionDate.getDate() === today.getDate() &&
+          actionDate.getMonth() === today.getMonth() &&
+          actionDate.getFullYear() === today.getFullYear()
+        );
+      }) || [];
+      
+      const allActionsComplete = todayActions.length > 0 && todayActions.every(a => a.completed === true);
+      
+      console.log('📊 Tracking complete check:', {
+        allTrackingComplete,
+        isToday,
+        todayActionsCount: todayActions.length,
+        allActionsComplete,
+        hasCheckedInToday
+      });
+      
+      if (allActionsComplete) {
+        console.log('✅ Both tracking and actions complete! Calling checkIn...');
+        performCheckIn();
+      } else {
+        console.log('⏳ Actions not complete yet:', todayActions.map(a => ({ id: a.id, completed: a.completed })));
+      }
+    }
+  }, [allTrackingComplete, isToday, user?.authToken, user?.dailyActions, hasCheckedInToday, performCheckIn]);
   
   return (
     <>

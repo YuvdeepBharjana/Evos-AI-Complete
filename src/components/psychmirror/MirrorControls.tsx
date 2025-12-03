@@ -38,11 +38,11 @@ export const MirrorControls = ({
       >
         <div className="flex items-center gap-2 text-gray-400 text-xs">
           <Filter size={14} />
-        </div>
+          </div>
         {filters.map((filter) => (
           <button
-            key={filter.value}
-            onClick={() => onFilterChange(filter.value)}
+                key={filter.value}
+                onClick={() => onFilterChange(filter.value)}
             className={`px-2 py-1 rounded text-xs font-medium transition-all ${
               selectedFilter === filter.value
                 ? 'bg-purple-500 text-white'
