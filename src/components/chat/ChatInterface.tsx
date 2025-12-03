@@ -6,6 +6,7 @@ import { ChatInput } from './ChatInput';
 import { useUserStore } from '../../store/useUserStore';
 import { extractIdentityFromChat } from '../../lib/extractIdentityFromChat';
 import { sendChatMessage, checkApiHealth, createNode } from '../../lib/api';
+import { cleanText } from '../../lib/cleanText';
 import type { Message, IdentityNode, NodeType } from '../../types';
 
 // Fallback AI responses when API is unavailable
@@ -109,7 +110,7 @@ export const ChatInterface = () => {
           
           newNodes.push({
             id: `node-chat-${uuidv4()}`,
-            label: nodeLabel.charAt(0).toUpperCase() + nodeLabel.slice(1),
+            label: cleanText(nodeLabel.charAt(0).toUpperCase() + nodeLabel.slice(1)),
             type: nodeType,
             strength,
             status,
@@ -190,7 +191,7 @@ export const ChatInterface = () => {
         const [fullMatch, type, label, strengthStr] = match;
         const nodeType = type.toLowerCase() as NodeType;
         const strength = parseInt(strengthStr, 10);
-        const cleanLabel = label.trim();
+        const cleanLabel = cleanText(label.trim());
         
         // Check if node already exists
         const existingLabels = new Set(user.identityNodes.map(n => n.label.toLowerCase()));

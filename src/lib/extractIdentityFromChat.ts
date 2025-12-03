@@ -1,4 +1,5 @@
 import type { IdentityNode } from '../types';
+import { cleanText } from './cleanText';
 
 /**
  * Extracts identity nodes from chat messages
@@ -33,7 +34,7 @@ export const extractIdentityFromChat = (
         existingLabels.add(goal);
         newNodes.push({
           id: `node-chat-${nodeId++}`,
-          label: goal.charAt(0).toUpperCase() + goal.slice(1),
+          label: cleanText(goal.charAt(0).toUpperCase() + goal.slice(1)),
           type: 'goal',
           strength: 60,
           status: 'active',
@@ -111,7 +112,7 @@ export const extractIdentityFromChat = (
         
         newNodes.push({
           id: `node-chat-${nodeId++}`,
-          label: struggle.charAt(0).toUpperCase() + struggle.slice(1),
+          label: cleanText(struggle.charAt(0).toUpperCase() + struggle.slice(1)),
           type: isHabitStruggle ? 'habit' : 'struggle',
           strength: isHabitStruggle ? 35 : 40, // Lower strength if it's a habit they're struggling with
           status: 'developing',
@@ -163,7 +164,7 @@ export const extractIdentityFromChat = (
         existingLabels.add(emotion);
         newNodes.push({
           id: `node-chat-${nodeId++}`,
-          label: emotion.charAt(0).toUpperCase() + emotion.slice(1),
+          label: cleanText(emotion.charAt(0).toUpperCase() + emotion.slice(1)),
           type: 'emotion',
           strength: 50,
           status: 'active',

@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Bot, User } from 'lucide-react';
+import { cleanText } from '../../lib/cleanText';
 import type { Message } from '../../types';
 
 interface MessageBubbleProps {
@@ -28,15 +29,7 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
             : 'glass text-gray-100'
         }`}>
           <p className="text-sm leading-relaxed whitespace-pre-wrap">
-            {message.sender === 'ai' 
-              ? message.content
-                  .replace(/\*\*/g, '') // Remove bold markdown
-                  .replace(/\*/g, '') // Remove italic markdown
-                  .replace(/`/g, '') // Remove code markdown
-                  .replace(/#{1,6}\s/g, '') // Remove headers
-                  .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Convert links to plain text
-              : message.content
-            }
+            {cleanText(message.content)}
           </p>
         </div>
         <p className="text-xs text-gray-500 mt-1 px-2">

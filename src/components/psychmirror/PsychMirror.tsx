@@ -4,6 +4,7 @@ import ForceGraph2D from 'react-force-graph-2d';
 import * as d3 from 'd3-force';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUserStore } from '../../store/useUserStore';
+import { cleanText } from '../../lib/cleanText';
 import { Play, X, TrendingUp, AlertTriangle, Target, Zap, Trophy, Heart, AlertCircle, Loader2 } from 'lucide-react';
 
 // ============================================================================
@@ -200,9 +201,12 @@ export const PsychMirror: React.FC = () => {
       const region = getCategoryRegion(category, scale);
       const jitter = () => (Math.random() - 0.5) * 30;
       
+      // Clean label of all markdown formatting (asterisks, bold, etc.)
+      const cleanLabel = cleanText(node.label);
+      
       return {
         id: node.id,
-        label: node.label,
+        label: cleanLabel,
         value: node.strength,
         category,
         state: getNodeState(node.strength),
@@ -405,11 +409,10 @@ export const PsychMirror: React.FC = () => {
       ctx.fillText(changeText, node.x, pillY);
     }
     
-    // Label below - clean up asterisks and truncate
+    // Label below - already cleaned at source, just truncate
     ctx.font = `${9 / globalScale}px system-ui`;
     ctx.fillStyle = "rgba(255,255,255,0.7)";
-    const cleanLabel = psychNode.label.replace(/\*/g, '').trim();
-    const label = cleanLabel.length > 12 ? cleanLabel.slice(0, 12) + '…' : cleanLabel;
+    const label = psychNode.label.length > 12 ? psychNode.label.slice(0, 12) + '…' : psychNode.label;
     ctx.fillText(label, node.x, node.y + baseRadius + 10 / globalScale);
     
     ctx.restore();
@@ -689,7 +692,7 @@ export const PsychMirror: React.FC = () => {
               maxWidth: '200px'
             }}
           >
-            <div className="font-medium text-white mb-1">{hoverNode.label.replace(/\*/g, '').trim()}</div>
+            <div className="font-medium text-white mb-1">{hoverNode.label}</div>
             <div className="flex items-center gap-2 text-xs">
               <span style={{ color: getCategoryColor(hoverNode.category) }}>{hoverNode.category}</span>
               <span className="text-gray-400">•</span>
@@ -738,7 +741,7 @@ export const PsychMirror: React.FC = () => {
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-white truncate">{selectedNode.label.replace(/\*/g, '').trim()}</h3>
+              <h3 className="text-lg font-semibold text-white truncate">{selectedNode.label}</h3>
               <div className="flex items-center gap-2 mt-1">
                 <span 
                   className="text-xs px-2 py-0.5 rounded-full"

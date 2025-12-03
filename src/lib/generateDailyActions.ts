@@ -1,4 +1,5 @@
 import type { IdentityNode, DailyAction, IdentityGap } from '../types';
+import { cleanText } from './cleanText';
 
 /**
  * PROOF-MOVES: Not suggestions. Not ideas. Binary behaviors you either do or don't.
@@ -148,8 +149,8 @@ export function generateDailyActions(nodes: IdentityNode[]): DailyAction[] {
   const identityActions = topGaps.map((gap, index) => ({
     id: `action-${Date.now()}-${index}`,
     nodeId: gap.node.id,
-    nodeName: gap.node.label,
-    action: gap.suggestedAction,
+    nodeName: cleanText(gap.node.label),
+    action: cleanText(gap.suggestedAction),
     timeEstimate: ['15 min', '20 min', '25 min', '30 min'][Math.floor(Math.random() * 4)],
     completed: null,
     createdAt: new Date()

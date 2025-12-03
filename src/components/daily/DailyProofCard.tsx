@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../../store/useUserStore';
 import { generateDailyActions, getCompletionMessage } from '../../lib/generateDailyActions';
 import { checkIn } from '../../lib/api';
+import { cleanText } from '../../lib/cleanText';
 import type { DailyAction } from '../../types';
 
 export const DailyProofCard = () => {
@@ -243,7 +244,7 @@ export const DailyProofCard = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-medium">
-                    {action.nodeName}
+                    {cleanText(action.nodeName)}
                   </span>
                   {isPendingToday && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-gradient-to-r from-purple-500/30 to-blue-500/30 text-purple-200 font-semibold border border-purple-400/50">
@@ -258,7 +259,7 @@ export const DailyProofCard = () => {
                 <p className={`text-sm leading-relaxed ${
                   action.completed !== null ? 'text-gray-400' : 'text-white'
                 }`}>
-                  {action.action}
+                  {cleanText(action.action)}
                 </p>
                 
                 {/* Strength change indicator */}

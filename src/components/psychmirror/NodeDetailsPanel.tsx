@@ -4,21 +4,12 @@ import { X, TrendingUp, Calendar, Play, Target, Sliders, AlertTriangle, CheckCir
 import { useNavigate } from 'react-router-dom';
 import type { IdentityNode } from '../../types';
 import { useUserStore } from '../../store/useUserStore';
+import { cleanText } from '../../lib/cleanText';
 
 interface NodeDetailsPanelProps {
   node: IdentityNode | null;
   onClose: () => void;
 }
-
-// Strip markdown formatting from text
-const cleanText = (text: string): string => {
-  return text
-    .replace(/\*\*/g, '')
-    .replace(/\*/g, '')
-    .replace(/\_\_/g, '')
-    .replace(/\_/g, '')
-    .trim();
-};
 
 // Get intensity label
 function getIntensityLabel(value: number): 'Critical' | 'Developing' | 'Dominant' {
