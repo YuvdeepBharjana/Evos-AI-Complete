@@ -1,6 +1,148 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useInView } from 'framer-motion';
 import { ArrowRight, ArrowLeft, Dna, Zap, Globe, Rocket, Brain, Users, Sparkles } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
+
+// Typing animation component that triggers on scroll
+const TypeWriter = ({ 
+  text, 
+  className = '', 
+  speed = 30,
+  delay = 0,
+  gradient = false
+}: { 
+  text: string; 
+  className?: string; 
+  speed?: number;
+  delay?: number;
+  gradient?: boolean;
+}) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const [displayText, setDisplayText] = useState('');
+  const [isComplete, setIsComplete] = useState(false);
+
+  useEffect(() => {
+    if (!isInView) return;
+    
+    let timeout: NodeJS.Timeout;
+    let currentIndex = 0;
+    
+    const startTyping = () => {
+      const typeNextChar = () => {
+        if (currentIndex < text.length) {
+          setDisplayText(text.slice(0, currentIndex + 1));
+          currentIndex++;
+          timeout = setTimeout(typeNextChar, speed);
+        } else {
+          setIsComplete(true);
+        }
+      };
+      typeNextChar();
+    };
+
+    timeout = setTimeout(startTyping, delay);
+
+    return () => clearTimeout(timeout);
+  }, [isInView, text, speed, delay]);
+
+  const baseClass = gradient 
+    ? "bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent"
+    : "";
+
+  return (
+    <span ref={ref} className={`${className} ${baseClass}`}>
+      {displayText}
+      {!isComplete && isInView && (
+        <span className="inline-block w-[3px] h-[1em] bg-current ml-1 animate-pulse" />
+      )}
+    </span>
+  );
+};
+
+// Multi-line typing animation
+const TypeWriterBlock = ({ 
+  lines, 
+  className = '',
+  speed = 25,
+  lineDelay = 500
+}: { 
+  lines: Array<{ text: string; className?: string; gradient?: boolean }>;
+  className?: string;
+  speed?: number;
+  lineDelay?: number;
+}) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const [currentLineIndex, setCurrentLineIndex] = useState(0);
+  const [completedLines, setCompletedLines] = useState<string[]>([]);
+  const [currentText, setCurrentText] = useState('');
+  const [showCursor, setShowCursor] = useState(true);
+
+  useEffect(() => {
+    if (!isInView) return;
+    
+    let timeout: NodeJS.Timeout;
+    let charIndex = 0;
+    const currentLine = lines[currentLineIndex]?.text || '';
+
+    const typeNextChar = () => {
+      if (charIndex < currentLine.length) {
+        setCurrentText(currentLine.slice(0, charIndex + 1));
+        charIndex++;
+        timeout = setTimeout(typeNextChar, speed);
+      } else if (currentLineIndex < lines.length - 1) {
+        // Line complete, move to next after delay
+        setCompletedLines(prev => [...prev, currentLine]);
+        setCurrentText('');
+        timeout = setTimeout(() => {
+          setCurrentLineIndex(prev => prev + 1);
+        }, lineDelay);
+      } else {
+        // All done
+        setCompletedLines(prev => [...prev, currentLine]);
+        setCurrentText('');
+        setShowCursor(false);
+      }
+    };
+
+    charIndex = 0;
+    timeout = setTimeout(typeNextChar, currentLineIndex === 0 ? 200 : 0);
+
+    return () => clearTimeout(timeout);
+  }, [isInView, currentLineIndex, lines, speed, lineDelay]);
+
+  return (
+    <div ref={ref} className={className}>
+      {completedLines.map((line, i) => {
+        const lineConfig = lines[i];
+        const gradientClass = lineConfig?.gradient 
+          ? "bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent"
+          : "";
+        return (
+          <span key={i} className={lineConfig?.className || ''}>
+            <span className={gradientClass}>{line}</span>
+            {i < completedLines.length - 1 && <br />}
+          </span>
+        );
+      })}
+      {currentText && (
+        <span className={lines[currentLineIndex]?.className || ''}>
+          {completedLines.length > 0 && <br />}
+          <span className={lines[currentLineIndex]?.gradient 
+            ? "bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent"
+            : ""
+          }>
+            {currentText}
+          </span>
+        </span>
+      )}
+      {showCursor && isInView && (
+        <span className="inline-block w-[3px] h-[1em] bg-white ml-1 animate-pulse" />
+      )}
+    </div>
+  );
+};
 
 export const VisionPage = () => {
   return (
@@ -52,13 +194,15 @@ export const VisionPage = () => {
             </div>
             
             <h1 className="text-5xl md:text-7xl font-bold mb-8 leading-[1.1]">
-              <span className="text-white">We're Building the</span>
-              <br />
-              <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                First Identity Engineering Platform
-              </span>
-              <br />
-              <span className="text-white">on Earth.</span>
+              <TypeWriterBlock 
+                lines={[
+                  { text: "We're Building the", className: "text-white" },
+                  { text: "First Identity Engineering Platform", gradient: true },
+                  { text: "on Earth.", className: "text-white" }
+                ]}
+                speed={35}
+                lineDelay={300}
+              />
             </h1>
             
             <p className="text-xl text-gray-400 leading-relaxed max-w-2xl">
@@ -89,7 +233,11 @@ export const VisionPage = () => {
             
             <div className="space-y-8">
               <p className="text-3xl md:text-4xl font-light leading-relaxed text-gray-300">
-                The entire self-improvement industry is obsessed with 
+                <TypeWriter 
+                  text="The entire self-improvement industry is obsessed with"
+                  speed={20}
+                  delay={100}
+                />
                 <span className="text-white font-medium"> what you DO.</span>
               </p>
               
@@ -104,9 +252,12 @@ export const VisionPage = () => {
               </p>
               
               <p className="text-5xl md:text-6xl font-bold">
-                <span className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                  WHO ARE YOU?
-                </span>
+                <TypeWriter 
+                  text="WHO ARE YOU?"
+                  className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent"
+                  speed={60}
+                  delay={200}
+                />
               </p>
               
               <p className="text-xl text-gray-500 max-w-2xl">
@@ -132,7 +283,11 @@ export const VisionPage = () => {
             
             <div className="space-y-8">
               <p className="text-3xl md:text-4xl font-light leading-relaxed text-gray-300">
-                Every time you write, chat, or reflect — you're revealing 
+                <TypeWriter 
+                  text="Every time you write, chat, or reflect — you're revealing"
+                  speed={18}
+                  delay={100}
+                />
                 <span className="text-white font-medium"> patterns invisible to you.</span>
               </p>
               
@@ -182,8 +337,18 @@ export const VisionPage = () => {
             
             <div className="space-y-8">
               <p className="text-3xl md:text-4xl font-light leading-relaxed text-gray-300">
-                Evos is the world's first 
-                <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent font-medium"> Identity Engineering Platform.</span>
+                <TypeWriter 
+                  text="Evos is the world's first"
+                  speed={25}
+                  delay={100}
+                />
+                <TypeWriter 
+                  text=" Identity Engineering Platform."
+                  gradient={true}
+                  className="font-medium"
+                  speed={30}
+                  delay={800}
+                />
               </p>
               
               <div className="relative rounded-2xl border border-white/10 bg-white/[0.02] p-8 overflow-hidden">
@@ -244,9 +409,17 @@ export const VisionPage = () => {
             
             <div className="space-y-8">
               <p className="text-3xl md:text-4xl font-light leading-relaxed text-gray-300">
-                For the first time in history, AI can 
+                <TypeWriter 
+                  text="For the first time in history, AI can"
+                  speed={20}
+                  delay={100}
+                />
                 <span className="text-white font-medium"> understand human language </span>
-                well enough to extract identity.
+                <TypeWriter 
+                  text="well enough to extract identity."
+                  speed={20}
+                  delay={1200}
+                />
               </p>
               
               <div className="grid md:grid-cols-3 gap-6">
@@ -301,7 +474,11 @@ export const VisionPage = () => {
             
             <div className="space-y-8">
               <p className="text-3xl md:text-4xl font-light leading-relaxed text-gray-300">
-                We're just getting started.
+                <TypeWriter 
+                  text="We're just getting started."
+                  speed={40}
+                  delay={100}
+                />
               </p>
               
               <div className="space-y-4">
@@ -355,8 +532,13 @@ export const VisionPage = () => {
                 Evos is for you.
               </p>
               
-              <p className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                Engineer your identity.
+              <p className="text-5xl md:text-6xl font-bold">
+                <TypeWriter 
+                  text="Engineer your identity."
+                  gradient={true}
+                  speed={50}
+                  delay={300}
+                />
               </p>
             </div>
           </motion.div>
