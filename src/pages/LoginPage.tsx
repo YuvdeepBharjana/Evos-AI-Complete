@@ -111,16 +111,18 @@ export const LoginPage = () => {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md relative z-10"
       >
-        {/* Logo */}
+        {/* Logo - Clickable to go back to landing */}
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ delay: 0.2, type: 'spring' }}
           className="text-center mb-8"
         >
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-500 mb-4">
-            <Dna className="w-8 h-8 text-white" />
-          </div>
+          <Link to="/" className="inline-block group">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-500 mb-4 group-hover:scale-105 transition-transform">
+              <Dna className="w-8 h-8 text-white" />
+            </div>
+          </Link>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
             {mode === 'login' ? 'Welcome Back' : 'Create Account'}
           </h1>
@@ -322,8 +324,18 @@ export const LoginPage = () => {
           </div>
         </motion.div>
 
+        {/* Back to Home */}
+        <div className="mt-6 text-center">
+          <Link 
+            to="/" 
+            className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-indigo-400 transition-colors"
+          >
+            ← Back to Home
+          </Link>
+        </div>
+
         {/* Footer links */}
-        <div className="mt-8 text-center text-sm text-gray-500 space-x-4">
+        <div className="mt-4 text-center text-sm text-gray-500 space-x-4">
           <Link to="/terms" className="hover:text-gray-300 transition-colors">Terms</Link>
           <span>•</span>
           <Link to="/privacy" className="hover:text-gray-300 transition-colors">Privacy</Link>
