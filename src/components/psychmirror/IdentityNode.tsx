@@ -63,20 +63,92 @@ const cleanLabel = (label: string): string => {
   return label.replace(/\*\*/g, '').replace(/\*/g, '').replace(/\_\_/g, '').replace(/\_/g, '').trim();
 };
 
-// Truncate to max 2-3 words for display
-const truncateLabel = (label: string): string => {
+// Smart summarization to 2 meaningful words
+const summarizeLabel = (label: string): string => {
   const cleaned = cleanLabel(label)
-    .replace(/\s*[—–-]+\s*/g, ' ') // Remove dashes with surrounding spaces
-    .replace(/\s+/g, ' ') // Normalize spaces
+    .replace(/\s*[—–-]+\s*/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
-  const words = cleaned.split(' ').filter(w => w.length > 0 && w !== '—' && w !== '-');
+  
+  // Words to skip at the start
+  const skipWords = ['you', 'your', 'the', 'a', 'an', 'are', 'is', 'have', 'has', 'want', 'need', 'to', 'be', 'being', 'i', 'my', 'this', 'that', 'it'];
+  
+  // Common patterns to simplify
+  const simplifications: [RegExp, string][] = [
+    [/emotional\s*override/i, 'Emotional Control'],
+    [/sleep\s*mismanagement/i, 'Sleep Issues'],
+    [/waking\s*up\s*early/i, 'Early Rising'],
+    [/working\s*out/i, 'Fitness'],
+    [/losing\s*weight/i, 'Weight Loss'],
+    [/making\s*money/i, 'Wealth Building'],
+    [/building\s*wealth/i, 'Wealth Building'],
+    [/reading\s*(more\s*)?books/i, 'Reading Habit'],
+    [/learning\s*new/i, 'Learning'],
+    [/eating\s*healthy/i, 'Healthy Eating'],
+    [/drinking\s*water/i, 'Hydration'],
+    [/meditation|meditating/i, 'Meditation'],
+    [/exercise|exercising/i, 'Exercise'],
+    [/running|jogging/i, 'Running'],
+    [/writing|journaling/i, 'Writing'],
+    [/coding|programming/i, 'Coding'],
+    [/procrastinat/i, 'Procrastination'],
+    [/anxiety|anxious/i, 'Anxiety'],
+    [/depression|depressed/i, 'Depression'],
+    [/stress(ed)?/i, 'Stress'],
+    [/confidence/i, 'Confidence'],
+    [/discipline/i, 'Discipline'],
+    [/persistence|persever/i, 'Persistence'],
+    [/focus(ing)?/i, 'Focus'],
+    [/productivity/i, 'Productivity'],
+    [/time\s*management/i, 'Time Mgmt'],
+    [/self[- ]?care/i, 'Self-Care'],
+    [/mental\s*health/i, 'Mental Health'],
+    [/physical\s*health/i, 'Physical Health'],
+    [/social\s*(skills|life)/i, 'Social Skills'],
+    [/communication/i, 'Communication'],
+    [/leadership/i, 'Leadership'],
+    [/creativity/i, 'Creativity'],
+    [/problem[- ]?solving/i, 'Problem Solving'],
+  ];
+  
+  // Check for known patterns first
+  for (const [pattern, replacement] of simplifications) {
+    if (pattern.test(cleaned)) {
+      return replacement;
+    }
+  }
+  
+  // Filter out skip words and get meaningful words
+  let words = cleaned.split(' ').filter(w => w.length > 0 && w !== '—' && w !== '-');
+  
+  // Remove leading skip words
+  while (words.length > 0 && skipWords.includes(words[0].toLowerCase())) {
+    words.shift();
+  }
+  
+  // If we still have too many words, try to extract key parts
+  if (words.length > 2) {
+    // Look for compound concepts (noun + noun or adj + noun)
+    const keyWords = words.filter(w => 
+      !skipWords.includes(w.toLowerCase()) && 
+      w.length > 2
+    );
+    
+    if (keyWords.length >= 2) {
+      return keyWords.slice(0, 2).join(' ');
+    } else if (keyWords.length === 1) {
+      return keyWords[0];
+    }
+  }
+  
+  // Default: return first 2 non-skip words
   if (words.length <= 2) return words.join(' ');
   return words.slice(0, 2).join(' ');
 };
 
 export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
   const fullLabel = cleanLabel(data?.label || 'Unknown');
-  const nodeLabel = truncateLabel(data?.label || 'Unknown');
+  const nodeLabel = summarizeLabel(data?.label || 'Unknown');
   const nodeType = data?.type || 'trait';
   const nodeStrength = typeof data?.strength === 'number' ? data.strength : 50;
   const nodeStatus = data?.status || 'developing';
