@@ -1,14 +1,27 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { UserProfile, IdentityNode, Message, DailyAction, WorkSession, DailySummary, NodeStatus, TrackingData, TrackingGoals } from '../types';
+import type { UserProfile, IdentityNode, Message, DailyAction, WorkSession, DailySummary, NodeStatus, TrackingData, TrackingGoals, DailyMetric, DailyMetricEntry } from '../types';
 import { createDemoProfile } from '../data/demoProfile';
 import { getNodes, setAuthToken, logout as apiLogout, completeOnboarding as apiCompleteOnboarding, type User as ApiUser } from '../lib/api';
+
+// Default metrics for the tracker
+const DEFAULT_METRICS: DailyMetric[] = [
+  { id: 'calories', label: 'Calories', unit: 'cal', type: 'number', target: 2000, isDefault: true, isActive: true, icon: 'Flame', color: '#f97316' },
+  { id: 'exercise', label: 'Exercise', unit: 'min', type: 'number', target: 30, isDefault: true, isActive: true, icon: 'Dumbbell', color: '#22c55e' },
+  { id: 'deep-work', label: 'Deep Work', unit: 'hrs', type: 'number', target: 4, isDefault: true, isActive: true, icon: 'Briefcase', color: '#3b82f6' },
+  { id: 'sleep', label: 'Sleep', unit: 'hrs', type: 'number', target: 8, isDefault: true, isActive: true, icon: 'Moon', color: '#6366f1' },
+  { id: 'mood', label: 'Mood', unit: '', type: 'scale_1_10', target: 7, isDefault: true, isActive: true, icon: 'Heart', color: '#ec4899' },
+];
 
 interface UserStore {
   user: UserProfile | null;
   authToken: string | null;
   activeWorkSession: WorkSession | null;
   recentStrengthChanges: Record<string, number>; // nodeId -> change amount
+  
+  // Custom metrics for tracker
+  customMetrics: DailyMetric[];
+  metricEntries: DailyMetricEntry[];
   
   // Basic user actions
   setUser: (user: UserProfile) => void;
@@ -42,6 +55,15 @@ interface UserStore {
   // Tracking
   updateTrackingData: (data: TrackingData) => void;
   setTrackingGoals: (goals: TrackingGoals) => void;
+  
+  // Custom Metrics
+  addMetric: (metric: Omit<DailyMetric, 'id' | 'isDefault' | 'isActive'>) => void;
+  updateMetric: (id: string, updates: Partial<DailyMetric>) => void;
+  deleteMetric: (id: string) => void;
+  toggleMetricActive: (id: string) => void;
+  upsertMetricEntry: (date: string, metricId: string, value: number) => void;
+  getMetricValue: (date: string, metricId: string) => number | undefined;
+  getActiveMetrics: () => DailyMetric[];
 }
 
 // Calculate alignment score based on gaps
@@ -65,6 +87,8 @@ export const useUserStore = create<UserStore>()(
       authToken: null,
       activeWorkSession: null,
       recentStrengthChanges: {},
+      customMetrics: DEFAULT_METRICS,
+      metricEntries: [],
       
       setUser: (user) => set({ user }),
       
@@ -468,10 +492,86 @@ export const useUserStore = create<UserStore>()(
             }
           }
         };
-      })
+      }),
+      
+      // Custom Metrics Management
+      addMetric: (metricInput) => {
+        const newMetric: DailyMetric = {
+          ...metricInput,
+          id: `metric-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          isDefault: false,
+          isActive: true
+        };
+        set((state) => ({
+          customMetrics: [...state.customMetrics, newMetric]
+        }));
+      },
+      
+      updateMetric: (id, updates) => {
+        set((state) => ({
+          customMetrics: state.customMetrics.map((m) =>
+            m.id === id ? { ...m, ...updates } : m
+          )
+        }));
+      },
+      
+      deleteMetric: (id) => {
+        set((state) => ({
+          customMetrics: state.customMetrics.filter((m) => m.id !== id || m.isDefault),
+          metricEntries: state.metricEntries.filter((e) => e.metricId !== id)
+        }));
+      },
+      
+      toggleMetricActive: (id) => {
+        set((state) => ({
+          customMetrics: state.customMetrics.map((m) =>
+            m.id === id ? { ...m, isActive: !m.isActive } : m
+          )
+        }));
+      },
+      
+      upsertMetricEntry: (date, metricId, value) => {
+        set((state) => {
+          const existingIndex = state.metricEntries.findIndex(
+            (e) => e.date === date && e.metricId === metricId
+          );
+          
+          if (existingIndex >= 0) {
+            const updatedEntries = [...state.metricEntries];
+            updatedEntries[existingIndex] = { ...updatedEntries[existingIndex], value };
+            return { metricEntries: updatedEntries };
+          } else {
+            const newEntry: DailyMetricEntry = {
+              id: `entry-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              date,
+              metricId,
+              value
+            };
+            return { metricEntries: [...state.metricEntries, newEntry] };
+          }
+        });
+      },
+      
+      getMetricValue: (date, metricId) => {
+        const entry = get().metricEntries.find(
+          (e) => e.date === date && e.metricId === metricId
+        );
+        return entry?.value;
+      },
+      
+      getActiveMetrics: () => {
+        return get().customMetrics.filter((m) => m.isActive);
+      }
     }),
     {
-      name: 'evos-user-storage'
+      name: 'evos-user-storage',
+      partialize: (state) => ({
+        user: state.user,
+        authToken: state.authToken,
+        customMetrics: state.customMetrics,
+        metricEntries: state.metricEntries,
+        recentStrengthChanges: state.recentStrengthChanges
+      })
     }
   )
 );

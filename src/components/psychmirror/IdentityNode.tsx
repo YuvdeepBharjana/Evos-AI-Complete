@@ -63,8 +63,17 @@ const cleanLabel = (label: string): string => {
   return label.replace(/\*\*/g, '').replace(/\*/g, '').replace(/\_\_/g, '').replace(/\_/g, '').trim();
 };
 
+// Truncate to max 2-3 words for display
+const truncateLabel = (label: string): string => {
+  const cleaned = cleanLabel(label);
+  const words = cleaned.split(' ').filter(w => w.length > 0);
+  if (words.length <= 3) return cleaned;
+  return words.slice(0, 2).join(' ');
+};
+
 export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
-  const nodeLabel = cleanLabel(data?.label || 'Unknown');
+  const fullLabel = cleanLabel(data?.label || 'Unknown');
+  const nodeLabel = truncateLabel(data?.label || 'Unknown');
   const nodeType = data?.type || 'trait';
   const nodeStrength = typeof data?.strength === 'number' ? data.strength : 50;
   const nodeStatus = data?.status || 'developing';
@@ -75,8 +84,8 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
   const [showChange, setShowChange] = useState(false);
   const [displayedChange, setDisplayedChange] = useState<number | null>(null);
   
-  // Larger size to accommodate text (80-120px)
-  const nodeSize = 100 + (nodeStrength / 100) * 20;
+  // Consistent node size for all nodes
+  const nodeSize = 110;
   
   // Detect strength changes
   useEffect(() => {
