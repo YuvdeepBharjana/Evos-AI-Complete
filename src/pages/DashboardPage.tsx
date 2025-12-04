@@ -7,6 +7,7 @@ import { FloatingMirrorButton } from '../components/ui/FloatingMirrorButton';
 import { DailyProofCard } from '../components/daily/DailyProofCard';
 import { AlignmentScore } from '../components/daily/AlignmentScore';
 import { EndOfDaySummary } from '../components/daily/EndOfDaySummary';
+import { TodaysActionsCard } from '../components/daily/TodaysActionsCard';
 import { DailyTracker } from '../components/tracking/DailyTracker';
 import { useUserStore } from '../store/useUserStore';
 
@@ -139,11 +140,20 @@ export const DashboardPage = () => {
                 <DailyProofCard />
               </motion.div>
 
-              {/* End of Day Summary */}
+              {/* Today's Actions Summary - shows completed actions with % changes */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25 }}
+              >
+                <TodaysActionsCard />
+              </motion.div>
+
+              {/* End of Day Summary */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
               >
                 <EndOfDaySummary />
               </motion.div>
@@ -152,7 +162,7 @@ export const DashboardPage = () => {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
+                transition={{ delay: 0.35 }}
                 className="glass rounded-2xl p-6"
               >
                 <h3 className="font-bold text-white mb-4">🔄 The Evos Circuit</h3>
