@@ -120,8 +120,8 @@ export const LoginPage = () => {
         >
           <Link to="/" className="inline-block group">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-500 mb-4 group-hover:scale-105 transition-transform">
-              <Dna className="w-8 h-8 text-white" />
-            </div>
+            <Dna className="w-8 h-8 text-white" />
+          </div>
           </Link>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
             {mode === 'login' ? 'Welcome Back' : 'Create Account'}

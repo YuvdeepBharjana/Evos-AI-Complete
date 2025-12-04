@@ -1,801 +1,353 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import ForceGraph2D from 'react-force-graph-2d';
-import * as d3 from 'd3-force';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useCallback, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import ReactFlow, {
+  Background,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  type NodeTypes
+} from 'reactflow';
+import 'reactflow/dist/style.css';
+import { IdentityNode } from './IdentityNode';
+import { GrowthCoreNode } from './GrowthCoreNode';
+import { NodeDetailsPanel } from './NodeDetailsPanel';
+import { MirrorControls } from './MirrorControls';
+import { AddNodeModal } from './AddNodeModal';
 import { useUserStore } from '../../store/useUserStore';
-import { cleanText } from '../../lib/cleanText';
-import { Play, X, TrendingUp, AlertTriangle, Target, Zap, Trophy, Heart, AlertCircle, Loader2 } from 'lucide-react';
+import { generateReactFlowElements } from '../../lib/networkLayoutEngine';
+import type { NodeType, IdentityNode as IdentityNodeType } from '../../types';
+import { Brain, Target, Zap, Trophy, Heart, AlertCircle, Sparkles } from 'lucide-react';
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-type NodeCategory = "Goal" | "Habit" | "Trait" | "Emotion" | "Struggle";
-type NodeState = "critical" | "developing" | "dominant";
-
-type PsychNode = {
-  id: string;
-  label: string;
-  value: number;
-  category: NodeCategory;
-  state?: NodeState;
-  x?: number;
-  y?: number;
-  vx?: number;
-  vy?: number;
+const nodeTypes: NodeTypes = {
+  identityNode: IdentityNode,
+  growthCore: GrowthCoreNode,
 };
 
-type PsychEdge = {
-  id?: string;
-  source: string | PsychNode;
-  target: string | PsychNode;
-  weight: number;
-};
+// Brain region info for the legend
+const BRAIN_REGIONS = [
+  { type: 'goal', label: 'Goals', region: 'Prefrontal Cortex', icon: Target, color: '#3b82f6', description: 'Planning & vision' },
+  { type: 'habit', label: 'Habits', region: 'Motor Cortex', icon: Zap, color: '#10b981', description: 'Actions & routines' },
+  { type: 'trait', label: 'Traits', region: 'Temporal Lobe', icon: Trophy, color: '#a855f7', description: 'Personality & character' },
+  { type: 'emotion', label: 'Emotions', region: 'Limbic System', icon: Heart, color: '#f59e0b', description: 'Feelings & mood' },
+  { type: 'struggle', label: 'Struggles', region: 'Amygdala', icon: AlertCircle, color: '#ef4444', description: 'Challenges & fears' },
+  { type: 'interest', label: 'Interests', region: 'Reward Center', icon: Sparkles, color: '#06b6d4', description: 'Passions & curiosities' },
+];
 
-// ============================================================================
-// HELPERS
-// ============================================================================
+export const PsychMirror = () => {
+  const { user, recentStrengthChanges, addNodes } = useUserStore();
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<NodeType | 'all'>('all');
+  const [showAddModal, setShowAddModal] = useState(false);
 
-function getNodeState(value: number): NodeState {
-  if (value < 40) return "critical";
-  if (value < 70) return "developing";
-  return "dominant";
-}
-
-function getCategoryColor(category: NodeCategory): string {
-  switch (category) {
-    case "Goal":     return "#3b82f6";
-    case "Habit":    return "#10b981";
-    case "Trait":    return "#a855f7";
-    case "Emotion":  return "#f59e0b";
-    case "Struggle": return "#ef4444";
-  }
-}
-
-function getCategoryIcon(category: NodeCategory) {
-  switch (category) {
-    case "Goal":     return Target;
-    case "Habit":    return Zap;
-    case "Trait":    return Trophy;
-    case "Emotion":  return Heart;
-    case "Struggle": return AlertCircle;
-  }
-}
-
-function mapNodeType(type: string): NodeCategory {
-  const mapping: Record<string, NodeCategory> = {
-    'goal': 'Goal',
-    'habit': 'Habit',
-    'trait': 'Trait',
-    'emotion': 'Emotion',
-    'struggle': 'Struggle',
-    'interest': 'Goal'
+  const handleAddNode = (node: IdentityNodeType) => {
+    addNodes([node]);
   };
-  return mapping[type.toLowerCase()] || 'Trait';
-}
 
-function getCategoryRegion(category: NodeCategory, scale: number): { x: number; y: number } {
-  const offset = scale * 0.3;
-  switch (category) {
-    case "Goal":     return { x: 0, y: -offset };
-    case "Trait":    return { x: -offset * 0.8, y: -offset * 0.3 };
-    case "Habit":    return { x: offset * 0.8, y: -offset * 0.3 };
-    case "Emotion":  return { x: -offset * 0.6, y: offset * 0.6 };
-    case "Struggle": return { x: offset * 0.6, y: offset * 0.6 };
-  }
-}
-
-function computeSummaryStats(nodes: PsychNode[]) {
-  if (nodes.length === 0) return { avgValue: 0, criticalCount: 0, dominantCount: 0, worst: null, best: null };
-  
-  const avgValue = Math.round(nodes.reduce((sum, n) => sum + n.value, 0) / nodes.length);
-  const criticalCount = nodes.filter(n => (n.state || getNodeState(n.value)) === "critical").length;
-  const dominantCount = nodes.filter(n => (n.state || getNodeState(n.value)) === "dominant").length;
-  
-  const worst = nodes.reduce((min, n) => n.value < min.value ? n : min, nodes[0]);
-  const nonStruggles = nodes.filter(n => n.category !== "Struggle");
-  const best = nonStruggles.length > 0 
-    ? nonStruggles.reduce((max, n) => n.value > max.value ? n : max, nonStruggles[0])
-    : null;
-  
-  return { avgValue, criticalCount, dominantCount, worst, best };
-}
-
-function generateEdges(nodes: PsychNode[]): PsychEdge[] {
-  const edges: PsychEdge[] = [];
-  const edgeSet = new Set<string>();
-  
-  nodes.forEach(node => {
-    const sameCategory = nodes.filter(n => n.id !== node.id && n.category === node.category);
-    const others = nodes.filter(n => n.id !== node.id && n.category !== node.category);
-    
-    // Connect to 1-2 nodes in same category
-    sameCategory.slice(0, 2).forEach(target => {
-      const key = [node.id, target.id].sort().join('|');
-      if (!edgeSet.has(key)) {
-        edgeSet.add(key);
-        edges.push({ source: node.id, target: target.id, weight: 0.7 });
-      }
-    });
-    
-    // Connect to 1 node in different category
-    if (others.length > 0) {
-      const target = others[Math.floor(Math.random() * others.length)];
-      const key = [node.id, target.id].sort().join('|');
-      if (!edgeSet.has(key)) {
-        edgeSet.add(key);
-        edges.push({ source: node.id, target: target.id, weight: 0.3 });
-      }
-    }
-  });
-  
-  return edges;
-}
-
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
-
-export const PsychMirror: React.FC = () => {
-  const navigate = useNavigate();
-  const { user, startWorkSession, lastUpdatedNodeId, clearLastUpdatedNode, recentStrengthChanges, clearRecentStrengthChanges, todayStrengthChanges, todayStrengthDate } = useUserStore();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 600, height: 600 });
-  const [selectedNode, setSelectedNode] = useState<PsychNode | null>(null);
-  const [hoverNode, setHoverNode] = useState<PsychNode | null>(null);
-  const [filterCategory, setFilterCategory] = useState<NodeCategory | 'all'>('all');
-  const [showTodaysFocus, setShowTodaysFocus] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [graphReady, setGraphReady] = useState(false);
-  const fgRef = useRef<any>(null);
-
-  // Smooth loading transition
-  useEffect(() => {
-    // Initial fade in after component mounts
-    const loadTimer = setTimeout(() => setIsLoaded(true), 100);
-    // Graph ready after force simulation settles
-    const graphTimer = setTimeout(() => setGraphReady(true), 800);
-    return () => {
-      clearTimeout(loadTimer);
-      clearTimeout(graphTimer);
-    };
-  }, []);
-
-  // Get today's daily action node IDs for highlighting
-  const todayActionNodeIds = useMemo(() => {
-    if (!user?.dailyActions) return new Set<string>();
-    const today = new Date();
-    return new Set(
-      user.dailyActions
-        .filter(a => {
-          if (!a.createdAt || a.nodeId === 'tracking') return false;
-          const actionDate = new Date(a.createdAt);
-          return actionDate.toDateString() === today.toDateString();
-        })
-        .map(a => a.nodeId)
-    );
+  // Get daily action node IDs
+  const dailyActionNodeIds = useMemo(() => {
+    if (!user?.dailyActions) return [];
+    return user.dailyActions
+      .filter(action => action.completed === null && action.nodeId !== 'tracking')
+      .map(action => action.nodeId);
   }, [user?.dailyActions]);
 
-  // Auto-clear lastUpdatedNodeId after 3 seconds (increased for visibility)
-  useEffect(() => {
-    if (lastUpdatedNodeId) {
-      const timer = setTimeout(() => {
-        clearLastUpdatedNode();
-        clearRecentStrengthChanges?.();
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [lastUpdatedNodeId, clearLastUpdatedNode, clearRecentStrengthChanges]);
+  // Generate React Flow elements from user's identity nodes
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
+    if (!user?.identityNodes) return { nodes: [], edges: [] };
+    return generateReactFlowElements(user.identityNodes, recentStrengthChanges, dailyActionNodeIds);
+  }, [user?.identityNodes, recentStrengthChanges, dailyActionNodeIds]);
 
-  // Convert user's identity nodes to PsychNodes
-  const graphData = useMemo(() => {
-    if (!user?.identityNodes || user.identityNodes.length === 0) {
-      return { nodes: [], links: [] };
-    }
+  // Filter nodes based on selected type (always include Growth Core)
+  const filteredNodes = useMemo(() => {
+    if (filterType === 'all') return initialNodes;
+    return initialNodes.filter(node => 
+      node.id === 'growth-core' || node.data.type === filterType
+    );
+  }, [initialNodes, filterType]);
 
-    const scale = Math.min(dimensions.width, dimensions.height);
-    
-    let nodes: PsychNode[] = user.identityNodes.map(node => {
-      const category = mapNodeType(node.type);
-      const region = getCategoryRegion(category, scale);
-      const jitter = () => (Math.random() - 0.5) * 30;
-      
-      // Clean label of all markdown formatting (asterisks, bold, etc.)
-      const cleanLabel = cleanText(node.label);
-      
-      return {
-        id: node.id,
-        label: cleanLabel,
-        value: node.strength,
-        category,
-        state: getNodeState(node.strength),
-        x: region.x + jitter(),
-        y: region.y + jitter()
-      };
-    });
-    
-    // Filter by category if selected
-    if (filterCategory !== 'all') {
-      nodes = nodes.filter(n => n.category === filterCategory);
-    }
-    
-    // Filter by today's focus if selected
-    if (showTodaysFocus) {
-      nodes = nodes.filter(n => todayActionNodeIds.has(n.id));
-    }
-    
-    const edges = generateEdges(nodes);
-    return { nodes, links: edges };
-  }, [user?.identityNodes, dimensions, filterCategory, showTodaysFocus, todayActionNodeIds]);
+  const filteredEdges = useMemo(() => {
+    if (filterType === 'all') return initialEdges;
+    const nodeIds = new Set(filteredNodes.map(n => n.id));
+    return initialEdges.filter(edge => nodeIds.has(edge.source) && nodeIds.has(edge.target));
+  }, [initialEdges, filteredNodes, filterType]);
 
-  const stats = useMemo(() => computeSummaryStats(graphData.nodes), [graphData.nodes]);
+  const [nodes, setNodes, onNodesChange] = useNodesState(filteredNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(filteredEdges);
 
-  // Handle resize - use full container size
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        // Use more of the available space
-        setDimensions({ 
-          width: Math.max(rect.width - 20, 400), 
-          height: Math.max(rect.height - 20, 400) 
-        });
-      }
-    };
-    
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+  // Update nodes when filter changes
+  useMemo(() => {
+    setNodes(filteredNodes);
+    setEdges(filteredEdges);
+  }, [filteredNodes, filteredEdges, setNodes, setEdges]);
+
+  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
+
+  const onNodeClick = useCallback((_event: any, node: any) => {
+    // Don't open details panel for Growth Core
+    if (node.id === 'growth-core') return;
+    setSelectedNodeId(node.id);
   }, []);
 
-  // Apply forces
-  useEffect(() => {
-    if (fgRef.current && graphData.nodes.length > 0) {
-      const fg = fgRef.current;
-      const scale = Math.min(dimensions.width, dimensions.height) * 0.35;
-      
-      fg.d3Force('x', d3.forceX((node: PsychNode) => {
-        return getCategoryRegion(node.category, scale).x;
-      }).strength(0.15));
-      
-      fg.d3Force('y', d3.forceY((node: PsychNode) => {
-        return getCategoryRegion(node.category, scale).y;
-      }).strength(0.15));
-      
-      fg.d3Force('charge')?.strength(-120);
-      fg.d3Force('link')?.distance(60);
-      
-      fg.d3Force('collision', d3.forceCollide(30));
-      
-      // Center the graph
-      setTimeout(() => {
-        fg.zoomToFit(400, 50);
-      }, 500);
-    }
-  }, [dimensions, graphData.nodes.length, filterCategory]);
+  const handleZoomIn = () => reactFlowInstance?.zoomIn();
+  const handleZoomOut = () => reactFlowInstance?.zoomOut();
+  const handleFitView = () => reactFlowInstance?.fitView({ 
+    padding: 0.15, 
+    maxZoom: 1.2,
+    duration: 800 
+  });
 
-  // Node rendering
-  const nodeCanvasObject = useCallback((node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const psychNode = node as PsychNode;
-    const baseRadius = 22 / globalScale;
-    const color = getCategoryColor(psychNode.category);
-    const state = psychNode.state || getNodeState(psychNode.value);
-    const isSelected = selectedNode?.id === psychNode.id;
-    const isHovered = hoverNode?.id === psychNode.id;
-    const isLastUpdated = lastUpdatedNodeId === psychNode.id;
-    const hasDailyAction = todayActionNodeIds.has(psychNode.id);
-    const strengthChange = recentStrengthChanges[psychNode.id];
-    
-    // Get today's accumulated strength change (persistent for the day)
-    const isToday = todayStrengthDate === new Date().toDateString();
-    const todayChange = isToday ? todayStrengthChanges[psychNode.id] : undefined;
-    
-    ctx.save();
-    
-    // Daily action indicator (subtle outer ring)
-    if (hasDailyAction && !isLastUpdated) {
-      ctx.strokeStyle = '#fbbf24'; // Amber/yellow
-      ctx.lineWidth = 2 / globalScale;
-      ctx.globalAlpha = 0.6;
-      ctx.setLineDash([4 / globalScale, 4 / globalScale]);
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, baseRadius + 8 / globalScale, 0, 2 * Math.PI);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-    
-    // Last updated highlight (brief pulse effect)
-    if (isLastUpdated) {
-      // Large glow
-      ctx.shadowColor = strengthChange && strengthChange > 0 ? '#22c55e' : '#ef4444';
-      ctx.shadowBlur = 60 / globalScale;
-      ctx.fillStyle = strengthChange && strengthChange > 0 ? '#22c55e' : '#ef4444';
-      ctx.globalAlpha = 0.5;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, baseRadius + 15 / globalScale, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      
-      // Pulsing outer ring
-      ctx.strokeStyle = strengthChange && strengthChange > 0 ? '#22c55e' : '#ef4444';
-      ctx.lineWidth = 4 / globalScale;
-      ctx.globalAlpha = 0.9;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, baseRadius + 8 / globalScale, 0, 2 * Math.PI);
-      ctx.stroke();
-      
-      // Show strength change value
-      if (strengthChange) {
-        ctx.globalAlpha = 1;
-        ctx.font = `bold ${14 / globalScale}px Arial`;
-        ctx.fillStyle = strengthChange > 0 ? '#22c55e' : '#ef4444';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const changeText = strengthChange > 0 ? `+${strengthChange}%` : `${strengthChange}%`;
-        ctx.fillText(changeText, node.x, node.y - baseRadius - 12 / globalScale);
-      }
-    }
-    
-    // Selection/hover highlight
-    if (isSelected || isHovered) {
-      ctx.shadowColor = color;
-      ctx.shadowBlur = isSelected ? 40 : 25;
-      ctx.fillStyle = color;
-      ctx.globalAlpha = 0.3;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, baseRadius + 8 / globalScale, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-    
-    // Outer ring
-    ctx.strokeStyle = color;
-    ctx.lineWidth = (state === "dominant" ? 3 : 2) / globalScale;
-    ctx.globalAlpha = state === "critical" ? 0.6 : 1;
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, baseRadius, 0, 2 * Math.PI);
-    ctx.stroke();
-    
-    // Inner fill based on value
-    const fillRadius = baseRadius * (psychNode.value / 100) * 0.85;
-    ctx.fillStyle = color;
-    ctx.globalAlpha = 0.25;
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, fillRadius, 0, 2 * Math.PI);
-    ctx.fill();
-    
-    // Critical indicator
-    if (state === "critical") {
-      ctx.strokeStyle = "#ff4444";
-      ctx.lineWidth = 2 / globalScale;
-      ctx.globalAlpha = 0.8;
-      ctx.setLineDash([4 / globalScale, 4 / globalScale]);
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, baseRadius + 4 / globalScale, 0, 2 * Math.PI);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-    
-    // Value text
-    ctx.fillStyle = "white";
-    ctx.globalAlpha = 1;
-    ctx.font = `bold ${11 / globalScale}px system-ui`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(psychNode.value.toString(), node.x, node.y);
-    
-    // Today's change indicator (persistent - shown all day)
-    if (todayChange) {
-      // Draw background pill for better visibility
-      ctx.globalAlpha = 0.9;
-      const changeText = todayChange > 0 ? `+${todayChange}` : `${todayChange}`;
-      const textWidth = ctx.measureText(changeText).width || 20;
-      const pillWidth = (textWidth + 8) / globalScale;
-      const pillHeight = 14 / globalScale;
-      const pillY = node.y - baseRadius - 14 / globalScale;
-      
-      // Background pill
-      ctx.fillStyle = todayChange > 0 ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)';
-      ctx.beginPath();
-      ctx.roundRect(node.x - pillWidth / 2, pillY - pillHeight / 2, pillWidth, pillHeight, 4 / globalScale);
-      ctx.fill();
-      
-      // Text
-      ctx.font = `bold ${10 / globalScale}px system-ui`;
-      ctx.fillStyle = 'white';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(changeText, node.x, pillY);
-    }
-    
-    // Label below - already cleaned at source, just truncate
-    ctx.font = `${9 / globalScale}px system-ui`;
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
-    const label = psychNode.label.length > 12 ? psychNode.label.slice(0, 12) + '…' : psychNode.label;
-    ctx.fillText(label, node.x, node.y + baseRadius + 10 / globalScale);
-    
-    ctx.restore();
-  }, [selectedNode, hoverNode, lastUpdatedNodeId, todayActionNodeIds, recentStrengthChanges, todayStrengthChanges, todayStrengthDate]);
+  const selectedNode = user?.identityNodes.find(n => n.id === selectedNodeId) || null;
 
-  // Link rendering
-  const linkCanvasObject = useCallback((link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const source = link.source as PsychNode;
-    const target = link.target as PsychNode;
-    
-    ctx.save();
-    ctx.strokeStyle = getCategoryColor(source.category);
-    ctx.globalAlpha = 0.15 + link.weight * 0.15;
-    ctx.lineWidth = 1 / globalScale;
-    
-    ctx.beginPath();
-    ctx.moveTo(source.x!, source.y!);
-    ctx.lineTo(target.x!, target.y!);
-    ctx.stroke();
-    ctx.restore();
-  }, []);
+  // Calculate stats
+  const stats = useMemo(() => {
+    if (!user?.identityNodes) return null;
+    const nodes = user.identityNodes;
+    const avgStrength = Math.round(nodes.reduce((acc, n) => acc + n.strength, 0) / nodes.length);
+    const mastered = nodes.filter(n => n.status === 'mastered').length;
+    const active = nodes.filter(n => n.status === 'active').length;
+    const developing = nodes.filter(n => n.status === 'developing').length;
+    return { total: nodes.length, avgStrength, mastered, active, developing };
+  }, [user?.identityNodes]);
 
-  // Handle work session start
-  const handleStartWork = () => {
-    if (selectedNode) {
-      // Find the original node to get the ID
-      const originalNode = user?.identityNodes.find(n => n.id === selectedNode.id);
-      if (originalNode) {
-        startWorkSession(originalNode.id, originalNode.label);
-        navigate('/work-session');
-      }
-    }
-  };
-
-  // Empty state
   if (!user?.identityNodes || user.identityNodes.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center p-8">
-        <div className="text-center max-w-md">
+      <div className="h-full flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
+        >
           <div className="text-6xl mb-4">🧠</div>
-          <h2 className="text-2xl font-bold text-white mb-2">No Identity Data Yet</h2>
-          <p className="text-gray-400 mb-6">
-            Complete onboarding to build your psychological mirror and see your identity visualized.
+          <h2 className="text-2xl font-bold mb-2">No Identity Data Yet</h2>
+          <p className="text-gray-400">
+            Complete onboarding or start chatting to build your psychological mirror
           </p>
-          <button 
-            onClick={() => navigate('/onboarding')}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-colors"
-          >
-            Start Onboarding
-          </button>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div 
-      className="h-full w-full flex flex-col relative"
-      style={{
-        backgroundColor: '#0a0a0f',
-        backgroundImage: `
-          radial-gradient(ellipse 100% 80% at 50% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
-          radial-gradient(ellipse 80% 60% at 20% 100%, rgba(16, 185, 129, 0.05) 0%, transparent 40%),
-          radial-gradient(ellipse 60% 60% at 80% 100%, rgba(168, 85, 247, 0.05) 0%, transparent 40%)
-        `
-      }}
-    >
-      {/* Loading overlay with fade out */}
-      <AnimatePresence>
-        {!graphReady && (
-          <motion.div
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="absolute inset-0 z-50 flex items-center justify-center bg-[#0a0a0f]"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3 }}
-              className="flex flex-col items-center gap-4"
-            >
-              {/* Animated brain/neural icon */}
-              <div className="relative">
-                <motion.div
-                  animate={{ 
-                    scale: [1, 1.1, 1],
-                    opacity: [0.5, 1, 0.5]
-                  }}
-                  transition={{ 
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }}
-                  className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-cyan-500/30 blur-xl"
-                />
-                <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-500 flex items-center justify-center">
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                  >
-                    <Loader2 className="w-8 h-8 text-white" />
-                  </motion.div>
-                </div>
-              </div>
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="text-gray-400 text-sm font-medium"
-              >
-                Loading your identity map...
-              </motion.p>
-              {/* Animated dots */}
-              <div className="flex gap-1">
-                {[0, 1, 2].map(i => (
-                  <motion.div
-                    key={i}
-                    animate={{ 
-                      y: [0, -8, 0],
-                      opacity: [0.3, 1, 0.3]
-                    }}
-                    transition={{ 
-                      duration: 0.8,
-                      repeat: Infinity,
-                      delay: i * 0.15
-                    }}
-                    className="w-2 h-2 rounded-full bg-gradient-to-r from-indigo-400 to-cyan-400"
-                  />
-                ))}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <div className="relative h-full w-full">
+      <MirrorControls
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onFitView={handleFitView}
+        selectedFilter={filterType}
+        onFilterChange={setFilterType}
+        onAddNode={() => setShowAddModal(true)}
+      />
 
-      {/* Main content with fade in */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: isLoaded ? 1 : 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="flex flex-col h-full"
+      <AddNodeModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdd={handleAddNode}
+      />
+
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onNodeClick={onNodeClick}
+        onInit={setReactFlowInstance}
+        nodeTypes={nodeTypes}
+        fitView
+        fitViewOptions={{ 
+          padding: 0.15, 
+          maxZoom: 1.2,
+          duration: 800,
+        }}
+        minZoom={0.3}
+        maxZoom={2}
+        defaultViewport={{ x: 150, y: 0, zoom: 0.8 }}
+        attributionPosition="bottom-right"
+        className="!bg-transparent"
+        style={{ background: 'transparent' }}
       >
-        {/* Header with Stats */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-white">Identity Map</h1>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-gray-400">
-              <span className="text-white font-medium">{stats.avgValue}%</span> avg
-            </span>
-            {stats.criticalCount > 0 && (
-              <span className="flex items-center gap-1 text-red-400">
-                <AlertTriangle size={14} />
-                {stats.criticalCount} critical
-              </span>
-            )}
-            <span className="flex items-center gap-1 text-emerald-400">
-              <TrendingUp size={14} />
-              {stats.dominantCount} strong
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Interactive Legend */}
-      <div className="flex items-center justify-center gap-2 px-4 py-2 border-b border-white/5 bg-white/[0.02]">
-        <button
-          onClick={() => {
-            setFilterCategory('all');
-            setShowTodaysFocus(false);
+        {/* Clean background */}
+        <div 
+          className="absolute inset-0 pointer-events-none -z-10"
+          style={{
+            background: `
+              radial-gradient(ellipse 80% 60% at 50% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+              linear-gradient(180deg, #0a0a0f 0%, #0d0d15 50%, #0a0a0f 100%)
+            `,
           }}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            filterCategory === 'all' && !showTodaysFocus
-              ? 'bg-white/10 text-white' 
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
-          }`}
-        >
-          All
-        </button>
-        {(["Goal", "Habit", "Trait", "Emotion", "Struggle"] as NodeCategory[]).map(cat => {
-          const Icon = getCategoryIcon(cat);
-          const count = user?.identityNodes.filter(n => mapNodeType(n.type) === cat).length || 0;
-          const isActive = filterCategory === cat && !showTodaysFocus;
-          return (
-            <button
-              key={cat}
-              onClick={() => {
-                setFilterCategory(isActive ? 'all' : cat);
-                setShowTodaysFocus(false); // Reset today's focus when selecting category
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                isActive 
-                  ? 'text-white' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
-              style={{
-                backgroundColor: isActive ? `${getCategoryColor(cat)}30` : 'transparent',
-                borderColor: isActive ? getCategoryColor(cat) : 'transparent',
-                borderWidth: '1px'
-              }}
-            >
-              <div 
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: getCategoryColor(cat) }}
-              />
-              <Icon size={12} style={{ color: isActive ? getCategoryColor(cat) : undefined }} />
-              <span>{cat}s</span>
-              <span className="text-gray-500">({count})</span>
-            </button>
-          );
-        })}
-        {/* Daily Focus Indicator - Clickable to filter */}
-        {todayActionNodeIds.size > 0 && (
-          <button
-            onClick={() => {
-              setShowTodaysFocus(!showTodaysFocus);
-              if (!showTodaysFocus) setFilterCategory('all'); // Reset category filter when showing today's focus
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 border-l border-white/10 ml-2 rounded-lg transition-all ${
-              showTodaysFocus 
-                ? 'bg-amber-500/20 ring-1 ring-amber-400/50' 
-                : 'hover:bg-amber-500/10'
-            }`}
-          >
-            <div className={`w-2.5 h-2.5 rounded-full border-2 border-dashed border-amber-400 ${showTodaysFocus ? '' : 'animate-pulse'}`} />
-            <span className="text-amber-400 text-xs font-medium">
-              {showTodaysFocus ? '✓ ' : ''}Today's Focus ({todayActionNodeIds.size})
-            </span>
-          </button>
-        )}
-      </div>
-
-      {/* Graph Container */}
-      <div ref={containerRef} className="flex-1 flex items-center justify-center relative overflow-hidden">
-        <ForceGraph2D
-          key={`${filterCategory}-${showTodaysFocus}`}
-          ref={fgRef}
-          width={dimensions.width}
-          height={dimensions.height}
-          graphData={graphData}
-          nodeCanvasObject={nodeCanvasObject}
-          linkCanvasObject={linkCanvasObject}
-          nodePointerAreaPaint={(node, color, ctx, globalScale) => {
-            const size = 30 / globalScale;
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(node.x!, node.y!, size, 0, 2 * Math.PI);
-            ctx.fill();
-          }}
-          onNodeHover={(node) => {
-            setHoverNode(node as PsychNode | null);
-            document.body.style.cursor = node ? 'pointer' : 'default';
-          }}
-          onNodeClick={(node) => {
-            console.log('Node clicked:', node);
-            setSelectedNode(node as PsychNode);
-          }}
-          onBackgroundClick={() => setSelectedNode(null)}
-          enableNodeDrag={false}
-          enableZoomInteraction={true}
-          enablePanInteraction={true}
-          backgroundColor="transparent"
-          cooldownTicks={100}
-          d3AlphaDecay={0.02}
-          d3VelocityDecay={0.3}
         />
+        
+        <Background color="#1a1a2e" gap={50} size={1} />
+        {/* MiniMap - Hidden on mobile */}
+        <MiniMap
+          nodeColor={(node) => {
+            if (node.id === 'growth-core') return '#8b5cf6';
+            const colors = {
+              habit: '#10b981',
+              goal: '#3b82f6',
+              trait: '#a855f7',
+              emotion: '#f59e0b',
+              struggle: '#ef4444',
+              interest: '#06b6d4'
+            };
+            return colors[node.data?.type as keyof typeof colors] || '#6b7280';
+          }}
+          maskColor="rgba(0, 0, 0, 0.9)"
+          className="hidden sm:block"
+          style={{
+            background: 'linear-gradient(135deg, rgba(20,20,30,0.95) 0%, rgba(10,10,20,0.95) 100%)',
+            borderRadius: '12px',
+            border: '1px solid rgba(139, 92, 246, 0.2)',
+          }}
+        />
+      </ReactFlow>
 
-        {/* Hover Tooltip */}
-        {hoverNode && !selectedNode && (
+
+      <NodeDetailsPanel node={selectedNode} onClose={() => setSelectedNodeId(null)} />
+
+      {/* Brain Map Legend - Hidden on mobile, shown on larger screens */}
+      <motion.div
+        initial={{ x: -20, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        className="hidden md:block absolute bottom-4 left-4 max-w-[320px]"
+        style={{
+          background: 'linear-gradient(135deg, rgba(15,15,25,0.95) 0%, rgba(20,20,35,0.9) 100%)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: '18px',
+          border: '1px solid rgba(139, 92, 246, 0.15)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
+          padding: '16px',
+        }}
+      >
+        <div className="flex items-center gap-2.5 mb-4">
           <div 
-            className="absolute top-4 right-4 p-3 rounded-xl text-sm"
+            className="w-9 h-9 rounded-lg flex items-center justify-center"
             style={{
-              background: 'rgba(15, 15, 20, 0.95)',
-              border: `1px solid ${getCategoryColor(hoverNode.category)}40`,
-              backdropFilter: 'blur(10px)',
-              maxWidth: '200px'
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
             }}
           >
-            <div className="font-medium text-white mb-1">{hoverNode.label}</div>
-            <div className="flex items-center gap-2 text-xs">
-              <span style={{ color: getCategoryColor(hoverNode.category) }}>{hoverNode.category}</span>
-              <span className="text-gray-400">•</span>
-              <span className="text-white">{hoverNode.value}%</span>
-              <span className={`px-1.5 py-0.5 rounded text-xs ${
-                hoverNode.state === 'critical' ? 'bg-red-500/20 text-red-400' :
-                hoverNode.state === 'dominant' ? 'bg-emerald-500/20 text-emerald-400' :
-                'bg-yellow-500/20 text-yellow-400'
-              }`}>
-                {hoverNode.state}
-              </span>
+            <Brain className="w-4.5 h-4.5 text-purple-400" />
           </div>
+          <div>
+            <span className="font-bold text-sm text-white">Neural Map</span>
+            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Identity Regions</div>
           </div>
-        )}
         </div>
         
-      {/* Selected Node Panel */}
-      {selectedNode && (
-        <div 
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 p-4 rounded-2xl w-full max-w-md mx-4"
+        <div className="space-y-2">
+          {BRAIN_REGIONS.map(region => {
+            const Icon = region.icon;
+            const count = user.identityNodes.filter(n => n.type === region.type).length;
+            const isActive = filterType === region.type;
+            return (
+              <motion.button
+                key={region.type}
+                onClick={() => setFilterType(isActive ? 'all' : region.type as NodeType)}
+                className="w-full flex items-center gap-2.5 p-2.5 rounded-lg transition-all"
                 style={{
-            background: 'rgba(15, 15, 20, 0.98)',
-            border: `1px solid ${getCategoryColor(selectedNode.category)}50`,
-            backdropFilter: 'blur(20px)',
-            boxShadow: `0 0 40px ${getCategoryColor(selectedNode.category)}20`
-          }}
-        >
-          <button 
-            onClick={() => setSelectedNode(null)}
-            className="absolute top-3 right-3 p-1 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <X size={18} className="text-gray-400" />
-          </button>
-
-          <div className="flex items-start gap-4">
-            {/* Node indicator */}
-            <div 
-              className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ 
-                background: `${getCategoryColor(selectedNode.category)}20`,
-                border: `2px solid ${getCategoryColor(selectedNode.category)}`
-              }}
-            >
-              <span className="text-2xl font-bold text-white">{selectedNode.value}</span>
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-white truncate">{selectedNode.label}</h3>
-              <div className="flex items-center gap-2 mt-1">
-                <span 
-                  className="text-xs px-2 py-0.5 rounded-full"
+                  background: isActive 
+                    ? `linear-gradient(135deg, ${region.color}15 0%, ${region.color}08 100%)`
+                    : 'transparent',
+                  border: isActive 
+                    ? `1px solid ${region.color}40` 
+                    : '1px solid transparent',
+                  boxShadow: isActive ? `0 0 20px ${region.color}15` : 'none',
+                }}
+                whileHover={{ 
+                  x: 4,
+                  background: `linear-gradient(135deg, ${region.color}10 0%, ${region.color}05 100%)`,
+                }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <div 
+                  className="w-8 h-8 rounded-lg flex items-center justify-center relative overflow-hidden"
                   style={{ 
-                    background: `${getCategoryColor(selectedNode.category)}20`,
-                    color: getCategoryColor(selectedNode.category)
+                    background: `linear-gradient(135deg, ${region.color}25 0%, ${region.color}10 100%)`,
+                    border: `1px solid ${region.color}30`,
                   }}
                 >
-                  {selectedNode.category}
-                </span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  selectedNode.state === 'critical' ? 'bg-red-500/20 text-red-400' :
-                  selectedNode.state === 'dominant' ? 'bg-emerald-500/20 text-emerald-400' :
-                  'bg-yellow-500/20 text-yellow-400'
-                }`}>
-                  {selectedNode.state === 'critical' ? '⚠️ Needs attention' :
-                   selectedNode.state === 'dominant' ? '✨ Strong' : '📈 Developing'}
+                  <Icon size={16} style={{ color: region.color }} />
+                  {isActive && (
+                    <motion.div
+                      className="absolute inset-0"
+                      style={{ background: `${region.color}20` }}
+                      animate={{ opacity: [0.3, 0.6, 0.3] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    />
+                  )}
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-white/90">{region.label}</span>
+                    <span 
+                      className="text-xs font-bold px-2 py-0.5 rounded-full"
+                      style={{ 
+                        background: count > 0 ? `${region.color}20` : 'rgba(255,255,255,0.05)',
+                        color: count > 0 ? region.color : 'rgba(255,255,255,0.3)',
+                      }}
+                    >
+                      {count}
                     </span>
+                  </div>
+                  <div className="text-[10px] text-gray-500">{region.region}</div>
+                </div>
+              </motion.button>
+            );
+          })}
+        </div>
+
+        {/* Stats summary */}
+        {stats && (
+          <div 
+            className="mt-4 pt-3 grid grid-cols-3 gap-3"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+          >
+            <div className="text-center">
+              <div 
+                className="text-lg font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent"
+              >
+                {stats.total}
               </div>
-              
-              {/* Progress bar */}
-              <div className="mt-3 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                <div 
-                  className="h-full rounded-full transition-all"
-                  style={{ 
-                    width: `${selectedNode.value}%`,
-                    background: getCategoryColor(selectedNode.category)
-                  }}
-                />
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Nodes</div>
+            </div>
+            <div className="text-center">
+              <div 
+                className="text-lg font-black bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent"
+              >
+                {stats.avgStrength}%
               </div>
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Strength</div>
+            </div>
+            <div className="text-center">
+              <div 
+                className="text-lg font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
+              >
+                {stats.mastered}
+              </div>
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Mastered</div>
             </div>
           </div>
+        )}
 
-          {/* Action Button */}
-          <button
-            onClick={handleStartWork}
-            className="w-full mt-4 py-3 px-4 rounded-xl font-medium text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
-            style={{
-              background: `linear-gradient(135deg, ${getCategoryColor(selectedNode.category)}, ${getCategoryColor(selectedNode.category)}cc)`,
-              boxShadow: `0 4px 20px ${getCategoryColor(selectedNode.category)}40`
-            }}
-          >
-            <Play size={18} />
-            Work on This
-          </button>
-          
-          <p className="text-center text-xs text-gray-500 mt-2">
-            Start a timed session to improve this node
-          </p>
+        {/* Status indicators */}
+        <div 
+          className="mt-3 pt-3 flex flex-wrap gap-2.5 text-[10px]"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+        >
+          <span className="flex items-center gap-1.5 text-gray-400">
+            <span className="w-2 h-2 rounded-full bg-green-400 shadow-lg shadow-green-400/50" /> Mastered
+          </span>
+          <span className="flex items-center gap-1.5 text-gray-400">
+            <span className="w-2 h-2 rounded-full bg-blue-400 shadow-lg shadow-blue-400/50" /> Active
+          </span>
+          <span className="flex items-center gap-1.5 text-gray-400">
+            <span className="w-2 h-2 rounded-full bg-yellow-400 shadow-lg shadow-yellow-400/50" /> Developing
+          </span>
+          <span className="flex items-center gap-1.5 text-gray-400">
+            <span className="w-2 h-2 rounded-full bg-gray-600" /> Neglected
+          </span>
         </div>
-      )}
       </motion.div>
     </div>
   );
 };
-
-export default PsychMirror;

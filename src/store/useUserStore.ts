@@ -8,10 +8,7 @@ interface UserStore {
   user: UserProfile | null;
   authToken: string | null;
   activeWorkSession: WorkSession | null;
-  recentStrengthChanges: Record<string, number>; // nodeId -> change amount (temporary, for animation)
-  todayStrengthChanges: Record<string, number>; // nodeId -> total change today (persistent for the day)
-  todayStrengthDate: string | null; // Date string for when todayStrengthChanges was last reset
-  lastUpdatedNodeId: string | null; // Node ID that was just updated (for visual feedback)
+  recentStrengthChanges: Record<string, number>; // nodeId -> change amount
   
   // Basic user actions
   setUser: (user: UserProfile) => void;
@@ -24,7 +21,6 @@ interface UserStore {
   completeOnboarding: (method: 'questionnaire' | 'upload' | 'manual', nodes: IdentityNode[]) => Promise<void>;
   clearUser: () => void;
   clearRecentStrengthChanges: () => void;
-  clearLastUpdatedNode: () => void;
   
   // Node strength updates
   updateNodeStrength: (nodeId: string, change: number) => void;
@@ -69,7 +65,6 @@ export const useUserStore = create<UserStore>()(
       authToken: null,
       activeWorkSession: null,
       recentStrengthChanges: {},
-      lastUpdatedNodeId: null,
       
       setUser: (user) => set({ user }),
       
@@ -112,23 +107,18 @@ export const useUserStore = create<UserStore>()(
         set({ 
           user: userProfile, 
           authToken: token,
-          recentStrengthChanges: {},
-          todayStrengthChanges: {},
-          todayStrengthDate: new Date().toDateString()
+          recentStrengthChanges: {} 
         });
       },
       
       loginWithDemo: (email, name) => set(() => ({
         user: createDemoProfile(email, name || email.split('@')[0]),
-        recentStrengthChanges: {},
-        todayStrengthChanges: {},
-        todayStrengthDate: new Date().toDateString(),
-        lastUpdatedNodeId: null
+        recentStrengthChanges: {}
       })),
       
       logout: () => {
         apiLogout();
-        set({ user: null, authToken: null, activeWorkSession: null, recentStrengthChanges: {}, todayStrengthChanges: {}, todayStrengthDate: null, lastUpdatedNodeId: null });
+        set({ user: null, authToken: null, activeWorkSession: null, recentStrengthChanges: {} });
       },
       
       updateNodes: (nodes) => set((state) => ({
@@ -205,11 +195,10 @@ export const useUserStore = create<UserStore>()(
       
       clearUser: () => {
         apiLogout();
-        set({ user: null, authToken: null, activeWorkSession: null, recentStrengthChanges: {}, lastUpdatedNodeId: null });
+        set({ user: null, authToken: null, activeWorkSession: null, recentStrengthChanges: {} });
       },
       
       clearRecentStrengthChanges: () => set({ recentStrengthChanges: {} }),
-      clearLastUpdatedNode: () => set({ lastUpdatedNodeId: null }),
       
       // Update a specific node's strength
       updateNodeStrength: (nodeId, change) => set((state) => {
@@ -317,15 +306,6 @@ export const useUserStore = create<UserStore>()(
           return node;
         });
         
-        // Check if we need to reset todayStrengthChanges (new day)
-        const today = new Date().toDateString();
-        const isNewDay = state.todayStrengthDate !== today;
-        const currentTodayChanges = isNewDay ? {} : state.todayStrengthChanges;
-        
-        // Accumulate today's strength changes
-        const previousChange = currentTodayChanges[action.nodeId] || 0;
-        const newTodayChange = previousChange + strengthChange;
-        
         return {
           user: {
             ...state.user,
@@ -336,13 +316,7 @@ export const useUserStore = create<UserStore>()(
           recentStrengthChanges: {
             ...state.recentStrengthChanges,
             [action.nodeId]: strengthChange
-          },
-          todayStrengthChanges: {
-            ...currentTodayChanges,
-            [action.nodeId]: newTodayChange
-          },
-          todayStrengthDate: today,
-          lastUpdatedNodeId: action.nodeId // Set for visual feedback
+          }
         };
       }),
       
