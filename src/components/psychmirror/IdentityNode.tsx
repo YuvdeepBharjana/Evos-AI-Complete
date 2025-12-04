@@ -65,9 +65,12 @@ const cleanLabel = (label: string): string => {
 
 // Truncate to max 2-3 words for display
 const truncateLabel = (label: string): string => {
-  const cleaned = cleanLabel(label);
-  const words = cleaned.split(' ').filter(w => w.length > 0);
-  if (words.length <= 3) return cleaned;
+  const cleaned = cleanLabel(label)
+    .replace(/\s*[—–-]+\s*/g, ' ') // Remove dashes with surrounding spaces
+    .replace(/\s+/g, ' ') // Normalize spaces
+    .trim();
+  const words = cleaned.split(' ').filter(w => w.length > 0 && w !== '—' && w !== '-');
+  if (words.length <= 2) return words.join(' ');
   return words.slice(0, 2).join(' ');
 };
 
