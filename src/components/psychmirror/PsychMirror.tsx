@@ -51,11 +51,18 @@ export const PsychMirror = () => {
       .map(action => action.nodeId);
   }, [user?.dailyActions]);
 
-  // Generate React Flow elements from user's identity nodes
+  // Filter out 100% completed nodes (they've mastered it!)
+  const visibleNodes = useMemo(() => {
+    if (!user?.identityNodes) return [];
+    return user.identityNodes.filter(node => node.strength < 100);
+  }, [user?.identityNodes]);
+
+
+  // Generate React Flow elements from visible identity nodes (excluding 100%)
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
-    if (!user?.identityNodes) return { nodes: [], edges: [] };
-    return generateReactFlowElements(user.identityNodes, recentStrengthChanges, dailyActionNodeIds);
-  }, [user?.identityNodes, recentStrengthChanges, dailyActionNodeIds]);
+    if (!visibleNodes.length) return { nodes: [], edges: [] };
+    return generateReactFlowElements(visibleNodes, recentStrengthChanges, dailyActionNodeIds);
+  }, [visibleNodes, recentStrengthChanges, dailyActionNodeIds]);
 
   // Filter nodes based on selected type (always include Growth Core)
   const filteredNodes = useMemo(() => {
@@ -103,11 +110,11 @@ export const PsychMirror = () => {
     if (!user?.identityNodes) return null;
     const nodes = user.identityNodes;
     const avgStrength = Math.round(nodes.reduce((acc, n) => acc + n.strength, 0) / nodes.length);
-    const mastered = nodes.filter(n => n.status === 'mastered').length;
-    const active = nodes.filter(n => n.status === 'active').length;
-    const developing = nodes.filter(n => n.status === 'developing').length;
-    return { total: nodes.length, avgStrength, mastered, active, developing };
-  }, [user?.identityNodes]);
+    const completed = nodes.filter(n => n.strength >= 100).length;
+    const active = nodes.filter(n => n.status === 'active' && n.strength < 100).length;
+    const developing = nodes.filter(n => n.status === 'developing' && n.strength < 100).length;
+    return { total: nodes.length, visible: visibleNodes.length, avgStrength, completed, active, developing };
+  }, [user?.identityNodes, visibleNodes]);
 
   if (!user?.identityNodes || user.identityNodes.length === 0) {
     return (
@@ -306,9 +313,9 @@ export const PsychMirror = () => {
               <div 
                 className="text-lg font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent"
               >
-                {stats.total}
+                {stats.visible}
               </div>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Nodes</div>
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Active</div>
             </div>
             <div className="text-center">
               <div 
@@ -316,37 +323,27 @@ export const PsychMirror = () => {
               >
                 {stats.avgStrength}%
               </div>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Strength</div>
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Avg</div>
             </div>
             <div className="text-center">
               <div 
-                className="text-lg font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
+                className="text-lg font-black bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent"
               >
-                {stats.mastered}
+                {stats.completed}
               </div>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Mastered</div>
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Complete</div>
             </div>
           </div>
         )}
 
-        {/* Status indicators */}
-        <div 
-          className="mt-3 pt-3 flex flex-wrap gap-2.5 text-[10px]"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
-        >
-          <span className="flex items-center gap-1.5 text-gray-400">
-            <span className="w-2 h-2 rounded-full bg-green-400 shadow-lg shadow-green-400/50" /> Mastered
-          </span>
-          <span className="flex items-center gap-1.5 text-gray-400">
-            <span className="w-2 h-2 rounded-full bg-blue-400 shadow-lg shadow-blue-400/50" /> Active
-          </span>
-          <span className="flex items-center gap-1.5 text-gray-400">
-            <span className="w-2 h-2 rounded-full bg-yellow-400 shadow-lg shadow-yellow-400/50" /> Developing
-          </span>
-          <span className="flex items-center gap-1.5 text-gray-400">
-            <span className="w-2 h-2 rounded-full bg-gray-600" /> Neglected
-          </span>
-        </div>
+        {/* Completed nodes note */}
+        {stats && stats.completed > 0 && (
+          <div className="mt-3 pt-3 text-center" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <p className="text-[10px] text-green-400">
+              ✓ {stats.completed} node{stats.completed > 1 ? 's' : ''} at 100% - fully integrated!
+            </p>
+          </div>
+        )}
       </motion.div>
     </div>
   );

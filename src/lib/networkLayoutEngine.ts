@@ -1,9 +1,9 @@
 import type { IdentityNode } from '../types';
 import type { Node, Edge } from 'reactflow';
 
-// Large canvas with hexagon arrangement for maximum separation between categories
-const CANVAS_CENTER = { x: 1100, y: 700 }; // Shifted right for better centering with legend
-const OUTER_RADIUS = 450; // Distance from center to each type's center (reduced for better zoom)
+// Larger canvas with more space between clusters
+const CANVAS_CENTER = { x: 1200, y: 800 };
+const OUTER_RADIUS = 550; // Increased for more separation
 
 // Hexagon positions for 6 node types - evenly distributed around center (60° apart)
 const TYPE_POSITIONS: Record<string, { angle: number; color: string }> = {
@@ -55,7 +55,7 @@ export const generateReactFlowElements = (
     nodesByType[type].push(node);
   });
 
-  // Position nodes in clusters around the hexagon
+  // Position nodes in organized grid clusters around the hexagon
   Object.entries(nodesByType).forEach(([type, typeNodes]) => {
     const typeConfig = TYPE_POSITIONS[type] || TYPE_POSITIONS.trait;
     const angleRad = (typeConfig.angle * Math.PI) / 180;
@@ -66,17 +66,12 @@ export const generateReactFlowElements = (
       y: CANVAS_CENTER.y + Math.sin(angleRad) * OUTER_RADIUS
     };
 
-    // Sort by strength for visual hierarchy
+    // Sort by strength for visual hierarchy (strongest first)
     const sorted = [...typeNodes].sort((a, b) => (b.strength || 50) - (a.strength || 50));
     
-    // Arrange in a circular cluster pattern
+    // Arrange in an organized grid pattern
     sorted.forEach((node, index) => {
-      const position = calculateClusterPosition(
-        index, 
-        sorted.length, 
-        regionCenter,
-        node.strength || 50
-      );
+      const position = calculateGridPosition(index, sorted.length, regionCenter);
       
       flowNodes.push({
         id: node.id,
@@ -91,11 +86,10 @@ export const generateReactFlowElements = (
           strengthChange: recentStrengthChanges[node.id] || undefined,
           hasDailyAction: dailyActionNodeIds.includes(node.id)
         },
-        draggable: false, // Prevent nodes from being dragged
+        draggable: false,
       });
 
       // Create edge connecting this node to the growth core
-      // Use dotted/dashed animated lines for developing/active nodes
       const isBeingWorkedOn = node.status === 'developing' || node.status === 'active';
       
       edges.push({
@@ -103,12 +97,12 @@ export const generateReactFlowElements = (
         source: 'growth-core',
         target: node.id,
         type: 'default',
-        animated: isBeingWorkedOn, // Animate for developing/active nodes
+        animated: isBeingWorkedOn,
         style: {
           stroke: typeConfig.color,
-          strokeWidth: isBeingWorkedOn ? 3 : 2.5, // Thicker lines
-          opacity: isBeingWorkedOn ? 0.6 : 0.3,
-          strokeDasharray: isBeingWorkedOn ? '5,5' : 'none', // Dotted line for in-progress nodes
+          strokeWidth: isBeingWorkedOn ? 2.5 : 1.5,
+          opacity: isBeingWorkedOn ? 0.5 : 0.2,
+          strokeDasharray: isBeingWorkedOn ? '5,5' : 'none',
         },
       });
     });
@@ -117,43 +111,38 @@ export const generateReactFlowElements = (
   return { nodes: flowNodes, edges };
 };
 
-const calculateClusterPosition = (
+// Calculate position in a clean grid layout
+const calculateGridPosition = (
   index: number,
   total: number,
-  regionCenter: { x: number; y: number },
-  strength: number
+  regionCenter: { x: number; y: number }
 ): { x: number; y: number } => {
+  // Fixed spacing between nodes - increased for visibility
+  const NODE_SPACING = 180; // Space between node centers
+  
   // Single node goes at center
   if (total === 1) {
-    return { x: regionCenter.x, y: regionCenter.y };
+    return { x: regionCenter.x - 55, y: regionCenter.y - 55 };
   }
 
-  // Calculate spacing based on number of nodes (reduced for tighter clustering)
-  const baseRadius = 50;
-  const radiusPerNode = 15;
-  const clusterRadius = baseRadius + Math.min(total, 8) * radiusPerNode;
+  // Calculate optimal grid dimensions
+  const cols = Math.ceil(Math.sqrt(total));
+  const rows = Math.ceil(total / cols);
   
-  // Strength affects distance from center (stronger = closer to center)
-  const strengthFactor = (strength || 50) / 100;
-  const adjustedRadius = clusterRadius * (1.05 - strengthFactor * 0.15);
+  // Position in grid
+  const row = Math.floor(index / cols);
+  const col = index % cols;
   
-  // Arrange in concentric rings if many nodes
-  const nodesPerRing = 8;
-  const ring = Math.floor(index / nodesPerRing);
-  const indexInRing = index % nodesPerRing;
-  const totalInRing = Math.min(nodesPerRing, total - ring * nodesPerRing);
+  // Center the grid around the region center
+  const gridWidth = (cols - 1) * NODE_SPACING;
+  const gridHeight = (rows - 1) * NODE_SPACING;
   
-  // Calculate angle for this node
-  const startAngle = ring * 0.3;
-  const angleStep = (2 * Math.PI) / totalInRing;
-  const angle = startAngle + indexInRing * angleStep;
-  
-  // Ring distance increases for outer rings (reduced spacing)
-  const ringRadius = adjustedRadius + ring * 60;
+  const startX = regionCenter.x - gridWidth / 2 - 55; // Offset for node size
+  const startY = regionCenter.y - gridHeight / 2 - 55;
   
   return {
-    x: regionCenter.x + Math.cos(angle) * ringRadius,
-    y: regionCenter.y + Math.sin(angle) * ringRadius
+    x: startX + col * NODE_SPACING,
+    y: startY + row * NODE_SPACING
   };
 };
 
