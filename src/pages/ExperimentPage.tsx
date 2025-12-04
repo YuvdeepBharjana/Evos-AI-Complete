@@ -62,10 +62,28 @@ export const ExperimentPage = () => {
       // Add a small delay to ensure backend has processed the check-in
       setTimeout(() => {
         loadExperiment();
-      }, 1000);
+      }, 500);
+    };
+    
+    // Listen for individual action completions to refresh calendar
+    const handleActionCompleted = () => {
+      console.log('✅ Action completed, refreshing calendar...');
+      setTimeout(() => {
+        loadExperiment();
+      }, 300);
+    };
+    
+    // Listen for actions-complete event (all actions done)
+    const handleAllActionsComplete = () => {
+      console.log('🎉 All actions complete! Calendar should turn green...');
+      setTimeout(() => {
+        loadExperiment();
+      }, 300);
     };
     
     window.addEventListener('experiment-checkin', handleCheckIn);
+    window.addEventListener('action-completed', handleActionCompleted);
+    window.addEventListener('actions-complete', handleAllActionsComplete);
     
     // Also listen for focus events to refresh when user returns to the page
     const handleFocus = () => {
@@ -77,6 +95,8 @@ export const ExperimentPage = () => {
     
     return () => {
       window.removeEventListener('experiment-checkin', handleCheckIn);
+      window.removeEventListener('action-completed', handleActionCompleted);
+      window.removeEventListener('actions-complete', handleAllActionsComplete);
       window.removeEventListener('focus', handleFocus);
     };
   }, [loadExperiment]);

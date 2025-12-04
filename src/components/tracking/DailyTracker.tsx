@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Flame, Dumbbell, Briefcase, Moon, 
   Heart, ChevronDown, ChevronUp, Check, AlertCircle,
-  TrendingUp, Zap, X, Edit3, Save
+  TrendingUp, Zap, X, Edit3, Save, Loader2
 } from 'lucide-react';
 import { useUserStore } from '../../store/useUserStore';
+import { saveTracking, checkIn } from '../../lib/api';
 import type { DailyMetric } from '../../types';
 
 // Icon mapping
@@ -182,11 +183,13 @@ export const DailyTracker = () => {
     getActiveMetrics,
     updateMetric,
     upsertMetricEntry,
-    getMetricValue
+    getMetricValue,
+    user
   } = useUserStore();
   
   const [isExpanded, setIsExpanded] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [selectedDate] = useState(new Date());
   
   const dateStr = getDateString(selectedDate);
@@ -208,6 +211,8 @@ export const DailyTracker = () => {
   const trackingPercentage = activeMetrics.length > 0 
     ? Math.round((trackedCount / activeMetrics.length) * 100) 
     : 0;
+  
+  const allTrackingComplete = trackedCount === activeMetrics.length && activeMetrics.length > 0;
 
   const handleValueChange = (metricId: string, value: number) => {
     upsertMetricEntry(dateStr, metricId, value);
@@ -217,9 +222,60 @@ export const DailyTracker = () => {
     updateMetric(metricId, { label: newLabel });
   };
 
-  const handleSave = () => {
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+  // Save tracking data to backend
+  const handleSave = async () => {
+    setIsSaving(true);
+    
+    try {
+      // Build tracking data from custom metrics
+      const trackingData: Record<string, number | undefined> = {};
+      activeMetrics.forEach(m => {
+        const val = getMetricValue(dateStr, m.id);
+        // Map metric IDs to backend fields
+        if (m.id === 'calories') trackingData.calories = val;
+        else if (m.id === 'exercise') trackingData.exercise_mins = val;
+        else if (m.id === 'deep-work') trackingData.deep_work_hrs = val;
+        else if (m.id === 'sleep') trackingData.sleep_hrs = val;
+        else if (m.id === 'mood') trackingData.mood = val;
+      });
+      
+      // Save to backend
+      await saveTracking({
+        date: dateStr,
+        ...trackingData
+      });
+      
+      // Check if all daily actions are also complete
+      const dailyActions = user?.dailyActions || [];
+      const allActionsComplete = dailyActions.length > 0 && 
+        dailyActions.every(a => a.completed === true);
+      
+      // If tracking is complete, dispatch event and potentially check-in
+      if (allTrackingComplete) {
+        window.dispatchEvent(new CustomEvent('tracking-complete'));
+        
+        // If all actions are also complete, do check-in
+        if (allActionsComplete) {
+          const today = new Date().toDateString();
+          const lastCheckIn = localStorage.getItem('lastFullCheckInDate');
+          
+          if (lastCheckIn !== today) {
+            await checkIn();
+            localStorage.setItem('lastFullCheckInDate', today);
+            
+            // Dispatch event to refresh experiment page
+            window.dispatchEvent(new CustomEvent('experiment-checkin'));
+          }
+        }
+      }
+      
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (error) {
+      console.error('Failed to save tracking:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -306,7 +362,7 @@ export const DailyTracker = () => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleSave}
-                  disabled={trackedCount === 0}
+                  disabled={trackedCount === 0 || isSaving}
                   className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
                     goalsMetCount === totalGoals && totalGoals > 0
                       ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
@@ -315,10 +371,15 @@ export const DailyTracker = () => {
                       : 'bg-gray-700 text-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  {goalsMetCount === totalGoals && totalGoals > 0 ? (
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Saving...
+                    </>
+                  ) : goalsMetCount === totalGoals && totalGoals > 0 ? (
                     <>
                       <Check className="w-5 h-5" />
-                      All Goals Met!
+                      All Goals Met - Save!
                     </>
                   ) : (
                     <>

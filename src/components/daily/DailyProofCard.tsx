@@ -4,7 +4,7 @@ import { Check, X, Zap, Clock, RefreshCw, MessageSquare, ArrowRight } from 'luci
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../../store/useUserStore';
 import { generateDailyActions, getCompletionMessage } from '../../lib/generateDailyActions';
-import { checkIn } from '../../lib/api';
+import { checkIn, updateActionStatus, updateNode } from '../../lib/api';
 import { cleanText } from '../../lib/cleanText';
 import type { DailyAction } from '../../types';
 
@@ -56,17 +56,33 @@ export const DailyProofCard = () => {
   const allTodayActionsComplete = todayActions.length > 0 && todayActions.every(a => a.completed === true);
 
   // Auto-check-in when all today's actions are completed
-  // Note: This only checks actions. Tracking completion is handled in DailyTracker
-  // The actual check-in happens when BOTH are complete (handled in DailyTracker)
   useEffect(() => {
-    // Just dispatch event for tracking component to handle combined check
-    if (allTodayActionsComplete && !hasCheckedInToday) {
-      console.log('✅ All actions complete, dispatching actions-complete event');
-      window.dispatchEvent(new CustomEvent('actions-complete'));
-    }
+    const performCheckIn = async () => {
+      if (allTodayActionsComplete && !hasCheckedInToday) {
+        console.log('✅ All actions complete!');
+        
+        // Dispatch event for calendar to update immediately
+        window.dispatchEvent(new CustomEvent('actions-complete'));
+        window.dispatchEvent(new CustomEvent('experiment-checkin'));
+        
+        // Mark as checked in today
+        setHasCheckedInToday(true);
+        
+        // Do the actual check-in
+        try {
+          await checkIn();
+          console.log('✅ Check-in successful');
+        } catch (error) {
+          console.error('Check-in failed:', error);
+        }
+      }
+    };
+    
+    performCheckIn();
   }, [allTodayActionsComplete, hasCheckedInToday]);
 
-  const handleMarkComplete = (action: DailyAction, completed: boolean) => {
+  const handleMarkComplete = async (action: DailyAction, completed: boolean) => {
+    // Update local state immediately for responsiveness
     markActionComplete(action.id, completed);
     const message = getCompletionMessage(completed, action.nodeName);
     setFeedbackMessage(message);
@@ -76,6 +92,29 @@ export const DailyProofCard = () => {
     }
     
     setTimeout(() => setFeedbackMessage(null), 5000);
+    
+    // Save to backend
+    try {
+      // Update action status in backend
+      await updateActionStatus(action.id, completed ? 'done' : 'skipped');
+      
+      // If action has a node and strength change, update the node in backend
+      if (action.nodeId && action.nodeId !== 'tracking' && action.strengthChange) {
+        const node = user?.identityNodes.find(n => n.id === action.nodeId);
+        if (node) {
+          const newStrength = Math.max(0, Math.min(100, node.strength + action.strengthChange));
+          await updateNode(action.nodeId, { strength: newStrength });
+        }
+      }
+      
+      // Dispatch event to notify other components (calendar, etc.)
+      window.dispatchEvent(new CustomEvent('action-completed', { 
+        detail: { actionId: action.id, completed } 
+      }));
+      
+    } catch (error) {
+      console.error('Failed to save action to backend:', error);
+    }
   };
 
   const handleChangeTask = (action: DailyAction) => {
