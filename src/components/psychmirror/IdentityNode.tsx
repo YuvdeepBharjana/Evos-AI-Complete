@@ -129,10 +129,17 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
       
       <motion.div
         initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
+        animate={{ 
+          scale: selected ? 1.15 : 1, 
+          opacity: 1,
+        }}
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         className="relative cursor-pointer group flex items-center justify-center"
-        style={{ width: nodeSize + 30, height: nodeSize + 30 }}
+        style={{ 
+          width: nodeSize + 30, 
+          height: nodeSize + 30,
+          zIndex: selected ? 100 : 1,
+        }}
       >
         {/* Strength change popup - above node */}
         <AnimatePresence>
@@ -179,26 +186,57 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
 
 
 
+        {/* Selected ring - outer glow when clicked */}
+        {selected && (
+          <motion.div
+            className="absolute rounded-full pointer-events-none"
+            style={{
+              width: nodeSize + 20,
+              height: nodeSize + 20,
+              border: `3px solid ${colors.primary}`,
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+            }}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ 
+              scale: [1, 1.15, 1],
+              opacity: [0.8, 0.4, 0.8],
+            }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          />
+        )}
+
         {/* Main node orb */}
         <motion.div
           className="rounded-full overflow-hidden relative"
           style={{
             width: nodeSize,
             height: nodeSize,
-            background: 'rgba(20, 20, 30, 0.8)',
-            border: `3px solid ${colors.primary}`,
-            boxShadow: hasDailyAction 
-              ? `0 0 30px ${colors.glow}, 0 0 60px ${colors.glow}, 0 0 90px ${colors.glow}50`
-              : `0 0 20px ${colors.glow}`,
+            background: selected ? 'rgba(30, 30, 45, 0.95)' : 'rgba(20, 20, 30, 0.8)',
+            border: selected ? `4px solid ${colors.primary}` : `3px solid ${colors.primary}`,
+            boxShadow: selected
+              ? `0 0 40px ${colors.glow}, 0 0 80px ${colors.glow}, 0 0 120px ${colors.glow}, inset 0 0 30px ${colors.glow}40`
+              : hasDailyAction 
+                ? `0 0 30px ${colors.glow}, 0 0 60px ${colors.glow}, 0 0 90px ${colors.glow}50`
+                : `0 0 20px ${colors.glow}`,
+            zIndex: selected ? 100 : 1,
           }}
-          animate={hasDailyAction ? {
+          animate={selected ? {
+            scale: [1, 1.08, 1],
+            boxShadow: [
+              `0 0 40px ${colors.glow}, 0 0 80px ${colors.glow}, 0 0 120px ${colors.glow}, inset 0 0 30px ${colors.glow}40`,
+              `0 0 60px ${colors.glow}, 0 0 100px ${colors.glow}, 0 0 150px ${colors.glow}, inset 0 0 40px ${colors.glow}60`,
+              `0 0 40px ${colors.glow}, 0 0 80px ${colors.glow}, 0 0 120px ${colors.glow}, inset 0 0 30px ${colors.glow}40`,
+            ]
+          } : hasDailyAction ? {
             boxShadow: [
               `0 0 30px ${colors.glow}, 0 0 60px ${colors.glow}, 0 0 90px ${colors.glow}50`,
               `0 0 40px ${colors.glow}, 0 0 80px ${colors.glow}, 0 0 120px ${colors.glow}70`,
               `0 0 30px ${colors.glow}, 0 0 60px ${colors.glow}, 0 0 90px ${colors.glow}50`,
             ]
           } : {}}
-          transition={{ duration: 2, repeat: Infinity }}
+          transition={{ duration: selected ? 1 : 2, repeat: Infinity }}
         >
           {/* Strength fill from bottom - circular progress */}
           <div
