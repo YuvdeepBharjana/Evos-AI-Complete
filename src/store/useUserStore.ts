@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { UserProfile, IdentityNode, Message, DailyAction, WorkSession, DailySummary, NodeStatus, TrackingData, TrackingGoals, DailyMetric, DailyMetricEntry } from '../types';
 import { createDemoProfile } from '../data/demoProfile';
-import { getNodes, setAuthToken, logout as apiLogout, completeOnboarding as apiCompleteOnboarding, type User as ApiUser } from '../lib/api';
+import { getNodes, setAuthToken, logout as apiLogout, completeOnboarding as apiCompleteOnboarding, getTrackingHistory, type User as ApiUser, type DailyTracking } from '../lib/api';
 
 // Default metrics for the tracker
 const DEFAULT_METRICS: DailyMetric[] = [
@@ -64,6 +64,7 @@ interface UserStore {
   upsertMetricEntry: (date: string, metricId: string, value: number) => void;
   getMetricValue: (date: string, metricId: string) => number | undefined;
   getActiveMetrics: () => DailyMetric[];
+  loadTrackingFromBackend: () => Promise<void>;
 }
 
 // Calculate alignment score based on gaps
@@ -132,6 +133,13 @@ export const useUserStore = create<UserStore>()(
           user: userProfile, 
           authToken: token,
           recentStrengthChanges: {} 
+        });
+        
+        // Load tracking data from backend (non-blocking)
+        // This runs in the background and won't break the app if it fails
+        get().loadTrackingFromBackend().catch((error) => {
+          console.error('Failed to load tracking data:', error);
+          // App continues to work normally
         });
       },
       
@@ -561,6 +569,75 @@ export const useUserStore = create<UserStore>()(
       
       getActiveMetrics: () => {
         return get().customMetrics.filter((m) => m.isActive);
+      },
+      
+      // Load tracking data from backend and merge with local data
+      loadTrackingFromBackend: async () => {
+        try {
+          // Load last 30 days of tracking history
+          const trackingHistory = await getTrackingHistory(30);
+          
+          if (!trackingHistory || trackingHistory.length === 0) {
+            console.log('📊 No tracking history found in backend');
+            return;
+          }
+          
+          console.log(`📊 Loading ${trackingHistory.length} days of tracking data from backend...`);
+          
+          // Map backend tracking data to metricEntries
+          const backendEntries: DailyMetricEntry[] = [];
+          
+          trackingHistory.forEach((tracking: DailyTracking) => {
+            // Map backend fields to metric IDs
+            const mappings = [
+              { backendField: 'calories', metricId: 'calories' },
+              { backendField: 'exercise_mins', metricId: 'exercise' },
+              { backendField: 'deep_work_hrs', metricId: 'deep-work' },
+              { backendField: 'sleep_hrs', metricId: 'sleep' },
+              { backendField: 'mood', metricId: 'mood' },
+            ];
+            
+            mappings.forEach(({ backendField, metricId }) => {
+              const value = tracking[backendField as keyof DailyTracking] as number | undefined;
+              if (value !== undefined && value !== null) {
+                backendEntries.push({
+                  id: `backend-${tracking.date}-${metricId}`,
+                  date: tracking.date,
+                  metricId,
+                  value: Number(value)
+                });
+              }
+            });
+          });
+          
+          // Merge with existing entries (backend data takes precedence for same date/metric)
+          set((state) => {
+            const existingEntries = state.metricEntries || [];
+            const mergedEntries: DailyMetricEntry[] = [...existingEntries];
+            
+            backendEntries.forEach((backendEntry) => {
+              const existingIndex = mergedEntries.findIndex(
+                (e) => e.date === backendEntry.date && e.metricId === backendEntry.metricId
+              );
+              
+              if (existingIndex >= 0) {
+                // Update existing entry with backend data (backend is source of truth)
+                mergedEntries[existingIndex] = backendEntry;
+              } else {
+                // Add new entry from backend
+                mergedEntries.push(backendEntry);
+              }
+            });
+            
+            console.log(`✅ Loaded ${backendEntries.length} metric entries from backend, total: ${mergedEntries.length}`);
+            
+            return { metricEntries: mergedEntries };
+          });
+        } catch (error) {
+          // Silently fail - don't break the app if tracking data can't be loaded
+          console.error('⚠️ Failed to load tracking data from backend:', error);
+          // App continues to work with local data
+        }
       }
     }),
     {
