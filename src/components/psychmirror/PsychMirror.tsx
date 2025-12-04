@@ -94,7 +94,21 @@ export const PsychMirror = () => {
     // Don't open details panel for Growth Core
     if (node.id === 'growth-core') return;
     setSelectedNodeId(node.id);
-  }, []);
+    
+    // Zoom to node and center it on screen
+    if (reactFlowInstance && node.position) {
+      const nodeWidth = 120; // approximate node width
+      const nodeHeight = 120; // approximate node height
+      const x = node.position.x + nodeWidth / 2;
+      const y = node.position.y + nodeHeight / 2;
+      
+      // Zoom in and center on the node with smooth animation
+      reactFlowInstance.setCenter(x, y, { 
+        zoom: 1.5, 
+        duration: 800 
+      });
+    }
+  }, [reactFlowInstance]);
 
   const handleZoomIn = () => reactFlowInstance?.zoomIn();
   const handleZoomOut = () => reactFlowInstance?.zoomOut();
@@ -210,7 +224,20 @@ export const PsychMirror = () => {
       </ReactFlow>
 
 
-      <NodeDetailsPanel node={selectedNode} onClose={() => setSelectedNodeId(null)} />
+      <NodeDetailsPanel 
+        node={selectedNode} 
+        onClose={() => {
+          setSelectedNodeId(null);
+          // Reset view to fit all nodes when closing
+          if (reactFlowInstance) {
+            reactFlowInstance.fitView({ 
+              padding: 0.15, 
+              maxZoom: 1.2,
+              duration: 600 
+            });
+          }
+        }} 
+      />
 
       {/* Brain Map Legend - Hidden on mobile, shown on larger screens */}
       <motion.div
