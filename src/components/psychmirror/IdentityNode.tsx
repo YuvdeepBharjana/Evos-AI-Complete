@@ -87,8 +87,8 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
   const [showChange, setShowChange] = useState(false);
   const [displayedChange, setDisplayedChange] = useState<number | null>(null);
   
-  // Consistent node size for all nodes
-  const nodeSize = 110;
+  // Consistent node size for all nodes (smaller to prevent overlap)
+  const nodeSize = 90;
   
   // Detect strength changes
   useEffect(() => {
@@ -132,7 +132,7 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         className="relative cursor-pointer group flex items-center justify-center"
-        style={{ width: nodeSize + 60, height: nodeSize + 60 }}
+        style={{ width: nodeSize + 30, height: nodeSize + 30 }}
       >
         {/* Strength change popup - above node */}
         <AnimatePresence>

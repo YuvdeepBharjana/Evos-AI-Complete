@@ -2,13 +2,13 @@ import type { IdentityNode } from '../types';
 import type { Node, Edge } from 'reactflow';
 
 // Growth Core is the origin - center of the canvas
-const CANVAS_CENTER = { x: 900, y: 600 };
+const CANVAS_CENTER = { x: 1100, y: 750 };
 
 // Distance from Growth Core to each category region
-const CATEGORY_RADIUS = 450;
+const CATEGORY_RADIUS = 550;
 
-// Node size (for overlap prevention)
-const NODE_SIZE = 140; // Node visual size including padding
+// Minimum spacing between node centers (must be larger than node visual size ~110px)
+const NODE_SPACING = 150;
 
 // 6 categories positioned in a perfect hexagon around the Growth Core (60° apart)
 const TYPE_POSITIONS: Record<string, { angle: number; color: string }> = {
@@ -74,8 +74,8 @@ export const generateReactFlowElements = (
     // Sort by strength (strongest first for visual hierarchy)
     const sorted = [...typeNodes].sort((a, b) => (b.strength || 50) - (a.strength || 50));
     
-    // Position nodes in a non-overlapping grid
-    const positions = calculateNonOverlappingPositions(sorted.length, regionCenter, NODE_SIZE);
+    // Position nodes in a non-overlapping arrangement
+    const positions = calculateNonOverlappingPositions(sorted.length, regionCenter, NODE_SPACING);
     
     sorted.forEach((node, index) => {
       const position = positions[index];
@@ -118,11 +118,11 @@ export const generateReactFlowElements = (
   return { nodes: flowNodes, edges };
 };
 
-// Calculate positions that guarantee no overlap
+// Calculate positions that guarantee no overlap using a honeycomb/hex pattern
 const calculateNonOverlappingPositions = (
   count: number,
   regionCenter: { x: number; y: number },
-  nodeSize: number
+  spacing: number
 ): { x: number; y: number }[] => {
   const positions: { x: number; y: number }[] = [];
   
@@ -133,36 +133,34 @@ const calculateNonOverlappingPositions = (
     return [{ x: regionCenter.x, y: regionCenter.y }];
   }
   
-  // Calculate grid dimensions
-  const cols = Math.ceil(Math.sqrt(count));
-  const rows = Math.ceil(count / cols);
+  // Use a honeycomb pattern - nodes arranged in concentric hexagonal rings
+  // This naturally prevents overlap and looks organic
   
-  // Calculate total grid size
-  const gridWidth = cols * nodeSize;
-  const gridHeight = rows * nodeSize;
+  // First node at center
+  positions.push({ x: regionCenter.x, y: regionCenter.y });
   
-  // Start position (top-left of grid, centered on region)
-  const startX = regionCenter.x - gridWidth / 2 + nodeSize / 2;
-  const startY = regionCenter.y - gridHeight / 2 + nodeSize / 2;
+  if (count === 1) return positions;
   
-  // Place nodes in grid
-  for (let i = 0; i < count; i++) {
-    const row = Math.floor(i / cols);
-    const col = i % cols;
+  // Add nodes in rings around the center
+  let ring = 1;
+  let placed = 1;
+  
+  while (placed < count) {
+    // Each ring has 6 * ring nodes
+    const nodesInRing = 6 * ring;
+    const ringRadius = spacing * ring;
     
-    // Center the last row if it's not full
-    let xOffset = 0;
-    if (row === rows - 1) {
-      const nodesInLastRow = count - (rows - 1) * cols;
-      if (nodesInLastRow < cols) {
-        xOffset = ((cols - nodesInLastRow) * nodeSize) / 2;
-      }
+    for (let i = 0; i < nodesInRing && placed < count; i++) {
+      // Calculate angle for this position in the ring
+      const angle = (i / nodesInRing) * Math.PI * 2 - Math.PI / 2; // Start from top
+      
+      positions.push({
+        x: regionCenter.x + Math.cos(angle) * ringRadius,
+        y: regionCenter.y + Math.sin(angle) * ringRadius
+      });
+      placed++;
     }
-    
-    positions.push({
-      x: startX + col * nodeSize + xOffset,
-      y: startY + row * nodeSize
-    });
+    ring++;
   }
   
   return positions;
