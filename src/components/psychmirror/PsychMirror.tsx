@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import ReactFlow, {
   Background,
   MiniMap,
@@ -16,7 +16,7 @@ import { AddNodeModal } from './AddNodeModal';
 import { useUserStore } from '../../store/useUserStore';
 import { generateReactFlowElements } from '../../lib/networkLayoutEngine';
 import type { NodeType, IdentityNode as IdentityNodeType } from '../../types';
-import { Brain, Target, Zap, Trophy, Heart, AlertCircle, Sparkles } from 'lucide-react';
+import { Brain, Target, Zap, Trophy, Heart, AlertCircle, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 
 const nodeTypes: NodeTypes = {
   identityNode: IdentityNode,
@@ -38,6 +38,7 @@ export const PsychMirror = () => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<NodeType | 'all'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [legendCollapsed, setLegendCollapsed] = useState(false);
 
   const handleAddNode = (node: IdentityNodeType) => {
     addNodes([node]);
@@ -225,24 +226,48 @@ export const PsychMirror = () => {
           padding: '16px',
         }}
       >
-        <div className="flex items-center gap-2.5 mb-4">
-          <div 
-            className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{
-              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%)',
-              border: '1px solid rgba(139, 92, 246, 0.3)',
-            }}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div 
+              className="w-9 h-9 rounded-lg flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+              }}
+            >
+              <Brain className="w-4.5 h-4.5 text-purple-400" />
+            </div>
+            <div>
+              <span className="font-bold text-sm text-white">Neural Map</span>
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Identity Regions</div>
+            </div>
+          </div>
+          <motion.button
+            onClick={() => setLegendCollapsed(!legendCollapsed)}
+            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            aria-label={legendCollapsed ? "Expand legend" : "Collapse legend"}
           >
-            <Brain className="w-4.5 h-4.5 text-purple-400" />
-          </div>
-          <div>
-            <span className="font-bold text-sm text-white">Neural Map</span>
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Identity Regions</div>
-          </div>
+            {legendCollapsed ? (
+              <ChevronUp className="w-4 h-4 text-gray-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            )}
+          </motion.button>
         </div>
         
-        <div className="space-y-2">
-          {BRAIN_REGIONS.map(region => {
+        <AnimatePresence>
+          {!legendCollapsed && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div className="space-y-2">
+                {BRAIN_REGIONS.map(region => {
             const Icon = region.icon;
             const count = user.identityNodes.filter(n => n.type === region.type).length;
             const isActive = filterType === region.type;
@@ -301,49 +326,52 @@ export const PsychMirror = () => {
               </motion.button>
             );
           })}
-        </div>
+              </div>
 
-        {/* Stats summary */}
-        {stats && (
-          <div 
-            className="mt-4 pt-3 grid grid-cols-3 gap-3"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
-          >
-            <div className="text-center">
-              <div 
-                className="text-lg font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent"
-              >
-                {stats.visible}
-              </div>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Active</div>
-            </div>
-            <div className="text-center">
-              <div 
-                className="text-lg font-black bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent"
-              >
-                {stats.avgStrength}%
-              </div>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Avg</div>
-            </div>
-            <div className="text-center">
-              <div 
-                className="text-lg font-black bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent"
-              >
-                {stats.completed}
-              </div>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Complete</div>
-            </div>
-          </div>
-        )}
+              {/* Stats summary */}
+              {stats && (
+                <div 
+                  className="mt-4 pt-3 grid grid-cols-3 gap-3"
+                  style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                  <div className="text-center">
+                    <div 
+                      className="text-lg font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent"
+                    >
+                      {stats.visible}
+                    </div>
+                    <div className="text-[10px] text-gray-500 uppercase tracking-wider">Active</div>
+                  </div>
+                  <div className="text-center">
+                    <div 
+                      className="text-lg font-black bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent"
+                    >
+                      {stats.avgStrength}%
+                    </div>
+                    <div className="text-[10px] text-gray-500 uppercase tracking-wider">Avg</div>
+                  </div>
+                  <div className="text-center">
+                    <div 
+                      className="text-lg font-black bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent"
+                    >
+                      {stats.completed}
+                    </div>
+                    <div className="text-[10px] text-gray-500 uppercase tracking-wider">Complete</div>
+                  </div>
+                </div>
+              )}
 
-        {/* Completed nodes note */}
-        {stats && stats.completed > 0 && (
-          <div className="mt-3 pt-3 text-center" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <p className="text-[10px] text-green-400">
-              ✓ {stats.completed} node{stats.completed > 1 ? 's' : ''} at 100% - fully integrated!
-            </p>
-          </div>
-        )}
+              {/* Completed nodes note */}
+              {stats && stats.completed > 0 && (
+                <div className="mt-3 pt-3 text-center" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  <p className="text-[10px] text-green-400">
+                    ✓ {stats.completed} node{stats.completed > 1 ? 's' : ''} at 100% - fully integrated!
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );

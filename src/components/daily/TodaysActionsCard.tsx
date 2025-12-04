@@ -11,18 +11,23 @@ import type { DailyAction } from '../../types';
 export const TodaysActionsCard = () => {
   const { user } = useUserStore();
   
-  // Get today's date string
-  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+  // Helper to check if a date is today
+  const isToday = (date: Date | string | undefined): boolean => {
+    if (!date) return false;
+    const d = new Date(date);
+    const today = new Date();
+    return (
+      d.getDate() === today.getDate() &&
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear()
+    );
+  };
   
   // Filter actions for today only
   const todaysActions = useMemo(() => {
     if (!user?.dailyActions) return [];
-    return user.dailyActions.filter(action => {
-      if (!action.createdAt) return false;
-      const actionDate = new Date(action.createdAt).toISOString().split('T')[0];
-      return actionDate === today;
-    });
-  }, [user?.dailyActions, today]);
+    return user.dailyActions.filter(action => isToday(action.createdAt));
+  }, [user?.dailyActions]);
   
   // Separate completed and pending actions
   const completedActions = todaysActions.filter(a => a.completed === true);
