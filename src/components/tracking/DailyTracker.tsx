@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Flame, Dumbbell, Briefcase, Moon, 
-  Heart, ChevronDown, ChevronUp, Check, AlertCircle,
-  TrendingUp, Zap, Edit3, Loader2
+  Heart, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Check, AlertCircle,
+  TrendingUp, Zap, Edit3, Loader2, Calendar
 } from 'lucide-react';
 import { useUserStore } from '../../store/useUserStore';
 import { saveTracking, checkIn } from '../../lib/api';
@@ -157,11 +157,57 @@ export const DailyTracker = () => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [editingMetric, setEditingMetric] = useState<DailyMetric | null>(null);
   
   const dateStr = getDateString(selectedDate);
+  const today = new Date();
+  const todayStr = getDateString(today);
+  const isToday = dateStr === todayStr;
   const activeMetrics = useMemo(() => getActiveMetrics(), [customMetrics]);
+  
+  // Navigate to previous day
+  const goToPreviousDay = () => {
+    const prevDate = new Date(selectedDate);
+    prevDate.setDate(prevDate.getDate() - 1);
+    setSelectedDate(prevDate);
+  };
+  
+  // Navigate to next day (but not future)
+  const goToNextDay = () => {
+    const nextDate = new Date(selectedDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+    const nextDateStr = getDateString(nextDate);
+    if (nextDateStr <= todayStr) {
+      setSelectedDate(nextDate);
+    }
+  };
+  
+  // Jump to today
+  const goToToday = () => {
+    setSelectedDate(new Date());
+  };
+  
+  // Format date for display
+  const formatDateDisplay = (date: Date): string => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const dateStr = getDateString(date);
+    const todayStr = getDateString(today);
+    const yesterdayStr = getDateString(yesterday);
+    
+    if (dateStr === todayStr) return 'Today';
+    if (dateStr === yesterdayStr) return 'Yesterday';
+    
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric',
+      year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+    });
+  };
   
   // Calculate progress
   const trackedCount = activeMetrics.filter(m => {
@@ -282,10 +328,53 @@ export const DailyTracker = () => {
                   </span>
                 )}
               </h3>
-              <p className="text-xs text-gray-400">{trackingPercentage}% tracked today</p>
+              <p className="text-xs text-gray-400">
+                {trackingPercentage}% tracked {isToday ? 'today' : 'on ' + formatDateDisplay(selectedDate).toLowerCase()}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Date Navigation */}
+            <div 
+              className="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={goToPreviousDay}
+                className="p-1.5 hover:bg-white/10 rounded transition-colors"
+                title="Previous day"
+              >
+                <ChevronLeft className="w-4 h-4 text-gray-400" />
+              </button>
+              
+              <button
+                onClick={goToToday}
+                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  isToday
+                    ? 'bg-purple-500/20 text-purple-300'
+                    : 'text-gray-400 hover:bg-white/10 hover:text-white'
+                }`}
+                title="Go to today"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{formatDateDisplay(selectedDate)}</span>
+                <span className="sm:hidden">{isToday ? 'Today' : selectedDate.getDate()}</span>
+              </button>
+              
+              <button
+                onClick={goToNextDay}
+                disabled={isToday}
+                className={`p-1.5 rounded transition-colors ${
+                  isToday
+                    ? 'opacity-30 cursor-not-allowed'
+                    : 'hover:bg-white/10'
+                }`}
+                title="Next day"
+              >
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+            
             {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
           </div>
         </div>
@@ -359,7 +448,7 @@ export const DailyTracker = () => {
                   ) : (
                     <>
                       <TrendingUp className="w-5 h-5" />
-                      Save Progress ({trackedCount}/{activeMetrics.length})
+                      {isToday ? 'Save Progress' : 'Update'} ({trackedCount}/{activeMetrics.length})
                     </>
                   )}
                 </motion.button>
