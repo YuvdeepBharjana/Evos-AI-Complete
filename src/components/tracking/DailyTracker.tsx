@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Flame, Dumbbell, Briefcase, Moon, 
   Heart, ChevronDown, ChevronUp, Check, AlertCircle,
-  TrendingUp, Zap, X, Edit3, Save, Loader2
+  TrendingUp, Zap, Edit3, Loader2
 } from 'lucide-react';
 import { useUserStore } from '../../store/useUserStore';
 import { saveTracking, checkIn } from '../../lib/api';
+import { EditMetricModal } from './EditMetricModal';
 import type { DailyMetric } from '../../types';
 
 // Icon mapping
@@ -29,25 +30,16 @@ interface TrackerItemProps {
   metric: DailyMetric;
   value: number | undefined;
   onChange: (value: number) => void;
-  onEditLabel: (newLabel: string) => void;
+  onEdit: () => void;
 }
 
-const TrackerItem = ({ metric, value, onChange, onEditLabel }: TrackerItemProps) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedLabel, setEditedLabel] = useState(metric.label);
+const TrackerItem = ({ metric, value, onChange, onEdit }: TrackerItemProps) => {
   const numValue = value ?? 0;
   const progress = metric.target && metric.target > 0 
     ? Math.min((numValue / metric.target) * 100, 100) 
     : 0;
   const isGoalMet = metric.target && numValue >= metric.target;
   const logged = numValue > 0;
-
-  const handleSaveEdit = () => {
-    if (editedLabel.trim()) {
-      onEditLabel(editedLabel.trim());
-    }
-    setIsEditing(false);
-  };
 
   const renderInput = () => {
     switch (metric.type) {
@@ -114,62 +106,37 @@ const TrackerItem = ({ metric, value, onChange, onEditLabel }: TrackerItemProps)
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1 gap-2">
-            {isEditing ? (
-              <div className="flex items-center gap-2 flex-1">
-                <input
-                  type="text"
-                  value={editedLabel}
-                  onChange={(e) => setEditedLabel(e.target.value)}
-                  className="flex-1 bg-white/10 border border-purple-500/50 rounded px-2 py-1 text-sm text-white focus:outline-none"
-                  autoFocus
-                  onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
-                />
-                <button onClick={handleSaveEdit} className="p-1 hover:bg-white/10 rounded">
-                  <Save className="w-4 h-4 text-green-400" />
-                </button>
-                <button onClick={() => setIsEditing(false)} className="p-1 hover:bg-white/10 rounded">
-                  <X className="w-4 h-4 text-gray-400" />
-                </button>
-              </div>
-            ) : (
-              <>
-                <label className="text-sm text-white font-medium truncate">{metric.label}</label>
-                <button 
-                  onClick={() => { setEditedLabel(metric.label); setIsEditing(true); }}
-                  className="p-1 hover:bg-white/10 rounded opacity-50 hover:opacity-100 transition-opacity"
-                  title="Edit metric"
-                >
-                  <Edit3 className="w-3.5 h-3.5 text-gray-400" />
-                </button>
-              </>
-            )}
+            <label className="text-sm text-white font-medium truncate">{metric.label}</label>
+            <button 
+              onClick={onEdit}
+              className="p-1 hover:bg-white/10 rounded opacity-50 hover:opacity-100 transition-opacity"
+              title="Edit metric (name, color, icon, unit, target)"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-gray-400" />
+            </button>
           </div>
           
-          {!isEditing && (
-            <>
-              <div className="flex items-center gap-2">
-                {renderInput()}
-                {isGoalMet && <Check className="w-4 h-4 text-green-400 ml-auto flex-shrink-0" />}
-              </div>
-              
-              {metric.target && metric.target > 0 && metric.type !== 'boolean' && (
-                <div className="mt-2 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: isGoalMet ? '#10b981' : metric.color || '#6366f1' }}
-                    transition={{ duration: 0.3 }}
-                  />
-                </div>
-              )}
-              
-              {metric.target && (
-                <div className="text-[10px] text-gray-500 mt-1">
-                  Target: {metric.target} {metric.unit}
-                </div>
-              )}
-            </>
+          <div className="flex items-center gap-2">
+            {renderInput()}
+            {isGoalMet && <Check className="w-4 h-4 text-green-400 ml-auto flex-shrink-0" />}
+          </div>
+          
+          {metric.target && metric.target > 0 && metric.type !== 'boolean' && (
+            <div className="mt-2 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                className="h-full rounded-full"
+                style={{ backgroundColor: isGoalMet ? '#10b981' : metric.color || '#6366f1' }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+          )}
+          
+          {metric.target && (
+            <div className="text-[10px] text-gray-500 mt-1">
+              Target: {metric.target} {metric.unit}
+            </div>
           )}
         </div>
       </div>
@@ -191,6 +158,7 @@ export const DailyTracker = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedDate] = useState(new Date());
+  const [editingMetric, setEditingMetric] = useState<DailyMetric | null>(null);
   
   const dateStr = getDateString(selectedDate);
   const activeMetrics = useMemo(() => getActiveMetrics(), [customMetrics]);
@@ -218,8 +186,15 @@ export const DailyTracker = () => {
     upsertMetricEntry(dateStr, metricId, value);
   };
 
-  const handleEditLabel = (metricId: string, newLabel: string) => {
-    updateMetric(metricId, { label: newLabel });
+  const handleEditMetric = (metric: DailyMetric) => {
+    setEditingMetric(metric);
+  };
+
+  const handleSaveMetric = (updates: Partial<DailyMetric>) => {
+    if (editingMetric) {
+      updateMetric(editingMetric.id, updates);
+      setEditingMetric(null);
+    }
   };
 
   // Save tracking data to backend
@@ -338,7 +313,7 @@ export const DailyTracker = () => {
                 <Edit3 className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-gray-300">
                   <span className="text-purple-400 font-semibold">Customize your metrics.</span>
-                  {' '}Tap the edit icon to rename any metric to fit YOUR growth journey.
+                  {' '}Tap the edit icon to customize name, color, icon, unit, and target for each metric.
                 </p>
               </div>
             </div>
@@ -351,7 +326,7 @@ export const DailyTracker = () => {
                   metric={metric}
                   value={getMetricValue(dateStr, metric.id)}
                   onChange={(v) => handleValueChange(metric.id, v)}
-                  onEditLabel={(label) => handleEditLabel(metric.id, label)}
+                  onEdit={() => handleEditMetric(metric)}
                 />
               ))}
             </div>
@@ -410,6 +385,15 @@ export const DailyTracker = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Edit Metric Modal */}
+      {editingMetric && (
+        <EditMetricModal
+          metric={editingMetric}
+          onClose={() => setEditingMetric(null)}
+          onSave={handleSaveMetric}
+        />
+      )}
     </motion.div>
   );
 };
