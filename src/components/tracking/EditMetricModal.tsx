@@ -13,22 +13,25 @@ interface EditMetricModalProps {
   onSave: (updates: Partial<DailyMetric>) => void;
 }
 
-// Available icons
+// Available icons - organized by category
 const AVAILABLE_ICONS = [
-  { name: 'Flame', component: Flame, label: 'Flame' },
-  { name: 'Dumbbell', component: Dumbbell, label: 'Dumbbell' },
-  { name: 'Briefcase', component: Briefcase, label: 'Briefcase' },
-  { name: 'Moon', component: Moon, label: 'Moon' },
-  { name: 'Heart', component: Heart, label: 'Heart' },
-  { name: 'Zap', component: Zap, label: 'Zap' },
-  { name: 'TrendingUp', component: TrendingUp, label: 'Trending Up' },
-  { name: 'AlertCircle', component: AlertCircle, label: 'Alert' },
-  { name: 'Sun', component: Sun, label: 'Sun' },
-  { name: 'Coffee', component: Coffee, label: 'Coffee' },
-  { name: 'Book', component: Book, label: 'Book' },
+  // Health & Fitness
+  { name: 'Flame', component: Flame, label: 'Calories' },
+  { name: 'Dumbbell', component: Dumbbell, label: 'Exercise' },
+  { name: 'Heart', component: Heart, label: 'Health' },
+  { name: 'Moon', component: Moon, label: 'Sleep' },
+  { name: 'Sun', component: Sun, label: 'Energy' },
+  { name: 'Coffee', component: Coffee, label: 'Caffeine' },
+  // Work & Productivity  
+  { name: 'Briefcase', component: Briefcase, label: 'Work' },
+  { name: 'TrendingUp', component: TrendingUp, label: 'Progress' },
+  { name: 'Zap', component: Zap, label: 'Focus' },
+  { name: 'Book', component: Book, label: 'Reading' },
+  // Lifestyle
   { name: 'Music', component: Music, label: 'Music' },
-  { name: 'Camera', component: Camera, label: 'Camera' },
-  { name: 'Gamepad2', component: Gamepad2, label: 'Game' },
+  { name: 'Camera', component: Camera, label: 'Creative' },
+  { name: 'Gamepad2', component: Gamepad2, label: 'Gaming' },
+  { name: 'AlertCircle', component: AlertCircle, label: 'Alert' },
 ];
 
 // Predefined color palette
@@ -132,7 +135,7 @@ export const EditMetricModal = ({ metric, onClose, onSave }: EditMetricModalProp
             {/* Label */}
             <div>
               <label className="flex items-center gap-2 text-sm font-semibold text-white mb-2">
-                <Type className="w-4 h-4" />
+                <Type className="w-4 h-4 text-purple-400" />
                 Metric Name
               </label>
               <input
@@ -140,14 +143,14 @@ export const EditMetricModal = ({ metric, onClose, onSave }: EditMetricModalProp
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder="e.g., Calories, Exercise, Sleep"
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all"
               />
             </div>
 
             {/* Icon Selection */}
             <div>
               <label className="flex items-center gap-2 text-sm font-semibold text-white mb-3">
-                <Zap className="w-4 h-4" />
+                <Zap className="w-4 h-4 text-purple-400" />
                 Icon
               </label>
               <div className="grid grid-cols-7 gap-2">
@@ -155,13 +158,15 @@ export const EditMetricModal = ({ metric, onClose, onSave }: EditMetricModalProp
                   const IconComponent = iconOption.component;
                   const isSelected = icon === iconOption.name;
                   return (
-                    <button
+                    <motion.button
                       key={iconOption.name}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => setIcon(iconOption.name)}
-                      className={`p-3 rounded-xl border-2 transition-all ${
+                      className={`p-2.5 rounded-xl transition-all ${
                         isSelected
-                          ? 'border-purple-500 bg-purple-500/20'
-                          : 'border-white/10 bg-white/5 hover:border-white/20'
+                          ? 'bg-purple-500/20 ring-2 ring-purple-500 shadow-lg shadow-purple-500/20'
+                          : 'bg-white/5 hover:bg-white/10 ring-1 ring-white/10'
                       }`}
                       style={{
                         color: isSelected ? color : '#9ca3af',
@@ -169,7 +174,7 @@ export const EditMetricModal = ({ metric, onClose, onSave }: EditMetricModalProp
                       title={iconOption.label}
                     >
                       <IconComponent className="w-5 h-5 mx-auto" />
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>
@@ -178,23 +183,25 @@ export const EditMetricModal = ({ metric, onClose, onSave }: EditMetricModalProp
             {/* Color Selection */}
             <div>
               <label className="flex items-center gap-2 text-sm font-semibold text-white mb-3">
-                <Palette className="w-4 h-4" />
+                <Palette className="w-4 h-4 text-purple-400" />
                 Color
               </label>
               <div className="grid grid-cols-6 gap-2 mb-3">
                 {COLOR_PALETTE.map((paletteColor) => {
                   const isSelected = color === paletteColor && !customColor;
                   return (
-                    <button
+                    <motion.button
                       key={paletteColor}
+                      whileHover={{ scale: 1.15 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => {
                         setColor(paletteColor);
                         setCustomColor('');
                       }}
-                      className={`w-10 h-10 rounded-lg border-2 transition-all ${
+                      className={`w-10 h-10 rounded-xl transition-all shadow-lg ${
                         isSelected
-                          ? 'border-white scale-110'
-                          : 'border-white/20 hover:border-white/40'
+                          ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-900'
+                          : 'ring-1 ring-white/20 hover:ring-white/40'
                       }`}
                       style={{ backgroundColor: paletteColor }}
                       title={paletteColor}
@@ -202,7 +209,7 @@ export const EditMetricModal = ({ metric, onClose, onSave }: EditMetricModalProp
                   );
                 })}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
                 <input
                   type="color"
                   value={customColor || color}
@@ -210,7 +217,7 @@ export const EditMetricModal = ({ metric, onClose, onSave }: EditMetricModalProp
                     setCustomColor(e.target.value);
                     setColor(e.target.value);
                   }}
-                  className="w-12 h-12 rounded-lg border border-white/20 cursor-pointer"
+                  className="w-10 h-10 rounded-lg border-none cursor-pointer bg-transparent"
                 />
                 <input
                   type="text"
@@ -225,67 +232,71 @@ export const EditMetricModal = ({ metric, onClose, onSave }: EditMetricModalProp
                     }
                   }}
                   placeholder="#6366f1"
-                  className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
+                  className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
+                />
+                <span className="text-xs text-gray-500">Custom</span>
+              </div>
+            </div>
+
+            {/* Two column layout for Unit and Target */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Unit */}
+              <div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-white mb-2">
+                  <Hash className="w-4 h-4 text-purple-400" />
+                  Unit
+                </label>
+                <input
+                  type="text"
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                  placeholder="cal, min, hrs..."
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                />
+              </div>
+
+              {/* Target */}
+              <div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-white mb-2">
+                  <Target className="w-4 h-4 text-purple-400" />
+                  Target
+                </label>
+                <input
+                  type="number"
+                  value={target}
+                  onChange={(e) => setTarget(e.target.value)}
+                  placeholder="e.g., 2000"
+                  min="0"
+                  step="0.1"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all"
                 />
               </div>
             </div>
 
-            {/* Unit */}
-            <div>
-              <label className="flex items-center gap-2 text-sm font-semibold text-white mb-2">
-                <Hash className="w-4 h-4" />
-                Unit of Measurement
-              </label>
-              <input
-                type="text"
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                placeholder="e.g., cal, min, hrs, kg, lbs"
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 transition-colors"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Leave empty for metrics without units (like mood scale)
-              </p>
-            </div>
-
-            {/* Target */}
-            <div>
-              <label className="flex items-center gap-2 text-sm font-semibold text-white mb-2">
-                <Target className="w-4 h-4" />
-                Target Value
-              </label>
-              <input
-                type="number"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                placeholder="e.g., 2000, 30, 8"
-                min="0"
-                step="0.1"
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 transition-colors"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Optional. Leave empty if this metric doesn't have a target.
-              </p>
-            </div>
-
             {/* Preview */}
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Preview</p>
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: `${color}20`, color: color }}
+            <div className="p-4 rounded-xl bg-gradient-to-r from-white/5 to-white/[0.02] border border-white/10">
+              <p className="text-xs text-gray-500 mb-3 uppercase tracking-wider font-semibold">Live Preview</p>
+              <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5">
+                <motion.div
+                  animate={{ rotate: [0, 5, -5, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                  className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${color}30, ${color}10)`,
+                    color: color,
+                    border: `1px solid ${color}30`
+                  }}
                 >
                   {selectedIcon && (() => {
                     const IconComponent = selectedIcon.component;
-                    return <IconComponent className="w-5 h-5" />;
+                    return <IconComponent className="w-6 h-6" />;
                   })()}
-                </div>
+                </motion.div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-white">{label || 'Metric Name'}</p>
+                  <p className="text-base font-semibold text-white">{label || 'Metric Name'}</p>
                   {target && (
-                    <p className="text-xs text-gray-400">
-                      Target: {target} {unit}
+                    <p className="text-sm text-gray-400 mt-0.5">
+                      Target: <span className="font-medium">{target}</span> {unit}
                     </p>
                   )}
                 </div>

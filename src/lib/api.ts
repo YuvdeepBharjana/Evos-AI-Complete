@@ -123,6 +123,75 @@ export function logout() {
 }
 
 // ============================================
+// MENTOR STYLE
+// ============================================
+
+export type AIMentorStyle = 'ruthless' | 'architect' | 'mirror' | 'coach';
+
+export interface MentorStyleInfo {
+  id: AIMentorStyle;
+  name: string;
+  description: string;
+  traits: string[];
+}
+
+export const MENTOR_STYLES: MentorStyleInfo[] = [
+  {
+    id: 'ruthless',
+    name: 'The Ruthless Mentor',
+    description: 'No excuses. No sugarcoating. Delivers uncompromising truth that cuts through emotional fog.',
+    traits: ['Brutally honest', 'High expectations', 'Pressure-tested accountability', 'Zero tolerance for excuses']
+  },
+  {
+    id: 'architect',
+    name: 'The Strategic Architect',
+    description: 'Systems thinking mastermind. Helps you build frameworks and optimize your identity engineering.',
+    traits: ['Pattern recognition', 'Systems design', 'Strategic planning', 'Optimization focused']
+  },
+  {
+    id: 'mirror',
+    name: 'The Psychological Mirror',
+    description: 'Deep self-awareness guide. Reflects your patterns back to you with profound psychological insight.',
+    traits: ['Self-reflection', 'Pattern awareness', 'Emotional intelligence', 'Deep questioning']
+  },
+  {
+    id: 'coach',
+    name: 'The Supportive Coach',
+    description: 'Encouraging and empathetic. Celebrates progress while gently pushing you toward your goals.',
+    traits: ['Encouraging', 'Empathetic', 'Celebrates wins', 'Gentle guidance']
+  }
+];
+
+export async function getMentorStyle(): Promise<AIMentorStyle | null> {
+  try {
+    const response = await fetch(`${API_BASE}/profile/mentor-style`, {
+      headers: getHeaders(),
+    });
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    return data.mentorStyle || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setMentorStyle(style: AIMentorStyle): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE}/profile/mentor-style`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ mentorStyle: style }),
+    });
+    
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+// ============================================
 // ONBOARDING
 // ============================================
 
@@ -672,6 +741,71 @@ export async function sendWorkSessionMessage(
   } catch (error) {
     console.error('Work session API error:', error);
     return generateLocalWorkResponse(message, nodeName);
+  }
+}
+
+// ============================================
+// WORK SESSION MESSAGE HISTORY
+// ============================================
+
+export interface WorkSessionMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+}
+
+// Get previous work session messages for a node
+export async function getWorkSessionMessages(nodeId: string, limit: number = 50): Promise<WorkSessionMessage[]> {
+  try {
+    const response = await fetch(`${API_BASE}/work-session/messages/${nodeId}?limit=${limit}`, {
+      headers: getHeaders(),
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    return data.messages || [];
+  } catch (error) {
+    console.error('Failed to load work session messages:', error);
+    return [];
+  }
+}
+
+// Save a work session message
+export async function saveWorkSessionMessage(
+  nodeId: string,
+  role: 'user' | 'assistant',
+  content: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE}/work-session/messages`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ nodeId, role, content }),
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error('Failed to save work session message:', error);
+    return false;
+  }
+}
+
+// Clear work session history for a node
+export async function clearWorkSessionMessages(nodeId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE}/work-session/messages/${nodeId}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error('Failed to clear work session messages:', error);
+    return false;
   }
 }
 

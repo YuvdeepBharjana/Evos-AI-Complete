@@ -42,7 +42,7 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
-  const { authToken, user, setUserFromApi, logout, loadTrackingFromBackend } = useUserStore();
+  const { authToken, user, setUserFromApi, logout, loadTrackingFromBackend, checkDailyReset } = useUserStore();
   const [isInitializing, setIsInitializing] = useState(true);
 
   // Restore and validate session on app load
@@ -62,13 +62,21 @@ function App() {
             if (!user || user.id !== currentUser.id) {
               console.log('Restoring session for user:', currentUser.email);
               await setUserFromApi(currentUser, authToken);
+            }
+            
+            // Load saved data from backend (tracking)
+            console.log('Loading saved data from backend...');
+            await loadTrackingFromBackend().catch((error) => {
+              console.error('Failed to load tracking data:', error);
+            });
+            
+            // Check for daily reset (this will load fresh actions if it's a new day)
+            console.log('Checking for daily reset...');
+            const wasReset = await checkDailyReset();
+            if (wasReset) {
+              console.log('🌅 Daily reset completed - fresh day started!');
             } else {
-              // User is already loaded, just refresh tracking data from backend
-              console.log('User session valid, loading tracking data from backend...');
-              loadTrackingFromBackend().catch((error) => {
-                console.error('Failed to load tracking data:', error);
-                // App continues to work normally
-              });
+              console.log('📅 Same day - no reset needed');
             }
           } else {
             // Token is invalid or expired, clear everything

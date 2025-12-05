@@ -16,7 +16,7 @@ import { AddNodeModal } from './AddNodeModal';
 import { useUserStore } from '../../store/useUserStore';
 import { generateReactFlowElements } from '../../lib/networkLayoutEngine';
 import type { NodeType, IdentityNode as IdentityNodeType } from '../../types';
-import { Brain, Target, Zap, Trophy, Heart, AlertCircle, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { Brain, Target, Zap, Trophy, Heart, AlertCircle, Sparkles, ChevronDown, ChevronUp, X, TrendingUp, Calendar, Award } from 'lucide-react';
 
 const nodeTypes: NodeTypes = {
   identityNode: IdentityNode,
@@ -33,22 +33,35 @@ const BRAIN_REGIONS = [
   { type: 'interest', label: 'Interests', region: 'Reward Center', icon: Sparkles, color: '#06b6d4', description: 'Passions & curiosities' },
 ];
 
-export const PsychMirror = () => {
-  const { user, recentStrengthChanges, addNodes } = useUserStore();
+interface PsychMirrorProps {
+  onChangeMentor?: () => void;
+}
+
+export const PsychMirror = ({ onChangeMentor }: PsychMirrorProps = {}) => {
+  const { user, recentStrengthChanges, todayStrengthChanges, addNodes } = useUserStore();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<NodeType | 'all'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [legendCollapsed, setLegendCollapsed] = useState(false);
+  const [showCoreSummary, setShowCoreSummary] = useState(false);
 
   const handleAddNode = (node: IdentityNodeType) => {
     addNodes([node]);
   };
 
-  // Get daily action node IDs
+  // Get daily action node IDs (pending actions for today)
   const dailyActionNodeIds = useMemo(() => {
     if (!user?.dailyActions) return [];
+    const today = new Date().toISOString().split('T')[0];
     return user.dailyActions
-      .filter(action => action.completed === null && action.nodeId !== 'tracking')
+      .filter(action => {
+        // Check if action is for today and not completed
+        const isToday = action.date === today || 
+          (action.createdAt && new Date(action.createdAt).toISOString().split('T')[0] === today);
+        const isPending = action.completed === null || action.completed === undefined;
+        const notTracking = action.nodeId !== 'tracking';
+        return isToday && isPending && notTracking;
+      })
       .map(action => action.nodeId);
   }, [user?.dailyActions]);
 
@@ -62,8 +75,8 @@ export const PsychMirror = () => {
   // Generate React Flow elements from visible identity nodes (excluding 100%)
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     if (!visibleNodes.length) return { nodes: [], edges: [] };
-    return generateReactFlowElements(visibleNodes, recentStrengthChanges, dailyActionNodeIds);
-  }, [visibleNodes, recentStrengthChanges, dailyActionNodeIds]);
+    return generateReactFlowElements(visibleNodes, recentStrengthChanges, dailyActionNodeIds, todayStrengthChanges);
+  }, [visibleNodes, recentStrengthChanges, dailyActionNodeIds, todayStrengthChanges]);
 
   // Filter nodes based on selected type (always include Growth Core)
   const filteredNodes = useMemo(() => {
@@ -91,8 +104,11 @@ export const PsychMirror = () => {
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
 
   const onNodeClick = useCallback((_event: any, node: any) => {
-    // Don't open details panel for Growth Core
-    if (node.id === 'growth-core') return;
+    // Show core summary for Growth Core
+    if (node.id === 'growth-core') {
+      setShowCoreSummary(true);
+      return;
+    }
     setSelectedNodeId(node.id);
     
     // Zoom to node and center it on screen
@@ -158,6 +174,7 @@ export const PsychMirror = () => {
         selectedFilter={filterType}
         onFilterChange={setFilterType}
         onAddNode={() => setShowAddModal(true)}
+        onChangeMentor={onChangeMentor}
       />
 
       <AddNodeModal
@@ -187,18 +204,127 @@ export const PsychMirror = () => {
         className="!bg-transparent"
         style={{ background: 'transparent' }}
       >
-        {/* Clean background */}
-        <div 
-          className="absolute inset-0 pointer-events-none -z-10"
-          style={{
-            background: `
-              radial-gradient(ellipse 80% 60% at 50% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
-              linear-gradient(180deg, #0a0a0f 0%, #0d0d15 50%, #0a0a0f 100%)
-            `,
-          }}
-        />
+        {/* Epic background with multiple layers */}
+        <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden">
+          {/* Base gradient */}
+          <div 
+            className="absolute inset-0"
+            style={{
+              background: `
+                radial-gradient(ellipse 100% 80% at 50% 50%, rgba(139, 92, 246, 0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 30% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 40% at 70% 80%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+                linear-gradient(180deg, #0a0a0f 0%, #0d0d15 50%, #0a0a0f 100%)
+              `,
+            }}
+          />
+          
+          {/* Animated glow orbs */}
+          <motion.div
+            className="absolute w-[600px] h-[600px] rounded-full"
+            style={{
+              background: 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%)',
+              left: '20%',
+              top: '30%',
+              filter: 'blur(60px)',
+            }}
+            animate={{
+              x: [0, 50, -30, 0],
+              y: [0, -40, 30, 0],
+              scale: [1, 1.1, 0.9, 1],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          />
+          <motion.div
+            className="absolute w-[500px] h-[500px] rounded-full"
+            style={{
+              background: 'radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, transparent 70%)',
+              right: '10%',
+              top: '20%',
+              filter: 'blur(80px)',
+            }}
+            animate={{
+              x: [0, -60, 40, 0],
+              y: [0, 50, -20, 0],
+              scale: [1, 0.9, 1.1, 1],
+            }}
+            transition={{
+              duration: 25,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          />
+          <motion.div
+            className="absolute w-[400px] h-[400px] rounded-full"
+            style={{
+              background: 'radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%)',
+              left: '50%',
+              bottom: '10%',
+              filter: 'blur(70px)',
+            }}
+            animate={{
+              x: [0, 40, -50, 0],
+              y: [0, -30, 40, 0],
+            }}
+            transition={{
+              duration: 18,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          />
+
+          {/* Floating particles */}
+          {[...Array(20)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute rounded-full"
+              style={{
+                width: Math.random() * 4 + 2,
+                height: Math.random() * 4 + 2,
+                background: ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#06b6d4'][Math.floor(Math.random() * 5)],
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                opacity: 0.4,
+                boxShadow: `0 0 ${Math.random() * 10 + 5}px currentColor`,
+              }}
+              animate={{
+                y: [0, -100 - Math.random() * 200],
+                x: [0, (Math.random() - 0.5) * 100],
+                opacity: [0.4, 0.8, 0],
+              }}
+              transition={{
+                duration: 10 + Math.random() * 10,
+                repeat: Infinity,
+                delay: Math.random() * 10,
+                ease: 'easeOut',
+              }}
+            />
+          ))}
+
+          {/* Grid lines - subtle neural network effect */}
+          <svg className="absolute inset-0 w-full h-full opacity-[0.03]">
+            <defs>
+              <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+                <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#8b5cf6" strokeWidth="0.5"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+          </svg>
+
+          {/* Hexagon pattern overlay */}
+          <div 
+            className="absolute inset-0 opacity-[0.02]"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill='%238b5cf6'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9z'/%3E%3C/g%3E%3C/svg%3E")`,
+            }}
+          />
+        </div>
         
-        <Background color="#1a1a2e" gap={50} size={1} />
+        <Background color="#1a1a2e" gap={60} size={1} />
         {/* MiniMap - Hidden on mobile */}
         <MiniMap
           nodeColor={(node) => {
@@ -400,6 +526,167 @@ export const PsychMirror = () => {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* Core Summary Modal */}
+      <AnimatePresence>
+        {showCoreSummary && stats && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
+            onClick={() => setShowCoreSummary(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="relative w-full max-w-md rounded-3xl overflow-hidden"
+              style={{
+                background: 'linear-gradient(180deg, rgba(30,20,50,0.98) 0%, rgba(15,10,30,0.98) 100%)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+                boxShadow: '0 0 60px rgba(139, 92, 246, 0.2), 0 25px 50px rgba(0,0,0,0.5)',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header with sphere visualization */}
+              <div className="relative h-32 overflow-hidden">
+                <div 
+                  className="absolute inset-0"
+                  style={{
+                    background: 'radial-gradient(circle at 50% 120%, rgba(139, 92, 246, 0.4) 0%, transparent 60%)',
+                  }}
+                />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                  <motion.div
+                    className="w-20 h-20 rounded-full"
+                    style={{
+                      background: `
+                        radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4) 0%, transparent 40%),
+                        radial-gradient(circle at 70% 70%, rgba(0,0,0,0.4) 0%, transparent 40%),
+                        radial-gradient(circle at 50% 50%, #8b5cf6 0%, #6366f1 40%, #4f46e5 70%, #3730a3 100%)
+                      `,
+                      boxShadow: 'inset -4px -4px 10px rgba(0,0,0,0.5), inset 4px 4px 10px rgba(255,255,255,0.15), 0 0 40px rgba(139, 92, 246, 0.5)',
+                    }}
+                    animate={{ 
+                      boxShadow: [
+                        'inset -4px -4px 10px rgba(0,0,0,0.5), inset 4px 4px 10px rgba(255,255,255,0.15), 0 0 40px rgba(139, 92, 246, 0.5)',
+                        'inset -4px -4px 10px rgba(0,0,0,0.5), inset 4px 4px 10px rgba(255,255,255,0.15), 0 0 60px rgba(139, 92, 246, 0.7)',
+                        'inset -4px -4px 10px rgba(0,0,0,0.5), inset 4px 4px 10px rgba(255,255,255,0.15), 0 0 40px rgba(139, 92, 246, 0.5)',
+                      ]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                </div>
+                <button
+                  onClick={() => setShowCoreSummary(false)}
+                  className="absolute top-3 right-3 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                >
+                  <X className="w-4 h-4 text-white/80" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 pt-2">
+                <h2 className="text-2xl font-bold text-center bg-gradient-to-r from-purple-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent mb-1">
+                  Identity Evolution
+                </h2>
+                <p className="text-center text-gray-400 text-sm mb-6">Your journey to becoming who you want to be</p>
+
+                {/* Progress to ideal self */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-400">Progress to Ideal Self</span>
+                    <span className="text-lg font-bold text-purple-400">{stats.avgStrength}%</span>
+                  </div>
+                  <div className="h-3 rounded-full bg-white/5 overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{
+                        background: 'linear-gradient(90deg, #8b5cf6 0%, #6366f1 50%, #3b82f6 100%)',
+                      }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${stats.avgStrength}%` }}
+                      transition={{ duration: 1, ease: 'easeOut' }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    {stats.avgStrength < 30 && "You're just getting started. Keep building momentum!"}
+                    {stats.avgStrength >= 30 && stats.avgStrength < 50 && "Making progress! Your identity is taking shape."}
+                    {stats.avgStrength >= 50 && stats.avgStrength < 70 && "Halfway there! Your new identity is becoming real."}
+                    {stats.avgStrength >= 70 && stats.avgStrength < 90 && "Strong progress! You're becoming who you want to be."}
+                    {stats.avgStrength >= 90 && "You've nearly transformed into your ideal self!"}
+                  </p>
+                </div>
+
+                {/* Stats grid */}
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  <div className="p-3 rounded-xl bg-white/5 text-center">
+                    <TrendingUp className="w-5 h-5 mx-auto mb-1 text-emerald-400" />
+                    <div className="text-lg font-bold text-white">{stats.visible}</div>
+                    <div className="text-[10px] text-gray-500 uppercase">Active Nodes</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/5 text-center">
+                    <Award className="w-5 h-5 mx-auto mb-1 text-purple-400" />
+                    <div className="text-lg font-bold text-white">{stats.completed}</div>
+                    <div className="text-[10px] text-gray-500 uppercase">Mastered</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/5 text-center">
+                    <Calendar className="w-5 h-5 mx-auto mb-1 text-cyan-400" />
+                    <div className="text-lg font-bold text-white">{user?.dailyActions?.filter(a => a.completed).length || 0}</div>
+                    <div className="text-[10px] text-gray-500 uppercase">Today Done</div>
+                  </div>
+                </div>
+
+                {/* Today's strength changes */}
+                {recentStrengthChanges && Object.keys(recentStrengthChanges).length > 0 && (() => {
+                  const netChange = Object.values(recentStrengthChanges).reduce((sum, val) => sum + val, 0);
+                  return (
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-yellow-400" />
+                          Today's Progress
+                        </h3>
+                        <div className={`flex items-center gap-1 px-3 py-1 rounded-full ${netChange >= 0 ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
+                          <TrendingUp className={`w-4 h-4 ${netChange >= 0 ? 'text-emerald-400' : 'text-red-400 rotate-180'}`} />
+                          <span className={`text-sm font-bold ${netChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {netChange >= 0 ? '+' : ''}{netChange}% Net
+                          </span>
+                        </div>
+                      </div>
+                      <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
+                        {Object.entries(recentStrengthChanges).slice(0, 5).map(([nodeId, change]) => {
+                          const node = user?.identityNodes.find(n => n.id === nodeId);
+                          return (
+                            <div key={nodeId} className="flex items-center justify-between p-2 rounded-lg bg-white/5">
+                              <span className="text-xs text-gray-300 truncate max-w-[180px]">{node?.label || nodeId}</span>
+                              <span className={`text-xs font-bold ${change > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {change > 0 ? '+' : ''}{change}%
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Motivational message */}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-cyan-500/10 border border-purple-500/20">
+                  <p className="text-sm text-center text-white/80 italic">
+                    "{stats.avgStrength >= 50 
+                      ? "You're not just changing habits - you're rewriting your identity." 
+                      : "Every action you take is a vote for the person you want to become."}"
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

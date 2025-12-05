@@ -1,3 +1,14 @@
+/**
+ * IDENTITY NODE COMPONENT
+ * =======================
+ * 
+ * CRITICAL: Node size is FIXED at 120px to ensure consistent spacing
+ * and prevent overlap. The networkLayoutEngine relies on this size
+ * for its collision detection algorithm.
+ * 
+ * DO NOT change node size dynamically - it will cause overlapping.
+ */
+
 import { memo, useState, useEffect } from 'react';
 import { Handle, Position } from 'reactflow';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,6 +24,7 @@ interface IdentityNodeProps {
     description?: string;
     strengthChange?: number;
     hasDailyAction?: boolean;
+    todayChange?: number; // Total change for today
   };
   selected?: boolean;
 }
@@ -63,7 +75,7 @@ const cleanLabel = (label: string): string => {
   return label.replace(/\*\*/g, '').replace(/\*/g, '').replace(/\_\_/g, '').replace(/\_/g, '').trim();
 };
 
-// Smart summarization to 2 meaningful words
+// Smart summarization - allow up to 3 words for better readability
 const summarizeLabel = (label: string): string => {
   const cleaned = cleanLabel(label)
     .replace(/\s*[—–-]+\s*/g, ' ')
@@ -100,7 +112,7 @@ const summarizeLabel = (label: string): string => {
     [/persistence|persever/i, 'Persistence'],
     [/focus(ing)?/i, 'Focus'],
     [/productivity/i, 'Productivity'],
-    [/time\s*management/i, 'Time Mgmt'],
+    [/time\s*management/i, 'Time Management'],
     [/self[- ]?care/i, 'Self-Care'],
     [/mental\s*health/i, 'Mental Health'],
     [/physical\s*health/i, 'Physical Health'],
@@ -109,6 +121,8 @@ const summarizeLabel = (label: string): string => {
     [/leadership/i, 'Leadership'],
     [/creativity/i, 'Creativity'],
     [/problem[- ]?solving/i, 'Problem Solving'],
+    [/attach\s*worth\s*to\s*outcomes/i, 'Outcome Attachment'],
+    [/worth\s*to\s*outcomes/i, 'Outcome Attachment'],
   ];
   
   // Check for known patterns first
@@ -127,23 +141,25 @@ const summarizeLabel = (label: string): string => {
   }
   
   // If we still have too many words, try to extract key parts
-  if (words.length > 2) {
-    // Look for compound concepts (noun + noun or adj + noun)
+  if (words.length > 3) {
+    // Look for compound concepts
     const keyWords = words.filter(w => 
       !skipWords.includes(w.toLowerCase()) && 
       w.length > 2
     );
     
-    if (keyWords.length >= 2) {
+    if (keyWords.length >= 3) {
+      return keyWords.slice(0, 3).join(' ');
+    } else if (keyWords.length >= 2) {
       return keyWords.slice(0, 2).join(' ');
     } else if (keyWords.length === 1) {
       return keyWords[0];
     }
   }
   
-  // Default: return first 2 non-skip words
-  if (words.length <= 2) return words.join(' ');
-  return words.slice(0, 2).join(' ');
+  // Default: return up to 3 non-skip words
+  if (words.length <= 3) return words.join(' ');
+  return words.slice(0, 3).join(' ');
 };
 
 export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
@@ -153,14 +169,16 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
   const nodeStrength = typeof data?.strength === 'number' ? data.strength : 50;
   const nodeStatus = data?.status || 'developing';
   const hasDailyAction = data?.hasDailyAction || false;
+  const todayChange = data?.todayChange || 0;
   
   const colors = NODE_COLORS[nodeType] || NODE_COLORS.trait;
   const Icon = NODE_ICONS[nodeType] || Trophy;
   const [showChange, setShowChange] = useState(false);
   const [displayedChange, setDisplayedChange] = useState<number | null>(null);
   
-  // Consistent node size for all nodes (smaller to prevent overlap)
-  const nodeSize = 90;
+  // Fixed node size for consistent, clean layout (prevents overlap)
+  // All nodes are the same size for a professional appearance
+  const nodeSize = 120;
   
   // Detect strength changes
   useEffect(() => {
@@ -231,7 +249,7 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
           )}
         </AnimatePresence>
 
-        {/* Daily Action indicator - "TODAY" badge - outside top right, very close */}
+        {/* Daily Action indicator - "TODAY" badge - outside top right */}
         {hasDailyAction && (
           <motion.div
             className="absolute z-50 pointer-events-none"
@@ -252,6 +270,35 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
               }}
             >
               Today
+            </div>
+          </motion.div>
+        )}
+
+        {/* Today's change badge - persistent indicator showing daily progress */}
+        {todayChange !== 0 && (
+          <motion.div
+            className="absolute z-50 pointer-events-none"
+            style={{
+              left: 5,
+              top: 0,
+            }}
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 300, delay: 0.1 }}
+          >
+            <div 
+              className="px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-0.5"
+              style={{
+                background: todayChange > 0 
+                  ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' 
+                  : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                color: '#fff',
+                boxShadow: todayChange > 0 
+                  ? '0 4px 12px rgba(34, 197, 94, 0.5)' 
+                  : '0 4px 12px rgba(239, 68, 68, 0.5)',
+              }}
+            >
+              {todayChange > 0 ? '↑' : '↓'}{Math.abs(todayChange)}%
             </div>
           </motion.div>
         )}
@@ -341,32 +388,38 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
           />
           
           {/* Content inside node */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-3 text-center z-10">
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center z-10">
             {/* Icon at top */}
             <Icon 
-              size={nodeSize * 0.22} 
-              className="text-white mb-1.5"
+              size={22} 
+              className="text-white mb-1"
               strokeWidth={2.5}
             />
             
-            {/* Node label */}
+            {/* Node label - auto-sized to fit */}
             <div 
               className="font-bold text-white leading-tight mb-1 px-1"
               style={{ 
-                fontSize: nodeSize * 0.11,
-                maxWidth: '85%',
+                fontSize: nodeLabel.length > 18 ? 10 : nodeLabel.length > 12 ? 11 : 12,
+                maxWidth: '95%',
                 wordBreak: 'break-word',
-                lineHeight: '1.1',
+                lineHeight: '1.15',
+                textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+                overflow: 'hidden',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
               }}
             >
               {nodeLabel}
             </div>
             
-            {/* Percentage */}
+            {/* Percentage - prominent */}
             <div 
               className="font-bold text-white"
               style={{ 
-                fontSize: nodeSize * 0.14,
+                fontSize: 15,
+                textShadow: '0 1px 3px rgba(0,0,0,0.6)',
               }}
             >
               {Math.round(nodeStrength)}%

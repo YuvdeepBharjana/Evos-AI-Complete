@@ -3,11 +3,17 @@ import { Sun, Moon, TrendingUp, TrendingDown, Star, AlertCircle } from 'lucide-r
 import { useUserStore } from '../../store/useUserStore';
 
 export const EndOfDaySummary = () => {
-  const { user, generateDailySummary } = useUserStore();
+  const { user, generateDailySummary, getTodayDateString } = useUserStore();
   
   const summary = user?.lastDailySummary;
+  const today = getTodayDateString();
   
-  if (!summary) {
+  // Check if the summary is from today
+  const isSummaryFromToday = summary && 
+    new Date(summary.date).toISOString().split('T')[0] === today;
+  
+  // Only show the summary if it's from today
+  if (!summary || !isSummaryFromToday) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}

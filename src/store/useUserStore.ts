@@ -17,7 +17,9 @@ interface UserStore {
   user: UserProfile | null;
   authToken: string | null;
   activeWorkSession: WorkSession | null;
-  recentStrengthChanges: Record<string, number>; // nodeId -> change amount
+  recentStrengthChanges: Record<string, number>; // nodeId -> change amount (for animations)
+  todayStrengthChanges: Record<string, number>; // nodeId -> total change today (persistent)
+  lastResetDate: string | null; // Track when we last reset (YYYY-MM-DD format)
   
   // Custom metrics for tracker
   customMetrics: DailyMetric[];
@@ -30,7 +32,9 @@ interface UserStore {
   logout: () => void;
   updateNodes: (nodes: IdentityNode[]) => void;
   addNodes: (nodes: IdentityNode[]) => void;
+  deleteNode: (nodeId: string) => void;
   addMessage: (message: Message) => void;
+  clearChatHistory: () => void;
   completeOnboarding: (method: 'questionnaire' | 'upload' | 'manual', nodes: IdentityNode[]) => Promise<void>;
   clearUser: () => void;
   clearRecentStrengthChanges: () => void;
@@ -42,6 +46,7 @@ interface UserStore {
   // Daily Action Protocol
   setDailyActions: (actions: DailyAction[]) => void;
   markActionComplete: (actionId: string, completed: boolean) => void;
+  loadDailyActionsFromBackend: () => Promise<void>;
   
   // Work Sessions
   startWorkSession: (nodeId: string, nodeName: string) => void;
@@ -65,6 +70,10 @@ interface UserStore {
   getMetricValue: (date: string, metricId: string) => number | undefined;
   getActiveMetrics: () => DailyMetric[];
   loadTrackingFromBackend: () => Promise<void>;
+  
+  // Daily reset system
+  checkDailyReset: () => Promise<boolean>; // Returns true if reset was performed
+  getTodayDateString: () => string;
 }
 
 // Calculate alignment score based on gaps
@@ -88,8 +97,15 @@ export const useUserStore = create<UserStore>()(
       authToken: null,
       activeWorkSession: null,
       recentStrengthChanges: {},
+      todayStrengthChanges: {},
+      lastResetDate: null,
       customMetrics: DEFAULT_METRICS,
       metricEntries: [],
+      
+      // Helper to get today's date string in YYYY-MM-DD format
+      getTodayDateString: () => {
+        return new Date().toISOString().split('T')[0];
+      },
       
       setUser: (user) => set({ user }),
       
@@ -164,10 +180,26 @@ export const useUserStore = create<UserStore>()(
         } : null
       })),
       
+      deleteNode: (nodeId) => set((state) => ({
+        user: state.user ? {
+          ...state.user,
+          identityNodes: state.user.identityNodes.filter(node => node.id !== nodeId),
+          // Also remove any daily actions for this node
+          dailyActions: state.user.dailyActions?.filter(action => action.nodeId !== nodeId) || []
+        } : null
+      })),
+      
       addMessage: (message) => set((state) => ({
         user: state.user ? {
           ...state.user,
           chatHistory: [...state.user.chatHistory, message]
+        } : null
+      })),
+      
+      clearChatHistory: () => set((state) => ({
+        user: state.user ? {
+          ...state.user,
+          chatHistory: []
         } : null
       })),
       
@@ -338,6 +370,10 @@ export const useUserStore = create<UserStore>()(
           return node;
         });
         
+        // Calculate cumulative today's change for this node
+        const previousTodayChange = state.todayStrengthChanges[action.nodeId] || 0;
+        const newTodayChange = previousTodayChange + strengthChange;
+
         return {
           user: {
             ...state.user,
@@ -348,9 +384,91 @@ export const useUserStore = create<UserStore>()(
           recentStrengthChanges: {
             ...state.recentStrengthChanges,
             [action.nodeId]: strengthChange
+          },
+          todayStrengthChanges: {
+            ...state.todayStrengthChanges,
+            [action.nodeId]: newTodayChange
           }
         };
       }),
+      
+      loadDailyActionsFromBackend: async () => {
+        try {
+          const { getDailyActions } = await import('../lib/api');
+          const today = get().getTodayDateString();
+          const actions = await getDailyActions(today); // Always fetch for today
+          
+          if (actions && actions.length > 0) {
+            // Transform backend actions to frontend format
+            const transformedActions: DailyAction[] = actions.map((a: any) => ({
+              id: a.id,
+              nodeId: a.node_id || a.nodeId || 'tracking',
+              nodeName: a.node_name || a.nodeName || 'Daily Task',
+              action: a.action_text || a.action || '',
+              timeEstimate: a.time_estimate || a.timeEstimate || '5 min',
+              // For pending actions, completed should be undefined (not false)
+              completed: a.status === 'done' ? true : a.status === 'skipped' ? false : undefined,
+              skipped: a.status === 'skipped',
+              strengthChange: 0,
+              // Use date from backend, or fallback to created_at
+              createdAt: a.date ? new Date(a.date + 'T00:00:00') : new Date(a.created_at || Date.now()),
+              date: a.date || today, // Store the date string for easy comparison
+            }));
+            
+            set((state) => ({
+              user: state.user ? {
+                ...state.user,
+                dailyActions: transformedActions
+              } : null,
+              lastResetDate: today // Update last reset date when loading actions
+            }));
+            
+            console.log(`📋 Loaded ${transformedActions.length} daily actions for ${today}`);
+          } else {
+            // No actions found - this is a fresh day, clear any stale actions
+            set((state) => ({
+              user: state.user ? {
+                ...state.user,
+                dailyActions: []
+              } : null,
+              lastResetDate: today
+            }));
+            console.log(`📋 No actions found for ${today}, ready for new generation`);
+          }
+        } catch (error) {
+          console.error('Failed to load daily actions from backend:', error);
+        }
+      },
+      
+      // Check if we need to reset for a new day
+      checkDailyReset: async () => {
+        const today = get().getTodayDateString();
+        const lastReset = get().lastResetDate;
+        
+        // If this is a new day (or first time), reset
+        if (lastReset !== today) {
+          console.log(`🌅 New day detected! Last reset: ${lastReset}, Today: ${today}`);
+          
+          // Clear local daily actions and old summary - they'll be loaded fresh from backend
+          set((state) => ({
+            user: state.user ? {
+              ...state.user,
+              dailyActions: [], // Clear for fresh load
+              lastDailySummary: undefined // Clear old summary for new day
+            } : null,
+            recentStrengthChanges: {}, // Clear strength change indicators
+            todayStrengthChanges: {}, // Clear today's changes for new day
+            lastResetDate: today
+          }));
+          
+          // Load fresh actions from backend (will generate if none exist)
+          await get().loadDailyActionsFromBackend();
+          
+          return true; // Reset was performed
+        }
+        
+        return false; // No reset needed
+      },
       
       // Work Sessions
       startWorkSession: (nodeId, nodeName) => set(() => ({
@@ -647,7 +765,9 @@ export const useUserStore = create<UserStore>()(
         authToken: state.authToken,
         customMetrics: state.customMetrics,
         metricEntries: state.metricEntries,
-        recentStrengthChanges: state.recentStrengthChanges
+        recentStrengthChanges: state.recentStrengthChanges,
+        todayStrengthChanges: state.todayStrengthChanges,
+        lastResetDate: state.lastResetDate
       })
     }
   )

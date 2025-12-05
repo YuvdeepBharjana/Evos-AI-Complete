@@ -9,30 +9,32 @@ import { cleanText } from '../../lib/cleanText';
 import type { DailyAction } from '../../types';
 
 export const TodaysActionsCard = () => {
-  const { user } = useUserStore();
+  const { user, getTodayDateString } = useUserStore();
   
-  // Helper to check if a date is today
-  const isToday = (date: Date | string | undefined): boolean => {
-    if (!date) return false;
-    const d = new Date(date);
-    const today = new Date();
-    return (
-      d.getDate() === today.getDate() &&
-      d.getMonth() === today.getMonth() &&
-      d.getFullYear() === today.getFullYear()
-    );
+  // Helper to check if action is for today using date string (YYYY-MM-DD)
+  const isActionForToday = (action: DailyAction): boolean => {
+    const today = getTodayDateString();
+    
+    // Prefer the date field if available (most reliable)
+    if (action.date) {
+      return action.date === today;
+    }
+    
+    // Fallback to createdAt date comparison
+    if (!action.createdAt) return false;
+    return new Date(action.createdAt).toISOString().split('T')[0] === today;
   };
   
   // Filter actions for today only
   const todaysActions = useMemo(() => {
     if (!user?.dailyActions) return [];
-    return user.dailyActions.filter(action => isToday(action.createdAt));
-  }, [user?.dailyActions]);
+    return user.dailyActions.filter(isActionForToday);
+  }, [user?.dailyActions, getTodayDateString]);
   
   // Separate completed and pending actions
   const completedActions = todaysActions.filter(a => a.completed === true);
   const skippedActions = todaysActions.filter(a => a.completed === false);
-  const pendingActions = todaysActions.filter(a => a.completed === null);
+  const pendingActions = todaysActions.filter(a => a.completed === undefined);
   
   // Calculate totals
   const totalStrengthGain = completedActions.reduce((sum, a) => sum + (a.strengthChange || 0), 0);

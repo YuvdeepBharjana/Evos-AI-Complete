@@ -56,6 +56,20 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  -- Work session messages (persistent chat history per node)
+  CREATE TABLE IF NOT EXISTS work_session_messages (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    node_id TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  -- Index for fast retrieval of node conversation history
+  CREATE INDEX IF NOT EXISTS idx_work_session_messages_node ON work_session_messages(user_id, node_id);
+
   -- User milestones and achievements
   CREATE TABLE IF NOT EXISTS milestones (
     id TEXT PRIMARY KEY,
@@ -164,6 +178,7 @@ const migrations = [
   "ALTER TABLE users ADD COLUMN current_streak INTEGER DEFAULT 0",
   "ALTER TABLE users ADD COLUMN longest_streak INTEGER DEFAULT 0",
   "ALTER TABLE users ADD COLUMN last_active_date DATE",
+  "ALTER TABLE users ADD COLUMN ai_mentor_style TEXT DEFAULT 'ruthless'",
 ];
 
 for (const migration of migrations) {

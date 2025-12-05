@@ -3,36 +3,72 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X, Zap, Clock, RefreshCw, MessageSquare, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../../store/useUserStore';
-import { generateDailyActions, getCompletionMessage } from '../../lib/generateDailyActions';
-import { checkIn, updateActionStatus, updateNode } from '../../lib/api';
+import { getCompletionMessage } from '../../lib/generateDailyActions';
+import { checkIn, updateActionStatus, updateNode, regenerateActions as apiRegenerateActions, getDailyActions } from '../../lib/api';
 import { cleanText } from '../../lib/cleanText';
 import type { DailyAction } from '../../types';
 
+
 export const DailyProofCard = () => {
   const navigate = useNavigate();
-  const { user, setDailyActions, markActionComplete, addMessage, lastUpdatedNodeId } = useUserStore();
+  const { user, setDailyActions, markActionComplete, addMessage, lastUpdatedNodeId, getTodayDateString } = useUserStore();
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [showReflection, setShowReflection] = useState(false);
   const [reflectionText, setReflectionText] = useState('');
   const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
 
-  // Helper to check if action is for today
+  // Helper to check if action is for today using date string (YYYY-MM-DD)
   const isActionForToday = (action: DailyAction): boolean => {
+    const today = getTodayDateString();
+    
+    // Prefer the date field if available (most reliable)
+    if (action.date) {
+      return action.date === today;
+    }
+    
+    // Fallback to createdAt date comparison
     if (!action.createdAt) return false;
     const actionDate = new Date(action.createdAt);
-    const today = new Date();
-    return (
-      actionDate.getDate() === today.getDate() &&
-      actionDate.getMonth() === today.getMonth() &&
-      actionDate.getFullYear() === today.getFullYear()
-    );
+    return actionDate.toISOString().split('T')[0] === today;
   };
 
+  // Load daily actions from backend on mount if none exist for today
   useEffect(() => {
-    if (user?.identityNodes && (!user.dailyActions || user.dailyActions.length === 0)) {
-      const actions = generateDailyActions(user.identityNodes);
-      setDailyActions(actions);
-    }
+    const loadActions = async () => {
+      const today = getTodayDateString();
+      const existingTodayActions = user?.dailyActions?.filter(a => {
+        if (a.date) return a.date === today;
+        if (a.createdAt) return new Date(a.createdAt).toISOString().split('T')[0] === today;
+        return false;
+      }) || [];
+      
+      // Only load from backend if we have no actions for today
+      if (user?.identityNodes && existingTodayActions.length === 0) {
+        try {
+          // Load from backend for today (this will generate if none exist)
+          const backendActions = await getDailyActions(today);
+          if (backendActions && backendActions.length > 0) {
+            const transformedActions: DailyAction[] = backendActions.map((a: any) => ({
+              id: a.id,
+              nodeId: a.node_id || a.nodeId || 'tracking',
+              nodeName: a.node_name || a.nodeName || 'Daily Task',
+              action: a.action_text || a.action || '',
+              timeEstimate: a.time_estimate || a.timeEstimate || '5 min',
+              completed: a.status === 'done' ? true : a.status === 'skipped' ? false : undefined,
+              skipped: a.status === 'skipped',
+              strengthChange: 0,
+              createdAt: a.date ? new Date(a.date + 'T00:00:00') : new Date(a.created_at || Date.now()),
+              date: a.date || today,
+            }));
+            setDailyActions(transformedActions);
+            console.log(`📋 Loaded ${transformedActions.length} actions for today (${today})`);
+          }
+        } catch (error) {
+          console.error('Failed to load daily actions:', error);
+        }
+      }
+    };
+    loadActions();
   }, [user?.identityNodes]);
 
   // Reset check-in flag at start of new day
@@ -46,14 +82,12 @@ export const DailyProofCard = () => {
   }, []);
 
   const actions = user?.dailyActions || [];
-  const completedCount = actions.filter(a => a.completed === true).length;
-  const totalCount = actions.length;
-  const allMarked = actions.every(a => a.completed !== null);
-  const allCompleted = actions.length > 0 && actions.every(a => a.completed === true);
-  
-  // Check if all actions are for today
   const todayActions = actions.filter(isActionForToday);
-  const allTodayActionsComplete = todayActions.length > 0 && todayActions.every(a => a.completed === true);
+  const completedCount = todayActions.filter(a => a.completed === true).length;
+  const totalCount = todayActions.length;
+  const allMarked = todayActions.length > 0 && todayActions.every(a => a.completed !== undefined);
+  const allCompleted = todayActions.length > 0 && todayActions.every(a => a.completed === true);
+  const allTodayActionsComplete = allCompleted;
 
   // Auto-check-in when all today's actions are completed
   useEffect(() => {
@@ -118,12 +152,15 @@ export const DailyProofCard = () => {
   };
 
   const handleChangeTask = (action: DailyAction) => {
-    // Add a message to chat about adapting this task
+    // Add a message to chat about adapting this task with context
     const adaptMessage = {
       id: `msg-adapt-${Date.now()}`,
-      content: `I need to adapt today's task for "${action.nodeName}". The current task is: "${action.action}" — but this doesn't fit my day. Can you help me find a more realistic proof-move I can actually execute today?`,
+      content: `I need to adapt today's task for "${cleanText(action.nodeName)}". The current task is: "${cleanText(action.action)}" — but this doesn't fit my day. Can you help me find a more realistic proof-move I can actually execute today?`,
       sender: 'user' as const,
-      timestamp: new Date()
+      timestamp: new Date(),
+      nodeId: action.nodeId,
+      nodeName: cleanText(action.nodeName),
+      context: 'daily-action' as const
     };
     addMessage(adaptMessage);
     
@@ -151,10 +188,27 @@ export const DailyProofCard = () => {
     setReflectionText('');
   };
 
-  const regenerateActions = () => {
-    if (user?.identityNodes) {
-      const actions = generateDailyActions(user.identityNodes);
-      setDailyActions(actions);
+  const regenerateActions = async () => {
+    try {
+      // Use backend to regenerate actions (this preserves completed ones)
+      const backendActions = await apiRegenerateActions();
+      if (backendActions && backendActions.length > 0) {
+        const transformedActions: DailyAction[] = backendActions.map((a: any) => ({
+          id: a.id,
+          nodeId: a.node_id || a.nodeId || 'tracking',
+          nodeName: a.node_name || a.nodeName || 'Daily Task',
+          action: a.action_text || a.action || '',
+          timeEstimate: a.time_estimate || a.timeEstimate || '5 min',
+          // For pending actions, completed should be undefined (not false)
+          completed: a.status === 'done' ? true : a.status === 'skipped' ? false : undefined,
+          skipped: a.status === 'skipped',
+          strengthChange: 0,
+          createdAt: a.created_at ? new Date(a.created_at) : new Date(),
+        }));
+        setDailyActions(transformedActions);
+      }
+    } catch (error) {
+      console.error('Failed to regenerate actions:', error);
     }
   };
 
@@ -304,46 +358,81 @@ export const DailyProofCard = () => {
                 {/* Strength change indicator */}
                 {action.strengthChange !== undefined && action.strengthChange !== null && (
                   <p className={`text-xs mt-2 font-medium ${
-                    action.strengthChange > 0 ? 'text-green-400' : 'text-red-400'
+                    action.strengthChange > 0 ? 'text-green-400' : 
+                    action.strengthChange < 0 ? 'text-red-400' : 
+                    'text-gray-400'
                   }`}>
-                    {action.strengthChange > 0 ? '↑' : '↓'} {Math.abs(action.strengthChange)}% strength
+                    {action.strengthChange > 0 ? '↑ ' : action.strengthChange < 0 ? '↓ ' : ''}{Math.abs(action.strengthChange)}% strength
                   </p>
                 )}
               </div>
 
-              {/* Action buttons */}
-              {action.completed === null && (
+              {/* Action buttons - show for pending actions (completed is null or undefined) */}
+              {(action.completed === null || action.completed === undefined) && (
                 <div className="flex flex-col gap-2 flex-shrink-0">
+                  {/* Done / Skip buttons */}
                   <div className="flex gap-2">
                     <motion.button
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => handleMarkComplete(action, true)}
-                      className="w-8 h-8 rounded-lg bg-green-500/20 hover:bg-green-500/40 flex items-center justify-center text-green-400 transition-colors"
-                      title="Done"
+                      className="w-9 h-9 rounded-lg bg-green-500/20 hover:bg-green-500/40 flex items-center justify-center text-green-400 transition-colors border border-green-500/30"
+                      title="Mark as Done"
                     >
-                      <Check className="w-4 h-4" />
+                      <Check className="w-5 h-5" />
                     </motion.button>
                     <motion.button
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => handleMarkComplete(action, false)}
-                      className="w-8 h-8 rounded-lg bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center text-red-400 transition-colors"
+                      className="w-9 h-9 rounded-lg bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center text-red-400 transition-colors border border-red-500/30"
                       title="Didn't do it"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-5 h-5" />
                     </motion.button>
                   </div>
-                  {/* Change Task button */}
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleChangeTask(action)}
-                    className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs transition-colors"
-                  >
-                    <MessageSquare className="w-3 h-3" />
-                    Change Task
-                  </motion.button>
+                  {/* Work on this / Change Task buttons */}
+                  <div className="flex gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        // Add a context message to main chat
+                        const workMessage = {
+                          id: `msg-work-${Date.now()}`,
+                          content: `I want to work on my task: "${cleanText(action.action)}" for ${cleanText(action.nodeName)}. Help me make progress on this.`,
+                          sender: 'user' as const,
+                          timestamp: new Date(),
+                          nodeId: action.nodeId,
+                          nodeName: cleanText(action.nodeName),
+                          context: 'daily-action' as const
+                        };
+                        addMessage(workMessage);
+                        
+                        // Navigate to dashboard chat
+                        navigate('/dashboard');
+                        setTimeout(() => {
+                          const chatBtn = document.querySelector('[data-tab="chat"]');
+                          if (chatBtn) (chatBtn as HTMLButtonElement).click();
+                        }, 100);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 text-xs transition-colors border border-purple-500/30"
+                      title="Start working on this task"
+                    >
+                      <ArrowRight className="w-3.5 h-3.5" />
+                      Work
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleChangeTask(action)}
+                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs transition-colors border border-blue-500/30"
+                      title="Change this task"
+                    >
+                      <MessageSquare className="w-3 h-3" />
+                      Change
+                    </motion.button>
+                  </div>
                 </div>
               )}
             </div>

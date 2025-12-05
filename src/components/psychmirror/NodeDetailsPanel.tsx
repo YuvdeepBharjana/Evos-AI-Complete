@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, TrendingUp, Play, Target, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Play, Target, ChevronDown, ChevronUp, Trash2, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { IdentityNode } from '../../types';
 import { useUserStore } from '../../store/useUserStore';
@@ -22,11 +22,18 @@ const cleanText = (text: string): string => {
 
 export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
   const navigate = useNavigate();
-  const { startWorkSession, setNodeDesiredStrength } = useUserStore();
+  const { setNodeDesiredStrength, addMessage, deleteNode } = useUserStore();
   const [showMore, setShowMore] = useState(false);
   const [desiredStrength, setDesiredStrength] = useState(node?.desiredStrength || 80);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (!node) return null;
+
+  const handleDeleteNode = () => {
+    deleteNode(node.id);
+    setShowDeleteConfirm(false);
+    onClose();
+  };
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -41,9 +48,25 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
   };
 
   const handleWorkOnThis = () => {
-    startWorkSession(node.id, cleanText(node.label));
+    // Add a context message to main chat
+    const workMessage = {
+      id: `msg-work-${Date.now()}`,
+      content: `I want to work on "${cleanText(node.label)}" (${node.type}). It's currently at ${node.strength}% strength. Help me make progress on this.`,
+      sender: 'user' as const,
+      timestamp: new Date(),
+      nodeId: node.id,
+      nodeName: cleanText(node.label),
+      context: 'work-session' as const
+    };
+    addMessage(workMessage);
     onClose();
-    navigate('/work-session');
+    
+    // Navigate to dashboard chat
+    navigate('/dashboard');
+    setTimeout(() => {
+      const chatBtn = document.querySelector('[data-tab="chat"]');
+      if (chatBtn) (chatBtn as HTMLButtonElement).click();
+    }, 100);
   };
 
   const handleSetGoal = () => {
@@ -200,6 +223,40 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
                       {node.status === 'active' && '💡 Strong momentum - double down on what works'}
                       {node.status === 'mastered' && '💡 Core strength - leverage it in other areas'}
                     </p>
+                  </div>
+
+                  {/* Delete Node Button */}
+                  <div className="pt-2 border-t border-white/10">
+                    {!showDeleteConfirm ? (
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-red-400 hover:bg-red-500/10 border border-red-500/20 hover:border-red-500/40 transition-colors text-sm"
+                      >
+                        <Trash2 size={14} />
+                        Remove Node
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-yellow-400 text-xs">
+                          <AlertTriangle size={14} />
+                          <span>This will permanently delete this node</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setShowDeleteConfirm(false)}
+                            className="flex-1 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-sm text-gray-400"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleDeleteNode}
+                            className="flex-1 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 text-sm font-medium"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>

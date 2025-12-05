@@ -1,9 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Send, X, Clock, Sparkles, CheckCircle } from 'lucide-react';
+import { Send, X, Clock, Sparkles, CheckCircle, History, Trash2 } from 'lucide-react';
 import { useUserStore } from '../store/useUserStore';
-import { sendWorkSessionMessage, checkApiHealth } from '../lib/api';
+import { 
+  sendWorkSessionMessage, 
+  checkApiHealth, 
+  getWorkSessionMessages,
+  saveWorkSessionMessage,
+  clearWorkSessionMessages
+} from '../lib/api';
 import type { Message } from '../types';
 
 export const WorkSessionPage = () => {
@@ -11,16 +17,21 @@ export const WorkSessionPage = () => {
   const { activeWorkSession, addWorkSessionMessage, endWorkSession } = useUserStore();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [hasHistory, setHasHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const initialMessageSent = useRef(false);
+  const historyLoaded = useRef(false);
   const [apiAvailable, setApiAvailable] = useState(false);
 
+  // Check API availability
   useEffect(() => {
     checkApiHealth().then(setApiAvailable);
   }, []);
 
+  // Session timer
   useEffect(() => {
     const timer = setInterval(() => {
       setSessionDuration(prev => prev + 1);
@@ -28,28 +39,89 @@ export const WorkSessionPage = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeWorkSession?.messages]);
 
+  // Redirect if no active session
   useEffect(() => {
     if (!activeWorkSession) {
       navigate('/mirror');
     }
   }, [activeWorkSession, navigate]);
 
+  // Load previous session history
   useEffect(() => {
-    if (activeWorkSession && activeWorkSession.messages.length === 0 && !initialMessageSent.current) {
-      initialMessageSent.current = true;
-      const initialMessage: Message = {
-        id: `msg-${Date.now()}`,
-        content: `Let's focus on ${activeWorkSession.nodeName} together.\n\nI'm here to help you make progress. Tell me:\n• What specific aspect do you want to work on?\n• What's your goal for this session?`,
-        sender: 'ai',
-        timestamp: new Date(),
-        nodeId: activeWorkSession.nodeId
-      };
-      addWorkSessionMessage(initialMessage);
-    }
+    const loadHistory = async () => {
+      if (!activeWorkSession || historyLoaded.current) return;
+      historyLoaded.current = true;
+      
+      try {
+        const previousMessages = await getWorkSessionMessages(activeWorkSession.nodeId, 30);
+        
+        if (previousMessages && previousMessages.length > 0) {
+          setHasHistory(true);
+          
+          // Add a divider message showing this is previous history
+          const historyHeader: Message = {
+            id: `msg-history-header`,
+            content: `📜 Previous session history (${previousMessages.length} messages)\n\nPick up where you left off...`,
+            sender: 'ai',
+            timestamp: new Date(),
+            nodeId: activeWorkSession.nodeId
+          };
+          addWorkSessionMessage(historyHeader);
+          
+          // Add previous messages
+          previousMessages.forEach((msg, index) => {
+            const message: Message = {
+              id: `msg-history-${index}`,
+              content: msg.content,
+              sender: msg.role === 'user' ? 'user' : 'ai',
+              timestamp: new Date(msg.created_at),
+              nodeId: activeWorkSession.nodeId
+            };
+            addWorkSessionMessage(message);
+          });
+          
+          // Add a continuation message
+          const continueMessage: Message = {
+            id: `msg-continue`,
+            content: `Welcome back! Ready to continue working on ${activeWorkSession.nodeName}?\n\nWhat would you like to focus on today?`,
+            sender: 'ai',
+            timestamp: new Date(),
+            nodeId: activeWorkSession.nodeId
+          };
+          addWorkSessionMessage(continueMessage);
+        } else {
+          // No history - show initial message
+          const initialMessage: Message = {
+            id: `msg-${Date.now()}`,
+            content: `Let's focus on ${activeWorkSession.nodeName} together.\n\nI'm here to help you make progress. Tell me:\n• What specific aspect do you want to work on?\n• What's your goal for this session?`,
+            sender: 'ai',
+            timestamp: new Date(),
+            nodeId: activeWorkSession.nodeId
+          };
+          addWorkSessionMessage(initialMessage);
+        }
+      } catch (error) {
+        console.error('Failed to load session history:', error);
+        // Fallback to initial message
+        const initialMessage: Message = {
+          id: `msg-${Date.now()}`,
+          content: `Let's focus on ${activeWorkSession.nodeName} together.\n\nI'm here to help you make progress. Tell me:\n• What specific aspect do you want to work on?\n• What's your goal for this session?`,
+          sender: 'ai',
+          timestamp: new Date(),
+          nodeId: activeWorkSession.nodeId
+        };
+        addWorkSessionMessage(initialMessage);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+    
+    loadHistory();
   }, [activeWorkSession]);
 
   const formatDuration = (seconds: number) => {
@@ -89,6 +161,10 @@ export const WorkSessionPage = () => {
       nodeId: activeWorkSession.nodeId
     };
     addWorkSessionMessage(userMessage);
+    
+    // Save user message to backend
+    saveWorkSessionMessage(activeWorkSession.nodeId, 'user', input);
+    
     const userInput = input;
     setInput('');
 
@@ -116,6 +192,9 @@ export const WorkSessionPage = () => {
         nodeId: activeWorkSession.nodeId
       };
       addWorkSessionMessage(aiResponse);
+      
+      // Save AI response to backend
+      saveWorkSessionMessage(activeWorkSession.nodeId, 'assistant', responseText);
     } catch (error) {
       const errorResponse: Message = {
         id: `msg-${Date.now() + 1}`,
@@ -128,6 +207,17 @@ export const WorkSessionPage = () => {
     } finally {
       setIsTyping(false);
     }
+  };
+
+  const handleClearHistory = async () => {
+    if (!activeWorkSession) return;
+    
+    await clearWorkSessionMessages(activeWorkSession.nodeId);
+    setShowClearModal(false);
+    setHasHistory(false);
+    
+    // Navigate back and start fresh
+    navigate('/mirror');
   };
 
   const handleEndSession = (quality: 'low' | 'medium' | 'high' | 'exceptional' | 'none') => {
@@ -161,13 +251,31 @@ export const WorkSessionPage = () => {
               <h1 className="font-bold text-white">Work Session</h1>
               <p className="text-sm text-purple-400">{activeWorkSession.nodeName}</p>
             </div>
+            {hasHistory && (
+              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30">
+                <History className="w-3 h-3 text-purple-400" />
+                <span className="text-xs text-purple-300">Continuing session</span>
+              </div>
+            )}
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
               <Clock className="w-4 h-4 text-purple-400" />
               <span className="font-mono text-white">{formatDuration(sessionDuration)}</span>
             </div>
+            
+            {hasHistory && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowClearModal(true)}
+                className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30"
+                title="Clear session history"
+              >
+                <Trash2 className="w-4 h-4" />
+              </motion.button>
+            )}
             
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -184,23 +292,38 @@ export const WorkSessionPage = () => {
 
       <div className="flex-1 overflow-y-auto p-4">
         <div className="max-w-4xl mx-auto space-y-4">
-          {activeWorkSession.messages.map((message, index) => (
-            <motion.div
-              key={message.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className={`max-w-[80%] p-4 rounded-2xl ${
-                message.sender === 'user'
-                  ? 'bg-purple-500 text-white'
-                  : 'glass border border-white/10'
-              }`}>
-                <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+          {isLoadingHistory ? (
+            <div className="flex justify-center py-8">
+              <div className="flex items-center gap-3 text-gray-400">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full"
+                />
+                <span>Loading session history...</span>
               </div>
-            </motion.div>
-          ))}
+            </div>
+          ) : (
+            activeWorkSession.messages.map((message, index) => (
+              <motion.div
+                key={message.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(index * 0.03, 0.3) }}
+                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className={`max-w-[80%] p-4 rounded-2xl ${
+                  message.sender === 'user'
+                    ? 'bg-purple-500 text-white'
+                    : message.id.includes('history-header')
+                    ? 'glass border border-purple-500/30 bg-purple-500/10'
+                    : 'glass border border-white/10'
+                }`}>
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                </div>
+              </motion.div>
+            ))
+          )}
           
           {isTyping && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start gap-3">
@@ -229,14 +352,25 @@ export const WorkSessionPage = () => {
       </div>
 
       <div className="glass border-t border-gray-800 p-4">
-        <div className="max-w-4xl mx-auto flex gap-3">
-          <input
-            type="text"
+        <div className="max-w-4xl mx-auto flex gap-3 items-end">
+          <textarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            onChange={(e) => {
+              setInput(e.target.value);
+              // Auto-resize
+              e.target.style.height = 'auto';
+              e.target.style.height = `${Math.min(e.target.scrollHeight, 128)}px`;
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
             placeholder={`Share your progress on ${activeWorkSession.nodeName}...`}
-            className="flex-1 bg-gray-900/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+            className="flex-1 bg-gray-900/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 resize-none min-h-[48px] max-h-32 overflow-y-auto break-words"
+            rows={1}
+            style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}
           />
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -250,6 +384,7 @@ export const WorkSessionPage = () => {
         </div>
       </div>
 
+      {/* End Session Modal */}
       <AnimatePresence>
         {showEndModal && (
           <motion.div
@@ -302,7 +437,55 @@ export const WorkSessionPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Clear History Modal */}
+      <AnimatePresence>
+        {showClearModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="glass rounded-2xl p-6 max-w-md w-full"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-white">Clear Session History?</h3>
+                  <p className="text-gray-400 text-sm">This will delete all previous messages for this node.</p>
+                </div>
+                <button onClick={() => setShowClearModal(false)} className="p-2 hover:bg-white/10 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="text-gray-300 mb-6">
+                Are you sure you want to clear the conversation history for <strong>{activeWorkSession.nodeName}</strong>? 
+                This cannot be undone.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowClearModal(false)}
+                  className="flex-1 py-3 rounded-xl border border-gray-600 text-gray-300 hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleClearHistory}
+                  className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-medium"
+                >
+                  Clear History
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
-

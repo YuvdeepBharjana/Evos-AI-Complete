@@ -58,18 +58,23 @@ const TrackerItem = ({ metric, value, onChange, onEdit }: TrackerItemProps) => {
         );
       
       case 'scale_1_10':
-        return (
-          <div className="flex items-center gap-2">
+  return (
+          <div className="flex items-center gap-3 flex-1">
             <input
               type="range"
               min="1"
               max="10"
               value={numValue || 5}
               onChange={(e) => onChange(Number(e.target.value))}
-              className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              className="flex-1 h-2 bg-gray-700/50 rounded-lg appearance-none cursor-pointer accent-current"
               style={{ accentColor: metric.color || '#ec4899' }}
             />
-            <span className="w-8 text-center font-bold text-white">{numValue || '-'}</span>
+            <span 
+              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm"
+              style={{ backgroundColor: `${metric.color || '#ec4899'}20`, color: metric.color || '#ec4899' }}
+            >
+              {numValue || '-'}
+              </span>
           </div>
         );
       
@@ -81,66 +86,103 @@ const TrackerItem = ({ metric, value, onChange, onEdit }: TrackerItemProps) => {
               value={value ?? ''}
               onChange={(e) => onChange(Number(e.target.value))}
               placeholder="0"
-              className="w-20 bg-transparent border-none text-white font-bold text-lg focus:outline-none"
+              className="w-16 px-2 py-1 bg-white/5 border border-white/10 rounded-lg text-white font-bold text-lg focus:outline-none focus:border-purple-500/50 transition-colors text-center"
             />
-            {metric.unit && <span className="text-gray-500 text-sm">{metric.unit}</span>}
-          </div>
-        );
+            {metric.unit && <span className="text-gray-400 text-sm font-medium">{metric.unit}</span>}
+    </div>
+  );
     }
   };
-  
+
   return (
-    <div className={`p-3 rounded-xl border transition-all ${
-      isGoalMet 
-        ? 'bg-green-500/20 border-green-500/50' 
-        : logged 
-        ? 'bg-white/5 border-white/20' 
-        : 'bg-white/5 border-white/10 hover:border-white/20'
-    }`}>
-      <div className="flex items-center gap-3">
-        <div 
-          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: `${metric.color || '#6366f1'}20`, color: metric.color || '#6366f1' }}
+    <motion.div
+      whileHover={{ scale: 1.01 }}
+      className={`p-4 rounded-xl border transition-all relative overflow-hidden ${
+        isGoalMet 
+          ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30' 
+          : logged 
+          ? 'bg-white/5 border-white/20' 
+          : 'bg-white/[0.02] border-white/10 hover:border-white/20 hover:bg-white/5'
+      }`}
+    >
+      {/* Subtle gradient overlay when goal is met */}
+      {isGoalMet && (
+        <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-transparent pointer-events-none" />
+      )}
+      
+      <div className="flex items-start gap-4 relative">
+      <motion.div
+          whileHover={{ rotate: 5, scale: 1.1 }}
+          className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg"
+          style={{ 
+            background: `linear-gradient(135deg, ${metric.color || '#6366f1'}30, ${metric.color || '#6366f1'}10)`,
+            color: metric.color || '#6366f1',
+            border: `1px solid ${metric.color || '#6366f1'}30`
+          }}
         >
           {getIcon(metric.icon)}
-        </div>
+        </motion.div>
+        
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1 gap-2">
-            <label className="text-sm text-white font-medium truncate">{metric.label}</label>
-            <button 
+          <div className="flex items-center justify-between mb-2 gap-2">
+            <label className="text-sm text-white font-semibold">{metric.label}</label>
+            <motion.button 
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
               onClick={onEdit}
-              className="p-1 hover:bg-white/10 rounded opacity-50 hover:opacity-100 transition-opacity"
-              title="Edit metric (name, color, icon, unit, target)"
+              className="p-1.5 hover:bg-white/10 rounded-lg transition-all group"
+              title="Edit metric"
             >
-              <Edit3 className="w-3.5 h-3.5 text-gray-400" />
-            </button>
+              <Edit3 className="w-4 h-4 text-gray-500 group-hover:text-purple-400 transition-colors" />
+            </motion.button>
           </div>
-          
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-3">
             {renderInput()}
-            {isGoalMet && <Check className="w-4 h-4 text-green-400 ml-auto flex-shrink-0" />}
-          </div>
-          
-          {metric.target && metric.target > 0 && metric.type !== 'boolean' && (
-            <div className="mt-2 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+            {isGoalMet && (
               <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                className="h-full rounded-full"
-                style={{ backgroundColor: isGoalMet ? '#10b981' : metric.color || '#6366f1' }}
-                transition={{ duration: 0.3 }}
-              />
-            </div>
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0"
+              >
+                <Check className="w-3.5 h-3.5 text-white" />
+              </motion.div>
+            )}
+          </div>
+
+          {metric.target && metric.target > 0 && metric.type !== 'boolean' && (
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-gray-500 uppercase tracking-wider">Progress</span>
+                <span className="text-[10px] font-medium" style={{ color: isGoalMet ? '#10b981' : metric.color || '#6366f1' }}>
+                  {Math.round(progress)}%
+                </span>
+          </div>
+              <div className="h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  className="h-full rounded-full"
+                  style={{ 
+                    background: isGoalMet 
+                      ? 'linear-gradient(90deg, #10b981, #059669)' 
+                      : `linear-gradient(90deg, ${metric.color || '#6366f1'}, ${metric.color || '#6366f1'}aa)`
+                  }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+            />
+          </div>
+        </div>
           )}
           
           {metric.target && (
-            <div className="text-[10px] text-gray-500 mt-1">
-              Target: {metric.target} {metric.unit}
+            <div className="text-[11px] text-gray-500 mt-2 flex items-center gap-1">
+              <span className="opacity-75">Target:</span>
+              <span className="font-medium text-gray-400">{metric.target} {metric.unit}</span>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -290,8 +332,8 @@ export const DailyTracker = () => {
         }
       }
       
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
       console.error('Failed to save tracking:', error);
     } finally {
@@ -300,40 +342,40 @@ export const DailyTracker = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="glass rounded-2xl overflow-hidden"
-    >
-      {/* Header */}
-      <div 
-        className="p-4 cursor-pointer bg-gradient-to-r from-orange-500/20 to-red-500/20 border-b border-white/10"
-        onClick={() => setIsExpanded(!isExpanded)}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass rounded-2xl overflow-hidden"
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="font-bold text-white flex items-center gap-2">
-                Daily Tracker
-                {totalGoals > 0 && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    goalsMetCount === totalGoals 
-                      ? 'bg-green-500/20 text-green-400'
-                      : 'bg-purple-500/20 text-purple-400'
-                  }`}>
-                    {goalsMetCount}/{totalGoals} goals
-                  </span>
-                )}
-              </h3>
-              <p className="text-xs text-gray-400">
+      {/* Header */}
+        <div 
+          className="p-4 cursor-pointer bg-gradient-to-r from-orange-500/20 to-red-500/20 border-b border-white/10"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
+                <Zap className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  Daily Tracker
+                  {totalGoals > 0 && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      goalsMetCount === totalGoals 
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-purple-500/20 text-purple-400'
+                    }`}>
+                      {goalsMetCount}/{totalGoals} goals
+                    </span>
+                  )}
+                </h3>
+                <p className="text-xs text-gray-400">
                 {trackingPercentage}% tracked {isToday ? 'today' : 'on ' + formatDateDisplay(selectedDate).toLowerCase()}
-              </p>
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
             {/* Date Navigation */}
             <div 
               className="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/10"
@@ -375,64 +417,72 @@ export const DailyTracker = () => {
               </button>
             </div>
             
-            {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+              {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+            </div>
+          </div>
+
+          <div className="mt-3 h-2 bg-gray-700 rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${trackingPercentage}%` }}
+              className="h-full bg-gradient-to-r from-orange-500 to-red-500"
+              transition={{ duration: 0.5 }}
+            />
           </div>
         </div>
 
-        <div className="mt-3 h-2 bg-gray-700 rounded-full overflow-hidden">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${trackingPercentage}%` }}
-            className="h-full bg-gradient-to-r from-orange-500 to-red-500"
-            transition={{ duration: 0.5 }}
-          />
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-          >
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+            >
             {/* Tip */}
-            <div className="px-4 py-3 bg-gradient-to-r from-purple-500/5 to-blue-500/5 border-b border-white/5">
-              <div className="flex items-start gap-2">
-                <Edit3 className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-gray-300">
-                  <span className="text-purple-400 font-semibold">Customize your metrics.</span>
-                  {' '}Tap the edit icon to customize name, color, icon, unit, and target for each metric.
-                </p>
+            <div className="mx-4 mt-4 mb-2 p-3 rounded-xl bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 border border-purple-500/20">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                  <Edit3 className="w-4 h-4 text-purple-400" />
+                </div>
+                    <p className="text-xs text-gray-300">
+                  <span className="text-purple-400 font-semibold">Tip:</span>
+                  {' '}Tap the <Edit3 className="w-3 h-3 inline text-purple-400" /> icon on any metric to customize it.
+                    </p>
+                </div>
               </div>
-            </div>
 
             {/* Metrics */}
-            <div className="p-4 space-y-3">
-              {activeMetrics.map(metric => (
-                <TrackerItem
+              <div className="p-4 space-y-3">
+              {activeMetrics.map((metric, index) => (
+                <motion.div
                   key={metric.id}
-                  metric={metric}
-                  value={getMetricValue(dateStr, metric.id)}
-                  onChange={(v) => handleValueChange(metric.id, v)}
-                  onEdit={() => handleEditMetric(metric)}
-                />
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <TrackerItem
+                    metric={metric}
+                    value={getMetricValue(dateStr, metric.id)}
+                    onChange={(v) => handleValueChange(metric.id, v)}
+                    onEdit={() => handleEditMetric(metric)}
+                  />
+                </motion.div>
               ))}
-            </div>
+              </div>
 
             {activeMetrics.length > 0 && (
               <div className="px-4 pb-4">
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
+                  whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleSave}
                   disabled={trackedCount === 0 || isSaving}
-                  className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
+                  className={`w-full py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all shadow-lg ${
                     goalsMetCount === totalGoals && totalGoals > 0
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-green-500/25'
                       : trackedCount > 0
-                      ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white'
-                      : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                      ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-purple-500/25'
+                      : 'bg-gray-700/50 text-gray-500 cursor-not-allowed shadow-none'
                   }`}
                 >
                   {isSaving ? (
@@ -443,7 +493,7 @@ export const DailyTracker = () => {
                   ) : goalsMetCount === totalGoals && totalGoals > 0 ? (
                     <>
                       <Check className="w-5 h-5" />
-                      All Goals Met - Save!
+                      All Goals Met — Save!
                     </>
                   ) : (
                     <>
@@ -455,25 +505,36 @@ export const DailyTracker = () => {
               </div>
             )}
 
-            <AnimatePresence>
-              {showSuccess && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="px-4 pb-4"
-                >
-                  <div className="p-3 rounded-lg bg-green-500/20 border border-green-500/30">
-                    <p className="text-sm text-green-400 text-center">
-                      ✓ Progress saved! Keep building your identity.
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <AnimatePresence>
+                {showSuccess && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="px-4 pb-4"
+                  >
+                  <div className="p-4 rounded-xl bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 shadow-lg shadow-green-500/10">
+                    <div className="flex items-center justify-center gap-3">
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 500, delay: 0.1 }}
+                        className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center"
+                      >
+                        <Check className="w-5 h-5 text-white" />
+                      </motion.div>
+                      <div>
+                        <p className="text-sm font-semibold text-green-400">Progress saved!</p>
+                        <p className="text-xs text-green-400/70">Keep building your identity.</p>
+                      </div>
+                    </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       {/* Edit Metric Modal */}
       {editingMetric && (

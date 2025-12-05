@@ -348,40 +348,43 @@ export const ExperimentPage = () => {
                   const isToday = date === new Date().toISOString().split('T')[0];
                   const isPast = date && date < new Date().toISOString().split('T')[0];
                   
-                  // For today, check real-time from store if all actions are completed
-                  let allActionsComplete = false;
+                  // For today, check real-time from store if at least half of actions are completed
+                  let majorityActionsComplete = false;
                   if (isToday && user?.dailyActions) {
                     const todayActions = user.dailyActions.filter(a => {
+                      // Prefer date field, fallback to createdAt
+                      if (a.date) return a.date === date;
                       if (!a.createdAt) return false;
-                      const actionDate = new Date(a.createdAt).toISOString().split('T')[0];
-                      return actionDate === date;
+                      return new Date(a.createdAt).toISOString().split('T')[0] === date;
                     });
-                    // All actions must exist and all must be completed
-                    allActionsComplete = todayActions.length > 0 && 
-                      todayActions.every(a => a.completed === true);
+                    // At least half of actions must be completed (e.g., 3/6)
+                    const completedCount = todayActions.filter(a => a.completed === true).length;
+                    const totalCount = todayActions.length;
+                    majorityActionsComplete = totalCount > 0 && completedCount >= Math.ceil(totalCount / 2);
                   } else if (activity) {
                     // For past days, use activity data from backend
-                    allActionsComplete = activity.actions_total !== undefined && 
+                    // Green if at least half are done
+                    majorityActionsComplete = activity.actions_total !== undefined && 
                       activity.actions_total > 0 && 
-                      activity.actions_done === activity.actions_total;
+                      activity.actions_done >= Math.ceil(activity.actions_total / 2);
                   }
                   
-                  // Show as having activity (but not all complete) if some actions are done
-                  const hasPartialActivity = activity && activity.actions_done > 0 && !allActionsComplete;
+                  // Show as having activity (but less than half complete) if some actions are done
+                  const hasPartialActivity = activity && activity.actions_done > 0 && !majorityActionsComplete;
                   
                   return (
                     <div
                       key={i}
                       className={`aspect-square rounded-lg flex items-center justify-center text-xs font-medium transition-all relative ${
                         !isValidDay ? 'opacity-0' :
-                        allActionsComplete ? 'bg-gradient-to-br from-green-500/40 to-emerald-500/30 text-green-300 border border-green-500/30' + (isToday ? ' ring-2 ring-indigo-500' : '') :
+                        majorityActionsComplete ? 'bg-gradient-to-br from-green-500/40 to-emerald-500/30 text-green-300 border border-green-500/30' + (isToday ? ' ring-2 ring-indigo-500' : '') :
                         isToday ? 'ring-2 ring-indigo-500 bg-indigo-500/20 text-white' :
                         hasPartialActivity ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
                         isPast ? 'bg-red-500/20 text-red-400' :
                         'bg-white/5 text-gray-500'
                       }`}
                     >
-                      {isValidDay && allActionsComplete ? (
+                      {isValidDay && majorityActionsComplete ? (
                         <div className="flex flex-col items-center">
                           <CheckCircle className="w-4 h-4 text-green-400" />
                           <span className="text-[10px] mt-0.5">{dayNum}</span>

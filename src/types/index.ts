@@ -1,6 +1,23 @@
 export type NodeType = 'habit' | 'goal' | 'trait' | 'emotion' | 'struggle' | 'interest';
 export type NodeStatus = 'developing' | 'active' | 'mastered' | 'neglected';
 
+// AI Mentor Styles - determines the personality and approach of the AI
+export type AIMentorStyle = 
+  | 'ruthless'      // Ruthless Mentor - High-pressure, uncompromising truth
+  | 'architect'     // Strategic Architect - System-building, logical frameworks
+  | 'mirror'        // Psychological Mirror - Self-awareness, pattern reflection
+  | 'coach';        // Supportive Coach - Encouraging but honest growth partner
+
+export interface AIMentorStyleInfo {
+  id: AIMentorStyle;
+  name: string;
+  tagline: string;
+  description: string;
+  icon: string;
+  color: string;
+  traits: string[];
+}
+
 export interface IdentityNode {
   id: string;
   label: string;
@@ -19,7 +36,9 @@ export interface Message {
   content: string;
   sender: 'user' | 'ai';
   timestamp: Date;
-  nodeId?: string; // If message is related to a specific node work session
+  nodeId?: string; // If message is related to a specific node
+  nodeName?: string; // Display name for the related node
+  context?: 'work-session' | 'daily-action' | 'general'; // What context this message came from
 }
 
 export interface UserProfile {
@@ -53,10 +72,12 @@ export interface DailyAction {
   nodeName: string;
   action: string;
   timeEstimate: string; // e.g., "5 min", "15 min"
-  completed: boolean | null; // null = not yet marked
+  completed?: boolean | undefined; // undefined = not yet marked, true = done, false = skipped
   createdAt: Date;
   completedAt?: Date;
   strengthChange?: number; // +5 to +10 if completed, -3 to -7 if failed
+  date?: string; // YYYY-MM-DD format for easy date comparison
+  skipped?: boolean; // Explicitly track if skipped
 }
 
 export interface WorkSession {

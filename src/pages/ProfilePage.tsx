@@ -4,11 +4,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   User, Mail, Shield, Download, Trash2, Lock, Save, 
   AlertCircle, CheckCircle, ArrowLeft, Eye, EyeOff,
-  Flame, Calendar, Target, Clock, Dna
+  Flame, Calendar, Target, Clock, Dna, Compass, Heart
 } from 'lucide-react';
 import { 
   getProfile, updateProfile, changePassword, exportUserData, 
-  deleteAccount, resendVerification, type ProfileData 
+  deleteAccount, resendVerification, type ProfileData,
+  getMentorStyle, setMentorStyle, MENTOR_STYLES, type AIMentorStyle
 } from '../lib/api';
 import { useUserStore } from '../store/useUserStore';
 
@@ -37,12 +38,34 @@ export const ProfilePage = () => {
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
   
+  // Mentor style state
+  const [currentMentorStyle, setCurrentMentorStyle] = useState<AIMentorStyle | null>(null);
+  const [savingMentor, setSavingMentor] = useState(false);
+  
   const { logout } = useUserStore();
   const navigate = useNavigate();
 
   useEffect(() => {
     loadProfile();
+    loadMentorStyle();
   }, []);
+
+  const loadMentorStyle = async () => {
+    const style = await getMentorStyle();
+    setCurrentMentorStyle(style);
+  };
+
+  const handleMentorChange = async (style: AIMentorStyle) => {
+    setSavingMentor(true);
+    const success = await setMentorStyle(style);
+    if (success) {
+      setCurrentMentorStyle(style);
+      setSaveMessage({ type: 'success', text: 'Mentor style updated!' });
+    } else {
+      setSaveMessage({ type: 'error', text: 'Failed to update mentor style' });
+    }
+    setSavingMentor(false);
+  };
 
   const loadProfile = async () => {
     const data = await getProfile();
@@ -333,6 +356,61 @@ export const ProfilePage = () => {
                     {saving ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
+              </div>
+
+              {/* AI Mentor Style */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <Dna className="w-5 h-5 text-purple-400" />
+                  AI Mentor Style
+                </h2>
+                <p className="text-gray-400 text-sm mb-4">
+                  Choose how your AI mentor communicates with you. This affects the tone and approach of all AI responses.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {MENTOR_STYLES.map((mentor) => {
+                    const isSelected = currentMentorStyle === mentor.id;
+                    const colors = {
+                      ruthless: { bg: 'bg-red-500/10', border: 'border-red-500/30', selected: 'border-red-500 bg-red-500/20', icon: Flame, iconColor: 'text-red-400' },
+                      architect: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', selected: 'border-blue-500 bg-blue-500/20', icon: Compass, iconColor: 'text-blue-400' },
+                      mirror: { bg: 'bg-purple-500/10', border: 'border-purple-500/30', selected: 'border-purple-500 bg-purple-500/20', icon: Eye, iconColor: 'text-purple-400' },
+                      coach: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', selected: 'border-emerald-500 bg-emerald-500/20', icon: Heart, iconColor: 'text-emerald-400' },
+                    }[mentor.id];
+                    const Icon = colors.icon;
+                    
+                    return (
+                      <button
+                        key={mentor.id}
+                        onClick={() => handleMentorChange(mentor.id)}
+                        disabled={savingMentor}
+                        className={`relative p-4 rounded-xl text-left transition-all border-2 ${
+                          isSelected 
+                            ? colors.selected 
+                            : `${colors.bg} ${colors.border} hover:opacity-80`
+                        }`}
+                      >
+                        {isSelected && (
+                          <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon className={`w-5 h-5 ${colors.iconColor}`} />
+                          <span className="font-semibold text-white">{mentor.name}</span>
+                        </div>
+                        <p className="text-xs text-gray-400 line-clamp-2">
+                          {mentor.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {savingMentor && (
+                  <p className="text-xs text-gray-500 mt-3">Saving...</p>
+                )}
               </div>
             </motion.div>
           )}

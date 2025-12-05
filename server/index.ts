@@ -24,7 +24,9 @@ import {
   generateDailyActions,
   generateSummary,
   isAIAvailable,
-  SYSTEM_PROMPTS
+  SYSTEM_PROMPTS,
+  MENTOR_STYLE_PROMPTS,
+  type AIMentorStyle
 } from './ai.js';
 import {
   sendVerificationEmail,
@@ -1039,12 +1041,15 @@ app.post('/api/chat', authMiddleware, async (req: AuthRequest, res) => {
       content: msg.content
     }));
     
-    // Get user info including onboarding method
+    // Get user info including onboarding method and AI mentor style
     const userInfo = db.prepare(`
-      SELECT name, onboarding_method, created_at
+      SELECT name, onboarding_method, created_at, ai_mentor_style
       FROM users
       WHERE id = ?
     `).get(req.user!.id) as any;
+    
+    // Get the user's selected AI mentor style (default to 'ruthless')
+    const mentorStyle = userInfo?.ai_mentor_style || 'ruthless';
 
     // Get ALL user's identity nodes for comprehensive context
     const nodes = db.prepare(`
@@ -1153,7 +1158,7 @@ app.post('/api/chat', authMiddleware, async (req: AuthRequest, res) => {
       identityContext += `No identity nodes have been created yet. User is new to the platform.\n`;
     }
     
-    const response = await chat(message, formattedHistory, undefined, identityContext);
+    const response = await chat(message, formattedHistory, undefined, identityContext, mentorStyle);
     
     // Save messages
     const saveMsg = db.prepare(`
@@ -1198,6 +1203,88 @@ app.post('/api/chat/work-session', authMiddleware, async (req: AuthRequest, res)
     res.json({ response });
   } catch (error: any) {
     console.error('Work session error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// WORK SESSION MESSAGE HISTORY
+// ============================================
+
+// Get work session message history for a specific node
+app.get('/api/work-session/messages/:nodeId', authMiddleware, (req: AuthRequest, res) => {
+  try {
+    const { nodeId } = req.params;
+    const limit = parseInt(req.query.limit as string) || 50; // Last 50 messages by default
+    
+    const messages = db.prepare(`
+      SELECT id, role, content, created_at
+      FROM work_session_messages
+      WHERE user_id = ? AND node_id = ?
+      ORDER BY created_at DESC
+      LIMIT ?
+    `).all(req.user!.id, nodeId, limit) as any[];
+    
+    // Reverse to get chronological order
+    const chronologicalMessages = messages.reverse();
+    
+    res.json({ 
+      messages: chronologicalMessages,
+      nodeId,
+      count: chronologicalMessages.length
+    });
+  } catch (error: any) {
+    console.error('Get work session messages error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Save a work session message
+app.post('/api/work-session/messages', authMiddleware, (req: AuthRequest, res) => {
+  try {
+    const { nodeId, role, content } = req.body;
+    
+    if (!nodeId || !role || !content) {
+      return res.status(400).json({ error: 'nodeId, role, and content are required' });
+    }
+    
+    if (!['user', 'assistant'].includes(role)) {
+      return res.status(400).json({ error: 'role must be "user" or "assistant"' });
+    }
+    
+    const id = uuidv4();
+    
+    db.prepare(`
+      INSERT INTO work_session_messages (id, user_id, node_id, role, content)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id, req.user!.id, nodeId, role, content);
+    
+    res.json({ 
+      success: true,
+      message: { id, nodeId, role, content, created_at: new Date().toISOString() }
+    });
+  } catch (error: any) {
+    console.error('Save work session message error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Clear work session history for a node (optional, for reset)
+app.delete('/api/work-session/messages/:nodeId', authMiddleware, (req: AuthRequest, res) => {
+  try {
+    const { nodeId } = req.params;
+    
+    const result = db.prepare(`
+      DELETE FROM work_session_messages
+      WHERE user_id = ? AND node_id = ?
+    `).run(req.user!.id, nodeId);
+    
+    res.json({ 
+      success: true,
+      deleted: result.changes
+    });
+  } catch (error: any) {
+    console.error('Clear work session messages error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1398,6 +1485,56 @@ app.post('/api/profile/change-password', authMiddleware, async (req: AuthRequest
   } catch (error: any) {
     console.error('Change password error:', error);
     res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// Update AI mentor style
+app.patch('/api/profile/mentor-style', authMiddleware, (req: AuthRequest, res) => {
+  try {
+    const { mentorStyle } = req.body;
+    const userId = req.user!.id;
+    
+    const validStyles: AIMentorStyle[] = ['ruthless', 'architect', 'mirror', 'coach'];
+    if (!mentorStyle || !validStyles.includes(mentorStyle)) {
+      return res.status(400).json({ 
+        error: 'Invalid mentor style. Must be one of: ruthless, architect, mirror, coach' 
+      });
+    }
+    
+    db.prepare('UPDATE users SET ai_mentor_style = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(mentorStyle, userId);
+    
+    console.log(`Updated mentor style for user ${req.user!.email} to: ${mentorStyle}`);
+    
+    res.json({ 
+      message: 'Mentor style updated successfully',
+      mentorStyle 
+    });
+  } catch (error: any) {
+    console.error('Update mentor style error:', error);
+    res.status(500).json({ error: 'Failed to update mentor style' });
+  }
+});
+
+// Get current mentor style
+app.get('/api/profile/mentor-style', authMiddleware, (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.id;
+    
+    const user = db.prepare('SELECT ai_mentor_style FROM users WHERE id = ?').get(userId) as any;
+    
+    res.json({ 
+      mentorStyle: user?.ai_mentor_style || 'ruthless',
+      availableStyles: [
+        { id: 'ruthless', name: 'Ruthless Mentor', description: 'High-pressure, uncompromising truth' },
+        { id: 'architect', name: 'Strategic Architect', description: 'System-building, logical frameworks' },
+        { id: 'mirror', name: 'Psychological Mirror', description: 'Self-awareness, pattern reflection' },
+        { id: 'coach', name: 'Supportive Coach', description: 'Encouraging but honest growth partner' }
+      ]
+    });
+  } catch (error: any) {
+    console.error('Get mentor style error:', error);
+    res.status(500).json({ error: 'Failed to get mentor style' });
   }
 });
 

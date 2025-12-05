@@ -78,6 +78,7 @@ export const DashboardPage = () => {
             <span className="sm:hidden">Actions</span>
           </button>
           <button
+            data-tab="chat"
             onClick={() => setViewMode('chat')}
             className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               viewMode === 'chat'
