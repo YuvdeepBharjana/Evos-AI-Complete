@@ -72,43 +72,43 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
           }}
         >
           {/* Compact Header */}
-          <div className="p-4 flex items-center gap-3">
-            {/* Type indicator */}
+          <div className="p-3 flex items-center gap-3">
+            {/* Type indicator with small percentage */}
             <div 
-              className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: `${colors.bg}25`, border: `2px solid ${colors.bg}` }}
+              className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ background: `${colors.bg}20`, border: `1.5px solid ${colors.bg}60` }}
             >
-              <span className="text-2xl font-bold" style={{ color: colors.bg }}>
+              <span className="text-sm font-semibold" style={{ color: colors.bg }}>
                 {node.strength}%
               </span>
             </div>
             
             <div className="flex-1 min-w-0">
-              <h2 className="font-bold text-white text-lg leading-tight truncate">
+              <h2 className="font-semibold text-white text-base leading-tight truncate">
                 {cleanText(node.label)}
               </h2>
               <div className="flex items-center gap-2 mt-0.5">
                 <span 
-                  className="text-xs font-semibold px-2 py-0.5 rounded-full capitalize"
-                  style={{ background: `${colors.bg}30`, color: colors.bg }}
+                  className="text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize"
+                  style={{ background: `${colors.bg}25`, color: colors.bg }}
                 >
                   {node.type}
                 </span>
-                <span className="text-xs text-gray-400 capitalize">{node.status}</span>
+                <span className="text-[10px] text-gray-500 capitalize">{node.status}</span>
               </div>
             </div>
             
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
+              className="p-1.5 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
             >
-              <X size={18} className="text-gray-400" />
+              <X size={16} className="text-gray-500" />
             </button>
           </div>
 
           {/* Progress Bar */}
-          <div className="px-4 pb-3">
-            <div className="h-2 bg-gray-800 rounded-full overflow-hidden relative">
+          <div className="px-3 pb-2">
+            <div className="h-1.5 bg-gray-800/60 rounded-full overflow-hidden relative">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${node.strength}%` }}
@@ -116,33 +116,33 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
               />
               {node.desiredStrength && (
                 <div 
-                  className="absolute top-0 h-full w-0.5 bg-white"
+                  className="absolute top-0 h-full w-0.5 bg-white/70"
                   style={{ left: `${node.desiredStrength}%` }}
                 />
               )}
             </div>
             {gap > 0 && (
-              <p className="text-[10px] text-yellow-400 mt-1">Gap to goal: {gap}%</p>
+              <p className="text-[9px] text-yellow-400/80 mt-0.5">Goal: +{gap}%</p>
             )}
           </div>
 
           {/* Quick Actions */}
-          <div className="px-4 pb-4 flex gap-2">
+          <div className="px-3 pb-3 flex gap-2">
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
               onClick={handleWorkOnThis}
-              className={`flex-1 py-2.5 rounded-xl bg-gradient-to-r ${colors.gradient} text-white font-semibold text-sm flex items-center justify-center gap-2`}
+              className={`flex-1 py-2 rounded-lg bg-gradient-to-r ${colors.gradient} text-white font-medium text-sm flex items-center justify-center gap-1.5`}
             >
-              <Play size={16} />
+              <Play size={14} />
               Work on This
             </motion.button>
             
             <button
               onClick={() => setShowMore(!showMore)}
-              className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+              className="px-2.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
             >
-              {showMore ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+              {showMore ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
             </button>
           </div>
 

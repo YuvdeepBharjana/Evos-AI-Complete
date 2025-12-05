@@ -202,10 +202,10 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
       <motion.div
         initial={{ scale: 0, opacity: 0 }}
         animate={{ 
-          scale: selected ? 1.15 : 1, 
+          scale: selected ? 1.05 : 1, 
           opacity: 1,
         }}
-        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
         className="relative cursor-pointer group flex items-center justify-center"
         style={{ 
           width: nodeSize + 30, 
@@ -258,45 +258,44 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
 
 
 
-        {/* White glow ring when selected */}
+        {/* Subtle glow ring when selected */}
         {selected && (
           <>
-            {/* Outer white glow */}
+            {/* Soft outer glow */}
             <motion.div
               className="absolute rounded-full pointer-events-none"
               style={{
-                width: nodeSize + 30,
-                height: nodeSize + 30,
+                width: nodeSize + 24,
+                height: nodeSize + 24,
                 left: '50%',
                 top: '50%',
                 transform: 'translate(-50%, -50%)',
                 background: 'transparent',
-                boxShadow: '0 0 30px rgba(255,255,255,0.8), 0 0 60px rgba(255,255,255,0.5), 0 0 90px rgba(255,255,255,0.3)',
-              }}
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ 
-                scale: [1, 1.1, 1],
-                opacity: [1, 0.7, 1],
-              }}
-              transition={{ duration: 1.2, repeat: Infinity }}
-            />
-            {/* White ring */}
-            <motion.div
-              className="absolute rounded-full pointer-events-none"
-              style={{
-                width: nodeSize + 16,
-                height: nodeSize + 16,
-                border: '3px solid rgba(255,255,255,0.9)',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
+                boxShadow: '0 0 20px rgba(255,255,255,0.3), 0 0 40px rgba(255,255,255,0.15)',
               }}
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ 
                 scale: [1, 1.05, 1],
-                opacity: [0.9, 0.6, 0.9],
+                opacity: [0.6, 0.4, 0.6],
               }}
-              transition={{ duration: 1.5, repeat: Infinity }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+            {/* Subtle white ring */}
+            <motion.div
+              className="absolute rounded-full pointer-events-none"
+              style={{
+                width: nodeSize + 12,
+                height: nodeSize + 12,
+                border: '2px solid rgba(255,255,255,0.5)',
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ 
+                opacity: [0.5, 0.3, 0.5],
+              }}
+              transition={{ duration: 2, repeat: Infinity }}
             />
           </>
         )}
@@ -307,21 +306,20 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
           style={{
             width: nodeSize,
             height: nodeSize,
-            background: selected ? 'rgba(30, 30, 45, 0.95)' : 'rgba(20, 20, 30, 0.8)',
-            border: selected ? `4px solid white` : `3px solid ${colors.primary}`,
+            background: selected ? 'rgba(25, 25, 40, 0.9)' : 'rgba(20, 20, 30, 0.8)',
+            border: selected ? `3px solid rgba(255,255,255,0.6)` : `3px solid ${colors.primary}`,
             boxShadow: selected
-              ? `0 0 30px rgba(255,255,255,0.6), 0 0 60px rgba(255,255,255,0.4), 0 0 40px ${colors.glow}, inset 0 0 20px rgba(255,255,255,0.2)`
+              ? `0 0 15px rgba(255,255,255,0.25), 0 0 30px rgba(255,255,255,0.15), 0 0 20px ${colors.glow}40`
               : hasDailyAction 
                 ? `0 0 30px ${colors.glow}, 0 0 60px ${colors.glow}, 0 0 90px ${colors.glow}50`
                 : `0 0 20px ${colors.glow}`,
             zIndex: selected ? 100 : 1,
           }}
           animate={selected ? {
-            scale: [1, 1.05, 1],
             boxShadow: [
-              `0 0 30px rgba(255,255,255,0.6), 0 0 60px rgba(255,255,255,0.4), 0 0 40px ${colors.glow}, inset 0 0 20px rgba(255,255,255,0.2)`,
-              `0 0 50px rgba(255,255,255,0.8), 0 0 80px rgba(255,255,255,0.5), 0 0 60px ${colors.glow}, inset 0 0 30px rgba(255,255,255,0.3)`,
-              `0 0 30px rgba(255,255,255,0.6), 0 0 60px rgba(255,255,255,0.4), 0 0 40px ${colors.glow}, inset 0 0 20px rgba(255,255,255,0.2)`,
+              `0 0 15px rgba(255,255,255,0.25), 0 0 30px rgba(255,255,255,0.15), 0 0 20px ${colors.glow}40`,
+              `0 0 20px rgba(255,255,255,0.35), 0 0 40px rgba(255,255,255,0.2), 0 0 25px ${colors.glow}50`,
+              `0 0 15px rgba(255,255,255,0.25), 0 0 30px rgba(255,255,255,0.15), 0 0 20px ${colors.glow}40`,
             ]
           } : hasDailyAction ? {
             boxShadow: [
@@ -330,7 +328,7 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
               `0 0 30px ${colors.glow}, 0 0 60px ${colors.glow}, 0 0 90px ${colors.glow}50`,
             ]
           } : {}}
-          transition={{ duration: selected ? 1.2 : 2, repeat: Infinity }}
+          transition={{ duration: selected ? 2.5 : 2, repeat: Infinity }}
         >
           {/* Strength fill from bottom - circular progress */}
           <div

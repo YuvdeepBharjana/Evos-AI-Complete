@@ -102,10 +102,10 @@ export const PsychMirror = () => {
       const x = node.position.x + nodeWidth / 2;
       const y = node.position.y + nodeHeight / 2;
       
-      // Zoom in and center on the node with smooth animation
+      // Gentle zoom and center on the node with smooth animation
       reactFlowInstance.setCenter(x, y, { 
-        zoom: 1.5, 
-        duration: 800 
+        zoom: 1.1, 
+        duration: 600 
       });
     }
   }, [reactFlowInstance]);
