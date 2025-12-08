@@ -59,10 +59,12 @@ export const PsychMirror = ({ onChangeMentor }: PsychMirrorProps = {}) => {
         const isToday = action.date === today || 
           (action.createdAt && new Date(action.createdAt).toISOString().split('T')[0] === today);
         const isPending = action.completed === null || action.completed === undefined;
-        const notTracking = action.nodeId !== 'tracking';
-        return isToday && isPending && notTracking;
+        // Must have a valid nodeId (not null, undefined, empty, or 'tracking')
+        const hasValidNodeId = action.nodeId && action.nodeId !== 'tracking' && action.nodeId !== 'null';
+        return isToday && isPending && hasValidNodeId;
       })
-      .map(action => action.nodeId);
+      .map(action => action.nodeId)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
   }, [user?.dailyActions]);
 
   // Filter out 100% completed nodes (they've mastered it!)

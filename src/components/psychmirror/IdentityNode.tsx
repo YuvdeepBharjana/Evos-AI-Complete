@@ -305,7 +305,7 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
 
 
 
-        {/* Subtle glow ring when selected */}
+        {/* Subtle glow ring when selected - centered on the node */}
         {selected && (
           <>
             {/* Soft outer glow */}
@@ -314,9 +314,9 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
               style={{
                 width: nodeSize + 24,
                 height: nodeSize + 24,
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
+                // Container is (nodeSize + 30), ring is (nodeSize + 24), so offset = (30 - 24) / 2 = 3px
+                left: 3,
+                top: 3,
                 background: 'transparent',
                 boxShadow: '0 0 20px rgba(255,255,255,0.3), 0 0 40px rgba(255,255,255,0.15)',
               }}
@@ -334,9 +334,9 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
                 width: nodeSize + 12,
                 height: nodeSize + 12,
                 border: '2px solid rgba(255,255,255,0.5)',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
+                // Container is (nodeSize + 30), ring is (nodeSize + 12), so offset = (30 - 12) / 2 = 9px
+                left: 9,
+                top: 9,
               }}
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ 

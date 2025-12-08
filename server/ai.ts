@@ -273,12 +273,14 @@ Each action must be:
 3. TIMED - Completable in 5-20 minutes
 4. IDENTITY-LINKED - Directly strengthens or challenges a node
 
+IMPORTANT: Each node is provided with an ID (e.g., ID: "abc123"). You MUST use the exact ID provided for the nodeId field. Do NOT make up IDs.
+
 Respond ONLY in this JSON format:
 {
   "actions": [
     {
-      "nodeId": "node-id-if-provided",
-      "nodeName": "Target Node Name",
+      "nodeId": "exact-id-from-input",
+      "nodeName": "Exact Node Label from input",
       "category": "📊 Data|💪 Challenge|🎯 Practice|📝 Reflection",
       "action": "Specific action description",
       "timeEstimate": "X min",
@@ -287,7 +289,7 @@ Respond ONLY in this JSON format:
   ]
 }
 
-Focus on nodes that are "developing" or "struggling". One action should always be data tracking.`,
+Focus on nodes that are "developing" or have low strength. One action should always be data tracking (use nodeId: "tracking" for that one).`,
 
   endOfDaySummary: `You are generating an end-of-day identity summary.
 
@@ -426,15 +428,16 @@ export async function generateDailyActions(nodes: any[]): Promise<any> {
   }
 
   try {
+    // Include node IDs in context so AI can reference them
     const nodesContext = nodes.map(n => 
-      `- ${n.label} (${n.type}, strength: ${n.strength}%, status: ${n.status})`
+      `- ID: "${n.id}" | ${n.label} (${n.type}, strength: ${n.strength}%, status: ${n.status})`
     ).join('\n');
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: SYSTEM_PROMPTS.dailyActions },
-        { role: 'user', content: `Generate 3 daily proof-moves for these identity nodes:\n\n${nodesContext}` }
+        { role: 'user', content: `Generate 3 daily proof-moves for these identity nodes. Use the exact node ID provided for each action:\n\n${nodesContext}` }
       ],
       max_tokens: 800,
       temperature: 0.7,
@@ -588,39 +591,62 @@ function mockIdentityAnalysis(): any {
 }
 
 function mockDailyActions(nodes: any[]): any {
+  // Get nodes that need work - struggles or developing
   const struggles = nodes.filter(n => n.type === 'struggle' || n.strength < 50);
   const developing = nodes.filter(n => n.status === 'developing');
+  const habits = nodes.filter(n => n.type === 'habit');
+  const goals = nodes.filter(n => n.type === 'goal');
   
-  const targetNode = struggles[0] || developing[0] || nodes[0];
+  // Select up to 2 unique target nodes for actions
+  const targetNode1 = struggles[0] || developing[0] || nodes[0];
+  const targetNode2 = struggles[1] || developing[1] || habits[0] || goals[0] || nodes[1];
   
-  return {
-    actions: [
-      {
-        nodeId: null,
-        nodeName: "📊 Daily Data",
-        category: "📊 Data",
-        action: "Open the Daily Tracker. Enter all 5 numbers: calories, exercise minutes, work hours, sleep hours, mood (1-10). All 5 or it doesn't count. Takes 2 minutes.",
-        timeEstimate: "2 min",
-        whyItMatters: "Data closes the identity loop. No tracking, no growth."
-      },
-      {
-        nodeId: targetNode?.id,
-        nodeName: targetNode?.label || "Growth Edge",
-        category: "💪 Challenge",
-        action: `Identify one moment today where "${targetNode?.label || 'your growth edge'}" shows up. When you notice it, pause and choose a different response than usual. Write down what happened.`,
-        timeEstimate: "15 min",
-        whyItMatters: "Awareness + action = identity change"
-      },
-      {
-        nodeId: null,
-        nodeName: "Evening Reflection",
-        category: "📝 Reflection",
-        action: "Before bed, write 3 sentences: What did I prove about myself today? What pattern did I notice? What will I do differently tomorrow?",
-        timeEstimate: "5 min",
-        whyItMatters: "Reflection consolidates identity changes"
-      }
-    ]
-  };
+  const actions: any[] = [
+    {
+      nodeId: 'tracking',
+      nodeName: "📊 Daily Data",
+      category: "📊 Data",
+      action: "Open the Daily Tracker. Enter all 5 numbers: calories, exercise minutes, work hours, sleep hours, mood (1-10). All 5 or it doesn't count. Takes 2 minutes.",
+      timeEstimate: "2 min",
+      whyItMatters: "Data closes the identity loop. No tracking, no growth."
+    }
+  ];
+  
+  // Add first target node action
+  if (targetNode1) {
+    actions.push({
+      nodeId: targetNode1.id,
+      nodeName: targetNode1.label || "Growth Edge",
+      category: "💪 Challenge",
+      action: `Identify one moment today where "${targetNode1.label || 'your growth edge'}" shows up. When you notice it, pause and choose a different response than usual. Write down what happened.`,
+      timeEstimate: "15 min",
+      whyItMatters: "Awareness + action = identity change"
+    });
+  }
+  
+  // Add second target node action (if different from first)
+  if (targetNode2 && targetNode2.id !== targetNode1?.id) {
+    actions.push({
+      nodeId: targetNode2.id,
+      nodeName: targetNode2.label || "Focus Area",
+      category: "🎯 Practice",
+      action: `Spend 10 minutes actively working on "${targetNode2.label}". Set a timer, eliminate distractions, and fully engage with this aspect of your growth.`,
+      timeEstimate: "10 min",
+      whyItMatters: "Consistent practice builds lasting identity change"
+    });
+  } else {
+    // Fallback reflection action if no second unique node
+    actions.push({
+      nodeId: targetNode1?.id || null,
+      nodeName: targetNode1?.label || "Evening Reflection",
+      category: "📝 Reflection",
+      action: `Before bed, write 3 sentences about "${targetNode1?.label || 'your growth'}": What did I prove about myself today? What pattern did I notice? What will I do differently tomorrow?`,
+      timeEstimate: "5 min",
+      whyItMatters: "Reflection consolidates identity changes"
+    });
+  }
+  
+  return { actions };
 }
 
 function mockSummary(trackingData: any, completedActions: any[]): any {

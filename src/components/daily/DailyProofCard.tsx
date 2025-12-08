@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, Zap, Clock, RefreshCw, MessageSquare, ArrowRight } from 'lucide-react';
+import { Check, X, Zap, Clock, MessageSquare, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../../store/useUserStore';
 import { getCompletionMessage } from '../../lib/generateDailyActions';
-import { checkIn, updateActionStatus, updateNode, regenerateActions as apiRegenerateActions, getDailyActions } from '../../lib/api';
+import { checkIn, updateActionStatus, updateNode, getDailyActions } from '../../lib/api';
 import { cleanText } from '../../lib/cleanText';
 import type { DailyAction } from '../../types';
 
@@ -192,30 +192,6 @@ export const DailyProofCard = () => {
     setReflectionText('');
   };
 
-  const regenerateActions = async () => {
-    try {
-      // Use backend to regenerate actions (this preserves completed ones)
-      const backendActions = await apiRegenerateActions();
-      if (backendActions && backendActions.length > 0) {
-        const transformedActions: DailyAction[] = backendActions.map((a: any) => ({
-          id: a.id,
-          nodeId: a.node_id || a.nodeId || 'tracking',
-          nodeName: a.node_name || a.nodeName || 'Daily Task',
-          action: a.action_text || a.action || '',
-          timeEstimate: a.time_estimate || a.timeEstimate || '5 min',
-          // For pending actions, completed should be undefined (not false)
-          completed: a.status === 'done' ? true : a.status === 'skipped' ? false : undefined,
-          skipped: a.status === 'skipped',
-          strengthChange: 0,
-          createdAt: a.created_at ? new Date(a.created_at) : new Date(),
-        }));
-        setDailyActions(transformedActions);
-      }
-    } catch (error) {
-      console.error('Failed to regenerate actions:', error);
-    }
-  };
-
   if (!user || actions.length === 0) {
     return (
       <motion.div
@@ -251,13 +227,6 @@ export const DailyProofCard = () => {
               </p>
             </div>
           </div>
-          <button
-            onClick={regenerateActions}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
-            title="Generate new tasks"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
         </div>
         
         {/* Progress bar */}

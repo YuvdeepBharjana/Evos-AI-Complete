@@ -937,7 +937,10 @@ app.get('/api/actions/:date?', authMiddleware, async (req: AuthRequest, res) => 
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
         
-        for (const action of generated.actions || []) {
+        // Only insert up to 3 actions max
+        const actionsToInsert = (generated.actions || []).slice(0, 3);
+        
+        for (const action of actionsToInsert) {
           insertAction.run(
             uuidv4(),
             req.user!.id,
@@ -993,9 +996,9 @@ app.post('/api/actions/regenerate', authMiddleware, async (req: AuthRequest, res
   try {
     const date = new Date().toISOString().split('T')[0];
     
-    // Delete existing pending actions
+    // Delete ALL existing actions for today (not just pending)
     db.prepare(`
-      DELETE FROM daily_actions WHERE user_id = ? AND date = ? AND status = 'pending'
+      DELETE FROM daily_actions WHERE user_id = ? AND date = ?
     `).run(req.user!.id, date);
     
     // Generate new ones
@@ -1007,7 +1010,10 @@ app.post('/api/actions/regenerate', authMiddleware, async (req: AuthRequest, res
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     
-    for (const action of generated.actions || []) {
+    // Only insert up to 3 actions max
+    const actionsToInsert = (generated.actions || []).slice(0, 3);
+    
+    for (const action of actionsToInsert) {
       insertAction.run(
         uuidv4(),
         req.user!.id,
