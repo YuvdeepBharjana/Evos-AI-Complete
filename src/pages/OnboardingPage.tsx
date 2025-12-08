@@ -5,12 +5,14 @@ import { OnboardingChoice } from '../components/onboarding/OnboardingChoice';
 import { QuestionnaireFlow } from '../components/onboarding/QuestionnaireFlow';
 import { DataUploadFlow } from '../components/onboarding/DataUploadFlow';
 import { ManualOnboardingFlow } from '../components/onboarding/ManualOnboardingFlow';
+import { MentorSelectionModal } from '../components/psychmirror/MentorSelectionModal';
 import { useUserStore } from '../store/useUserStore';
 import { createDefaultProfile, generateNodesFromQuestionnaire } from '../lib/generateMockProfile';
 import type { IdentityNode } from '../types';
+import type { AIMentorStyle } from '../lib/api';
 import { Dna } from 'lucide-react';
 
-type OnboardingStep = 'choice' | 'questionnaire' | 'upload' | 'manual' | 'complete';
+type OnboardingStep = 'choice' | 'questionnaire' | 'upload' | 'manual' | 'complete' | 'mentor-selection';
 
 export const OnboardingPage = () => {
     const [step, setStep] = useState<OnboardingStep>('choice');
@@ -30,9 +32,9 @@ export const OnboardingPage = () => {
         await completeOnboarding('manual', nodes);
         setStep('complete');
 
-        // Navigate to Mirror after animation
+        // Show mentor selection after animation
         setTimeout(() => {
-            navigate('/mirror');
+            setStep('mentor-selection');
         }, 2000);
     };
 
@@ -41,9 +43,9 @@ export const OnboardingPage = () => {
         await completeOnboarding('questionnaire', nodes);
         setStep('complete');
 
-        // Navigate to Mirror after animation
+        // Show mentor selection after animation
         setTimeout(() => {
-            navigate('/mirror');
+            setStep('mentor-selection');
         }, 2000);
     };
 
@@ -51,10 +53,16 @@ export const OnboardingPage = () => {
         await completeOnboarding('upload', nodes);
         setStep('complete');
 
-        // Navigate to Mirror after animation
+        // Show mentor selection after animation
         setTimeout(() => {
-            navigate('/mirror');
+            setStep('mentor-selection');
         }, 2000);
+    };
+
+    const handleMentorSelect = (style: AIMentorStyle) => {
+        console.log('✅ Mentor style selected during onboarding:', style);
+        // Navigate to Mirror after mentor selection
+        navigate('/mirror');
     };
 
     return (
@@ -136,6 +144,24 @@ export const OnboardingPage = () => {
                                 Initializing your engineering environment...
                             </p>
                         </div>
+                    </motion.div>
+                )}
+
+                {step === 'mentor-selection' && (
+                    <motion.div
+                        key="mentor-selection"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="min-h-screen bg-[#030014]"
+                    >
+                        <div className="absolute inset-0 pointer-events-none">
+                            <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.03)_1px,transparent_1px)] bg-[size:100px_100px]" />
+                        </div>
+                        <MentorSelectionModal
+                            isOpen={true}
+                            onClose={() => navigate('/mirror')}
+                            onSelect={handleMentorSelect}
+                        />
                     </motion.div>
                 )}
             </AnimatePresence>

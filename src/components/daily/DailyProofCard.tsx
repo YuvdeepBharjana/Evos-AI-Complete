@@ -152,6 +152,9 @@ export const DailyProofCard = () => {
   };
 
   const handleChangeTask = (action: DailyAction) => {
+    // Create a new session for this task adaptation
+    const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
     // Add a message to chat about adapting this task with context
     const adaptMessage = {
       id: `msg-adapt-${Date.now()}`,
@@ -160,7 +163,8 @@ export const DailyProofCard = () => {
       timestamp: new Date(),
       nodeId: action.nodeId,
       nodeName: cleanText(action.nodeName),
-      context: 'daily-action' as const
+      context: 'daily-action' as const,
+      sessionId: newSessionId
     };
     addMessage(adaptMessage);
     
@@ -397,7 +401,10 @@ export const DailyProofCard = () => {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => {
-                        // Add a context message to main chat
+                        // Create a new session for this task
+                        const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                        
+                        // Add a context message to main chat with new session
                         const workMessage = {
                           id: `msg-work-${Date.now()}`,
                           content: `I want to work on my task: "${cleanText(action.action)}" for ${cleanText(action.nodeName)}. Help me make progress on this.`,
@@ -405,7 +412,8 @@ export const DailyProofCard = () => {
                           timestamp: new Date(),
                           nodeId: action.nodeId,
                           nodeName: cleanText(action.nodeName),
-                          context: 'daily-action' as const
+                          context: 'daily-action' as const,
+                          sessionId: newSessionId
                         };
                         addMessage(workMessage);
                         

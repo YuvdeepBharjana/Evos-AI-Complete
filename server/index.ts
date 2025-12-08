@@ -440,9 +440,12 @@ app.delete('/api/user/delete-account', authMiddleware, async (req: AuthRequest, 
     db.prepare('DELETE FROM daily_summaries WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM daily_actions WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM daily_tracking WHERE user_id = ?').run(userId);
-    db.prepare('DELETE FROM node_connections WHERE node_id IN (SELECT id FROM nodes WHERE user_id = ?)').run(userId);
-    db.prepare('DELETE FROM nodes WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM work_session_messages WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM work_sessions WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM milestones WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM node_connections WHERE source_id IN (SELECT id FROM nodes WHERE user_id = ?) OR target_id IN (SELECT id FROM nodes WHERE user_id = ?)').run(userId, userId);
+    db.prepare('DELETE FROM nodes WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM email_tokens WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
     
     console.log(`User account deleted: ${req.user!.email}`);

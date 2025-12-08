@@ -121,14 +121,8 @@ function App() {
         />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route
-          path="/onboarding"
-          element={
-            <AuthRoute>
-              <OnboardingPage />
-            </AuthRoute>
-          }
-        />
+        {/* Onboarding is NOT wrapped in AuthRoute to allow mentor selection flow to complete */}
+        <Route path="/onboarding" element={<OnboardingPage />} />
 
         {/* Protected Routes */}
         <Route element={<AppLayout />}>

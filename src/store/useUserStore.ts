@@ -25,6 +25,10 @@ interface UserStore {
   customMetrics: DailyMetric[];
   metricEntries: DailyMetricEntry[];
   
+  // Persisted chat history keyed by user ID (survives logout/login)
+  userChatHistories: Record<string, Message[]>;
+  userChatSessionNames: Record<string, Record<string, string>>;
+  
   // Basic user actions
   setUser: (user: UserProfile) => void;
   setUserFromApi: (apiUser: ApiUser, token: string) => Promise<void>;
@@ -35,6 +39,11 @@ interface UserStore {
   deleteNode: (nodeId: string) => void;
   addMessage: (message: Message) => void;
   clearChatHistory: () => void;
+  deleteMessagesBySession: (sessionId: string) => void;
+  
+  // Chat session names
+  chatSessionNames: Record<string, string>;
+  setChatSessionName: (sessionId: string, name: string) => void;
   completeOnboarding: (method: 'questionnaire' | 'upload' | 'manual', nodes: IdentityNode[]) => Promise<void>;
   clearUser: () => void;
   clearRecentStrengthChanges: () => void;
@@ -101,6 +110,9 @@ export const useUserStore = create<UserStore>()(
       lastResetDate: null,
       customMetrics: DEFAULT_METRICS,
       metricEntries: [],
+      chatSessionNames: {},
+      userChatHistories: {},
+      userChatSessionNames: {},
       
       // Helper to get today's date string in YYYY-MM-DD format
       getTodayDateString: () => {
@@ -112,6 +124,9 @@ export const useUserStore = create<UserStore>()(
       setUserFromApi: async (apiUser, token) => {
         // Set the auth token in the API client
         setAuthToken(token);
+        
+        // Get current state to restore chat history for this user
+        const currentState = get();
         
         // Fetch user's nodes from the API
         const apiNodes = await getNodes();
@@ -129,6 +144,10 @@ export const useUserStore = create<UserStore>()(
           createdAt: new Date()
         }));
         
+        // Restore chat history for this user from persisted storage
+        const restoredChatHistory = currentState.userChatHistories[apiUser.id] || [];
+        const restoredSessionNames = currentState.userChatSessionNames[apiUser.id] || {};
+        
         // Create local user profile from API data
         // Note: SQLite returns 0/1 for booleans, so we need to convert
         const userProfile: UserProfile = {
@@ -139,7 +158,7 @@ export const useUserStore = create<UserStore>()(
           onboardingComplete: Boolean(apiUser.onboarding_complete),
           onboardingMethod: apiUser.onboarding_method as 'questionnaire' | 'upload' | 'manual' | undefined,
           identityNodes,
-          chatHistory: [],
+          chatHistory: restoredChatHistory,
           alignmentScore: 75,
           dailyActions: [],
           trackingData: []
@@ -148,7 +167,8 @@ export const useUserStore = create<UserStore>()(
         set({ 
           user: userProfile, 
           authToken: token,
-          recentStrengthChanges: {} 
+          recentStrengthChanges: {},
+          chatSessionNames: restoredSessionNames
         });
         
         // Load tracking data from backend (non-blocking)
@@ -165,8 +185,25 @@ export const useUserStore = create<UserStore>()(
       })),
       
       logout: () => {
+        const state = get();
+        const userId = state.user?.id;
+        
+        // Save chat history before logging out so it can be restored
+        if (userId && state.user?.chatHistory) {
+          set((prevState) => ({
+            userChatHistories: {
+              ...prevState.userChatHistories,
+              [userId]: state.user!.chatHistory
+            },
+            userChatSessionNames: {
+              ...prevState.userChatSessionNames,
+              [userId]: state.chatSessionNames
+            }
+          }));
+        }
+        
         apiLogout();
-        set({ user: null, authToken: null, activeWorkSession: null, recentStrengthChanges: {} });
+        set({ user: null, authToken: null, activeWorkSession: null, recentStrengthChanges: {}, chatSessionNames: {} });
       },
       
       updateNodes: (nodes) => set((state) => ({
@@ -189,12 +226,21 @@ export const useUserStore = create<UserStore>()(
         } : null
       })),
       
-      addMessage: (message) => set((state) => ({
-        user: state.user ? {
-          ...state.user,
-          chatHistory: [...state.user.chatHistory, message]
-        } : null
-      })),
+      addMessage: (message) => set((state) => {
+        if (!state.user) return state;
+        const newChatHistory = [...state.user.chatHistory, message];
+        return {
+          user: {
+            ...state.user,
+            chatHistory: newChatHistory
+          },
+          // Also persist to userChatHistories for this user
+          userChatHistories: {
+            ...state.userChatHistories,
+            [state.user.id]: newChatHistory
+          }
+        };
+      }),
       
       clearChatHistory: () => set((state) => ({
         user: state.user ? {
@@ -202,6 +248,51 @@ export const useUserStore = create<UserStore>()(
           chatHistory: []
         } : null
       })),
+      
+      deleteMessagesBySession: (sessionId) => set((state) => {
+        if (!state.user) return state;
+        const newChatHistory = state.user.chatHistory.filter(msg => {
+          // For 'default' session, also delete messages with undefined/null sessionId
+          if (sessionId === 'default') {
+            return msg.sessionId !== undefined && msg.sessionId !== null && msg.sessionId !== 'default';
+          }
+          return msg.sessionId !== sessionId;
+        });
+        const newSessionNames = Object.fromEntries(
+          Object.entries(state.chatSessionNames).filter(([key]) => key !== sessionId)
+        );
+        return {
+          user: {
+            ...state.user,
+            chatHistory: newChatHistory
+          },
+          chatSessionNames: newSessionNames,
+          // Also update persisted storage
+          userChatHistories: {
+            ...state.userChatHistories,
+            [state.user.id]: newChatHistory
+          },
+          userChatSessionNames: {
+            ...state.userChatSessionNames,
+            [state.user.id]: newSessionNames
+          }
+        };
+      }),
+      
+      setChatSessionName: (sessionId, name) => set((state) => {
+        const newSessionNames = {
+          ...state.chatSessionNames,
+          [sessionId]: name
+        };
+        return {
+          chatSessionNames: newSessionNames,
+          // Also persist for this user
+          userChatSessionNames: state.user ? {
+            ...state.userChatSessionNames,
+            [state.user.id]: newSessionNames
+          } : state.userChatSessionNames
+        };
+      }),
       
       completeOnboarding: async (method, nodes) => {
         const state = get();
@@ -258,8 +349,25 @@ export const useUserStore = create<UserStore>()(
       },
       
       clearUser: () => {
+        const state = get();
+        const userId = state.user?.id;
+        
+        // Save chat history before clearing so it can be restored
+        if (userId && state.user?.chatHistory) {
+          set((prevState) => ({
+            userChatHistories: {
+              ...prevState.userChatHistories,
+              [userId]: state.user!.chatHistory
+            },
+            userChatSessionNames: {
+              ...prevState.userChatSessionNames,
+              [userId]: state.chatSessionNames
+            }
+          }));
+        }
+        
         apiLogout();
-        set({ user: null, authToken: null, activeWorkSession: null, recentStrengthChanges: {} });
+        set({ user: null, authToken: null, activeWorkSession: null, recentStrengthChanges: {}, chatSessionNames: {} });
       },
       
       clearRecentStrengthChanges: () => set({ recentStrengthChanges: {} }),
@@ -767,7 +875,10 @@ export const useUserStore = create<UserStore>()(
         metricEntries: state.metricEntries,
         recentStrengthChanges: state.recentStrengthChanges,
         todayStrengthChanges: state.todayStrengthChanges,
-        lastResetDate: state.lastResetDate
+        lastResetDate: state.lastResetDate,
+        chatSessionNames: state.chatSessionNames,
+        userChatHistories: state.userChatHistories,
+        userChatSessionNames: state.userChatSessionNames
       })
     }
   )

@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
 import { useUserStore } from '../../store/useUserStore';
-import { extractIdentityFromChat } from '../../lib/extractIdentityFromChat';
 import { sendChatMessage, checkApiHealth, createNode } from '../../lib/api';
 import { cleanText } from '../../lib/cleanText';
 import type { Message, IdentityNode, NodeType } from '../../types';
@@ -15,7 +14,12 @@ import {
   ChevronRight, 
   Target, 
   Zap,
-  Clock
+  Clock,
+  MoreVertical,
+  Trash2,
+  Edit3,
+  X,
+  Check
 } from 'lucide-react';
 
 // Fallback AI responses when API is unavailable
@@ -45,79 +49,177 @@ const generateLocalResponse = (userMessage: string, userName: string): string =>
   return `That's interesting, ${userName}. I'm continuously learning about your patterns and preferences. How does this connect to your current goals?`;
 };
 
-// Group messages by date
+// Group messages by session
 interface ChatSession {
-  date: string;
-  dateLabel: string;
+  sessionId: string;
   messages: Message[];
   preview: string;
+  timestamp: Date;
+  timeLabel: string;
   context?: string;
   nodeName?: string;
 }
 
-const groupMessagesByDate = (messages: Message[]): ChatSession[] => {
+const groupMessagesBySession = (messages: Message[]): ChatSession[] => {
   const groups: Record<string, Message[]> = {};
   
+  // Group messages by sessionId
   messages.forEach(msg => {
-    const date = new Date(msg.timestamp).toISOString().split('T')[0];
-    if (!groups[date]) {
-      groups[date] = [];
+    const sessionId = msg.sessionId || 'default';
+    if (!groups[sessionId]) {
+      groups[sessionId] = [];
     }
-    groups[date].push(msg);
+    groups[sessionId].push(msg);
   });
   
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
   
   return Object.entries(groups)
-    .map(([date, msgs]) => {
+    .map(([sessionId, msgs]) => {
       const firstUserMsg = msgs.find(m => m.sender === 'user');
       const preview = firstUserMsg 
-        ? cleanText(firstUserMsg.content).substring(0, 40) + (firstUserMsg.content.length > 40 ? '...' : '')
+        ? cleanText(firstUserMsg.content).substring(0, 35) + (firstUserMsg.content.length > 35 ? '...' : '')
         : 'New conversation';
       
       // Get context from first message with context
       const contextMsg = msgs.find(m => m.context && m.nodeName);
       
-      let dateLabel = date;
-      if (date === today) dateLabel = 'Today';
-      else if (date === yesterday) dateLabel = 'Yesterday';
-      else dateLabel = new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      // Get timestamp from first message
+      const firstTimestamp = msgs[0]?.timestamp ? new Date(msgs[0].timestamp) : now;
+      const dateStr = firstTimestamp.toISOString().split('T')[0];
+      
+      let timeLabel: string;
+      if (dateStr === today) {
+        timeLabel = firstTimestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      } else if (dateStr === yesterday) {
+        timeLabel = 'Yesterday';
+      } else {
+        timeLabel = firstTimestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
       
       return {
-        date,
-        dateLabel,
+        sessionId,
         messages: msgs,
         preview,
+        timestamp: firstTimestamp,
+        timeLabel,
         context: contextMsg?.context,
         nodeName: contextMsg?.nodeName
       };
     })
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Most recent first
 };
 
+// Generate a unique session ID
+const generateSessionId = () => `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
 export const ChatInterface = () => {
-  const { user, addMessage, addNodes, clearChatHistory } = useUserStore();
+  const { user, addMessage, addNodes, deleteMessagesBySession, chatSessionNames, setChatSessionName } = useUserStore();
   const [isTyping, setIsTyping] = useState(false);
   const [apiAvailable, setApiAvailable] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() => generateSessionId());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Menu and rename state
+  const [menuOpenSessionId, setMenuOpenSessionId] = useState<string | null>(null);
+  const [renameSessionId, setRenameSessionId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const menuRef = useRef<HTMLDivElement>(null);
+  
+  // Pending node suggestions (AI suggests, user confirms)
+  const [pendingNodeSuggestions, setPendingNodeSuggestions] = useState<IdentityNode[]>([]);
 
-  // Group chat history by date
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpenSessionId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Group chat history by session
   const chatSessions = useMemo(() => {
     if (!user?.chatHistory) return [];
-    return groupMessagesByDate(user.chatHistory);
+    return groupMessagesBySession(user.chatHistory);
   }, [user?.chatHistory]);
 
-  // Get messages for selected date or all messages
+  // Get messages for current session
   const displayedMessages = useMemo(() => {
     if (!user?.chatHistory) return [];
-    if (!selectedDate) return user.chatHistory;
-    return user.chatHistory.filter(msg => 
-      new Date(msg.timestamp).toISOString().split('T')[0] === selectedDate
-    );
-  }, [user?.chatHistory, selectedDate]);
+    return user.chatHistory.filter(msg => msg.sessionId === currentSessionId);
+  }, [user?.chatHistory, currentSessionId]);
+
+  // Get display name for a session (custom name or preview)
+  const getSessionDisplayName = (session: ChatSession) => {
+    return chatSessionNames[session.sessionId] || session.preview;
+  };
+
+  // Handle rename
+  const handleStartRename = (sessionId: string) => {
+    setRenameSessionId(sessionId);
+    setRenameValue(chatSessionNames[sessionId] || '');
+    setMenuOpenSessionId(null);
+  };
+
+  const handleSaveRename = () => {
+    if (renameSessionId && renameValue.trim()) {
+      setChatSessionName(renameSessionId, renameValue.trim());
+    }
+    setRenameSessionId(null);
+    setRenameValue('');
+  };
+
+  const handleCancelRename = () => {
+    setRenameSessionId(null);
+    setRenameValue('');
+  };
+
+  // Handle delete
+  const handleDeleteSession = (sessionId: string) => {
+    deleteMessagesBySession(sessionId);
+    setMenuOpenSessionId(null);
+    // If we deleted the current session, switch to a new one
+    if (sessionId === currentSessionId) {
+      setCurrentSessionId(generateSessionId());
+    }
+  };
+
+  // Handle accepting a suggested node
+  const handleAcceptNode = async (node: IdentityNode) => {
+    addNodes([node]);
+    try {
+      await createNode(node);
+    } catch (error) {
+      console.error('Failed to save node to backend:', error);
+    }
+    setPendingNodeSuggestions(prev => prev.filter(n => n.id !== node.id));
+    
+    // Add a confirmation message
+    const confirmMsg: Message = {
+      id: `msg-confirm-${Date.now()}`,
+      content: `✨ Added "${node.label}" to your identity mirror.`,
+      sender: 'ai',
+      timestamp: new Date(),
+      sessionId: currentSessionId
+    };
+    addMessage(confirmMsg);
+  };
+
+  // Handle rejecting a suggested node
+  const handleRejectNode = (nodeId: string) => {
+    setPendingNodeSuggestions(prev => prev.filter(n => n.id !== nodeId));
+  };
+
+  // Handle rejecting all suggested nodes
+  const handleRejectAllNodes = () => {
+    setPendingNodeSuggestions([]);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -131,6 +233,86 @@ export const ChatInterface = () => {
   useEffect(() => {
     checkApiHealth().then(setApiAvailable);
   }, []);
+
+  // Auto-respond to externally added messages (e.g., from "Work on" button)
+  const lastProcessedMsgRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user?.chatHistory || isTyping) return;
+    
+    const messages = user.chatHistory;
+    if (messages.length === 0) return;
+    
+    const lastMessage = messages[messages.length - 1];
+    
+    // Check if this is a new user message that needs a response
+    // (has context like 'daily-action' and hasn't been processed yet)
+    if (
+      lastMessage.sender === 'user' && 
+      lastMessage.context === 'daily-action' &&
+      lastMessage.id !== lastProcessedMsgRef.current
+    ) {
+      lastProcessedMsgRef.current = lastMessage.id;
+      
+      // Switch to this message's session (or use current if it has one)
+      const msgSessionId = lastMessage.sessionId || currentSessionId;
+      if (msgSessionId !== currentSessionId) {
+        setCurrentSessionId(msgSessionId);
+      }
+      
+      // Trigger AI response for this message
+      triggerAIResponse(lastMessage.content, lastMessage.nodeName, msgSessionId);
+    }
+  }, [user?.chatHistory, isTyping, currentSessionId]);
+
+  // Separate function to trigger AI response (used by auto-respond and manual send)
+  const triggerAIResponse = async (userContent: string, nodeName?: string, sessionId?: string) => {
+    if (!user) return;
+    
+    const targetSessionId = sessionId || currentSessionId;
+    setIsTyping(true);
+
+    try {
+      let aiResponseText: string;
+
+      // Always check API availability fresh (don't rely on stale state)
+      const isApiAvailable = await checkApiHealth();
+
+      if (isApiAvailable) {
+        // Only use messages from the current session for context
+        const sessionMessages = user.chatHistory.filter(m => m.sessionId === targetSessionId);
+        const history = sessionMessages.map(m => ({
+          content: m.content,
+          sender: m.sender
+        }));
+        aiResponseText = await sendChatMessage(userContent, history);
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        aiResponseText = generateLocalResponse(userContent, user.name);
+      }
+      
+      const aiResponse: Message = {
+        id: `msg-${Date.now() + 1}`,
+        content: aiResponseText,
+        sender: 'ai',
+        timestamp: new Date(),
+        nodeName: nodeName,
+        sessionId: targetSessionId
+      };
+      addMessage(aiResponse);
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      const errorResponse: Message = {
+        id: `msg-${Date.now() + 1}`,
+        content: "I'm having trouble connecting right now. Let's try again in a moment.",
+        sender: 'ai',
+        timestamp: new Date(),
+        sessionId: targetSessionId
+      };
+      addMessage(errorResponse);
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
   // Parse explicit node creation requests
   const parseExplicitNodeCreation = (message: string, existingNodes: IdentityNode[]): IdentityNode[] => {
@@ -206,32 +388,25 @@ export const ChatInterface = () => {
   const handleSendMessage = async (content: string) => {
     if (!user) return;
 
-    // Add user message
+    // Add user message with session ID
     const userMessage: Message = {
       id: `msg-${Date.now()}`,
       content,
       sender: 'user',
-      timestamp: new Date()
+      timestamp: new Date(),
+      sessionId: currentSessionId
     };
     addMessage(userMessage);
 
-    // Check for explicit node creation first
+    // Only check for EXPLICIT node creation commands (e.g., "add node X", "create node for Y")
+    // We no longer automatically extract nodes from natural language patterns
     const explicitNodes = parseExplicitNodeCreation(content, user.identityNodes);
     
-    // Also extract identity from user message (natural language patterns)
-    const extractedNodes = extractIdentityFromChat(content, user.identityNodes);
-    
-    // Combine and deduplicate nodes
-    const allNewNodes = [...explicitNodes, ...extractedNodes];
-    const uniqueNodes = allNewNodes.filter((node, index, self) => 
-      index === self.findIndex(n => n.label.toLowerCase() === node.label.toLowerCase())
-    );
-    
-    if (uniqueNodes.length > 0) {
-      addNodes(uniqueNodes);
+    if (explicitNodes.length > 0) {
+      addNodes(explicitNodes);
       // Also save to backend
       try {
-        for (const node of uniqueNodes) {
+        for (const node of explicitNodes) {
           await createNode(node);
         }
       } catch (error) {
@@ -247,8 +422,9 @@ export const ChatInterface = () => {
       let aiResponseText: string;
 
       if (apiAvailable) {
-        // Use OpenAI API
-        const history = user.chatHistory.map(m => ({
+        // Use OpenAI API - only use messages from current session for context
+        const sessionMessages = user.chatHistory.filter(m => m.sessionId === currentSessionId);
+        const history = sessionMessages.map(m => ({
           content: m.content,
           sender: m.sender
         }));
@@ -259,7 +435,8 @@ export const ChatInterface = () => {
         aiResponseText = generateLocalResponse(content, user.name);
       }
       
-      // Parse AI response for node creation commands
+      // Parse AI response for node creation commands - but DON'T auto-add them
+      // Instead, show a confirmation prompt to the user
       const aiSuggestedNodes: IdentityNode[] = [];
       const nodePattern = /\[ADD_NODE:(\w+):([^:]+):(\d+)\]/g;
       let match;
@@ -283,7 +460,7 @@ export const ChatInterface = () => {
             connections: [],
             lastUpdated: new Date(),
             createdAt: new Date(),
-            description: 'Identified by AI from conversation'
+            description: 'Suggested by AI from conversation'
           });
         }
         
@@ -291,25 +468,14 @@ export const ChatInterface = () => {
         aiResponseText = aiResponseText.replace(fullMatch, '').trim();
       }
       
-      // Add AI-suggested nodes
+      // If AI suggested nodes, show confirmation prompt instead of auto-adding
       if (aiSuggestedNodes.length > 0) {
-        addNodes(aiSuggestedNodes);
-        // Save to backend
-        try {
-          for (const node of aiSuggestedNodes) {
-            await createNode(node);
-          }
-        } catch (error) {
-          console.error('Failed to save AI-suggested nodes to backend:', error);
-        }
+        setPendingNodeSuggestions(prev => [...prev, ...aiSuggestedNodes]);
       }
       
-      // Combine all new nodes for the confirmation message
-      const allCreatedNodes = [...uniqueNodes, ...aiSuggestedNodes];
-      
-      // If new identity nodes were found, mention it
-      if (allCreatedNodes.length > 0 && !aiResponseText.includes('identity mirror')) {
-        const nodeLabels = allCreatedNodes.map(n => n.label).join(', ');
+      // Only mention explicitly created nodes (from user commands)
+      if (explicitNodes.length > 0) {
+        const nodeLabels = explicitNodes.map(n => n.label).join(', ');
         aiResponseText += `\n\n✨ Added to your identity mirror: ${nodeLabels}.`;
       }
       
@@ -317,7 +483,8 @@ export const ChatInterface = () => {
         id: `msg-${Date.now() + 1}`,
         content: aiResponseText,
         sender: 'ai',
-        timestamp: new Date()
+        timestamp: new Date(),
+        sessionId: currentSessionId
       };
       addMessage(aiResponse);
     } catch (error) {
@@ -326,7 +493,8 @@ export const ChatInterface = () => {
         id: `msg-${Date.now() + 1}`,
         content: "I'm having trouble connecting right now. Let's try again in a moment.",
         sender: 'ai',
-        timestamp: new Date()
+        timestamp: new Date(),
+        sessionId: currentSessionId
       };
       addMessage(errorResponse);
     } finally {
@@ -334,15 +502,13 @@ export const ChatInterface = () => {
     }
   };
 
-  const handleViewAll = () => {
-    setSelectedDate(null);
-    // Scroll to bottom to show latest
-    setTimeout(scrollToBottom, 100);
+  const handleNewChat = () => {
+    // Create a new session - previous chats remain in sidebar
+    setCurrentSessionId(generateSessionId());
   };
 
-  const handleNewChat = () => {
-    clearChatHistory();
-    setSelectedDate(null);
+  const handleSelectSession = (sessionId: string) => {
+    setCurrentSessionId(sessionId);
   };
 
   if (!user) return null;
@@ -352,7 +518,7 @@ export const ChatInterface = () => {
       {/* Chat History Sidebar */}
       <div className={`h-full border-r border-gray-800 bg-gray-950/50 flex flex-col transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-0'} overflow-hidden flex-shrink-0`}>
         {/* Sidebar Header */}
-        <div className="p-3 border-b border-gray-800 min-w-[256px] space-y-2">
+        <div className="p-3 border-b border-gray-800 min-w-[256px]">
           <button
             onClick={handleNewChat}
             className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 text-sm font-medium transition-colors"
@@ -360,21 +526,15 @@ export const ChatInterface = () => {
             <Plus className="w-4 h-4" />
             New Chat
           </button>
-          <button
-            onClick={handleViewAll}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              selectedDate === null
-                ? 'bg-white/10 text-white'
-                : 'hover:bg-white/5 text-gray-400'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            All Messages
-          </button>
+        </div>
+
+        {/* Recent Chats Label */}
+        <div className="px-3 py-2 min-w-[256px]">
+          <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Recent Chats</span>
         </div>
 
         {/* Chat Sessions List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1 min-w-[256px]">
+        <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1 min-w-[256px]">
           {chatSessions.length === 0 ? (
             <div className="text-center py-8 px-4">
               <MessageSquare className="w-8 h-8 text-gray-600 mx-auto mb-2" />
@@ -383,42 +543,126 @@ export const ChatInterface = () => {
             </div>
           ) : (
             chatSessions.map((session) => (
-              <button
-                key={session.date}
-                onClick={() => setSelectedDate(session.date)}
-                className={`w-full text-left p-3 rounded-lg transition-colors ${
-                  selectedDate === session.date
-                    ? 'bg-purple-500/20 border border-purple-500/30'
-                    : 'hover:bg-white/5 border border-transparent'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Clock className="w-3 h-3 text-gray-500" />
-                  <span className="text-xs text-gray-400">{session.dateLabel}</span>
-                  {session.context && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${
-                      session.context === 'work-session' 
-                        ? 'bg-purple-500/20 text-purple-300' 
-                        : 'bg-emerald-500/20 text-emerald-300'
-                    }`}>
-                      {session.context === 'work-session' ? (
-                        <Target className="w-2.5 h-2.5 inline" />
-                      ) : (
-                        <Zap className="w-2.5 h-2.5 inline" />
-                      )}
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-gray-300 truncate">{session.preview}</p>
-                {session.nodeName && (
-                  <p className="text-xs text-gray-500 mt-0.5 truncate">
-                    {session.nodeName}
-                  </p>
+              <div key={session.sessionId} className="relative group">
+                {/* Rename Mode */}
+                {renameSessionId === session.sessionId ? (
+                  <div className="p-2 rounded-lg bg-white/5 border border-purple-500/30">
+                    <input
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveRename();
+                        if (e.key === 'Escape') handleCancelRename();
+                      }}
+                      placeholder="Chat name..."
+                      className="w-full px-2 py-1.5 text-sm bg-gray-900/50 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                      autoFocus
+                    />
+                    <div className="flex gap-1 mt-2">
+                      <button
+                        onClick={handleSaveRename}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs"
+                      >
+                        <Check className="w-3 h-3" />
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancelRename}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded bg-gray-700/50 hover:bg-gray-700 text-gray-300 text-xs"
+                      >
+                        <X className="w-3 h-3" />
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => handleSelectSession(session.sessionId)}
+                    className={`w-full text-left p-3 rounded-lg transition-colors cursor-pointer ${
+                      currentSessionId === session.sessionId
+                        ? 'bg-purple-500/20 border border-purple-500/30'
+                        : 'hover:bg-white/5 border border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-3 h-3 text-gray-500" />
+                        <span className="text-xs text-gray-400">{session.timeLabel}</span>
+                        {session.context && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${
+                            session.context === 'work-session' 
+                              ? 'bg-purple-500/20 text-purple-300' 
+                              : 'bg-emerald-500/20 text-emerald-300'
+                          }`}>
+                            {session.context === 'work-session' ? (
+                              <Target className="w-2.5 h-2.5 inline" />
+                            ) : (
+                              <Zap className="w-2.5 h-2.5 inline" />
+                            )}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* 3-dot Menu Button */}
+                      <div className="relative" ref={menuOpenSessionId === session.sessionId ? menuRef : null}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpenSessionId(menuOpenSessionId === session.sessionId ? null : session.sessionId);
+                          }}
+                          className="p-1 rounded hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <MoreVertical className="w-4 h-4 text-gray-400" />
+                        </button>
+                        
+                        {/* Dropdown Menu */}
+                        <AnimatePresence>
+                          {menuOpenSessionId === session.sessionId && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.95 }}
+                              className="absolute right-0 top-full mt-1 w-36 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden"
+                            >
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStartRename(session.sessionId);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                                Rename
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSession(session.sessionId);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Delete
+                              </button>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                    
+                    <p className="text-sm text-gray-300 truncate">{getSessionDisplayName(session)}</p>
+                    {session.nodeName && (
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">
+                        {session.nodeName}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      {session.messages.length} messages
+                    </p>
+                  </div>
                 )}
-                <p className="text-xs text-gray-600 mt-0.5">
-                  {session.messages.length} messages
-                </p>
-              </button>
+              </div>
             ))
           )}
         </div>
@@ -438,24 +682,6 @@ export const ChatInterface = () => {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header with filter info */}
-        {selectedDate && (
-          <div className="px-4 py-2 border-b border-gray-800 bg-gray-900/50 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-gray-500" />
-              <span className="text-sm text-gray-400">
-                Viewing: {chatSessions.find(s => s.date === selectedDate)?.dateLabel || selectedDate}
-              </span>
-            </div>
-            <button
-              onClick={handleViewAll}
-              className="text-xs text-purple-400 hover:text-purple-300"
-            >
-              Show all
-            </button>
-          </div>
-        )}
-
         {/* API Status Indicator */}
         <div className="px-6 pt-2">
           <div className={`text-xs flex items-center gap-1.5 ${apiAvailable ? 'text-green-400' : 'text-yellow-400'}`}>
@@ -535,6 +761,72 @@ export const ChatInterface = () => {
 
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Pending Node Suggestions */}
+        <AnimatePresence>
+          {pendingNodeSuggestions.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="px-6 py-4 border-t border-purple-500/30 bg-purple-500/5"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-purple-400" />
+                  <span className="text-sm font-medium text-purple-300">
+                    Add to your Identity Mirror?
+                  </span>
+                </div>
+                <button
+                  onClick={handleRejectAllNodes}
+                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  Dismiss all
+                </button>
+              </div>
+              <div className="space-y-2">
+                {pendingNodeSuggestions.map((node) => (
+                  <div
+                    key={node.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full ${
+                        node.type === 'goal' ? 'bg-purple-500' :
+                        node.type === 'habit' ? 'bg-blue-500' :
+                        node.type === 'trait' ? 'bg-green-500' :
+                        node.type === 'emotion' ? 'bg-pink-500' :
+                        node.type === 'struggle' ? 'bg-orange-500' :
+                        'bg-cyan-500'
+                      }`} />
+                      <div>
+                        <span className="text-sm font-medium text-white">{node.label}</span>
+                        <span className="text-xs text-gray-500 ml-2 capitalize">({node.type})</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleRejectNode(node.id)}
+                        className="p-1.5 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
+                        title="Don't add"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleAcceptNode(node)}
+                        className="p-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 transition-colors"
+                        title="Add to Mirror"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Input Area */}
         <div className="p-6 border-t border-gray-800">

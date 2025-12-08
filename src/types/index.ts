@@ -39,6 +39,7 @@ export interface Message {
   nodeId?: string; // If message is related to a specific node
   nodeName?: string; // Display name for the related node
   context?: 'work-session' | 'daily-action' | 'general'; // What context this message came from
+  sessionId?: string; // Chat session/conversation this message belongs to
 }
 
 export interface UserProfile {

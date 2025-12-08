@@ -28,15 +28,15 @@ export const DashboardPage = () => {
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="glass border-b border-gray-800 px-4 sm:px-8 py-6 sm:py-7 relative min-h-[100px] sm:min-h-[110px]"
+        className="glass border-b border-gray-800 px-4 sm:px-6 py-3 sm:py-4 relative min-h-[70px] sm:min-h-[80px]"
       >
         <div className="flex items-center justify-between">
           {/* Spacer for balance */}
-          <div className="w-32 sm:w-40"></div>
+          <div className="w-24 sm:w-32"></div>
 
           {/* Centered Evos AI Title */}
           <div className="absolute left-1/2 transform -translate-x-1/2">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold gradient-text whitespace-nowrap">
+            <h1 className="text-3xl sm:text-4xl font-bold gradient-text whitespace-nowrap">
               Evos AI
             </h1>
           </div>
@@ -46,7 +46,7 @@ export const DashboardPage = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleMirrorClick}
-            className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-medium text-sm sm:text-base shadow-lg shadow-indigo-500/20"
+            className="flex items-center justify-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-medium text-xs sm:text-sm shadow-lg shadow-indigo-500/20"
           >
             <span>View Mirror</span>
           </motion.button>
@@ -54,8 +54,8 @@ export const DashboardPage = () => {
 
         {/* Welcome message in bottom left corner */}
         {user && (
-          <div className="absolute bottom-3 left-4 sm:left-8">
-            <span className="text-sm sm:text-base text-gray-400">
+          <div className="absolute bottom-2 left-4 sm:left-6">
+            <span className="text-xs sm:text-sm text-gray-400">
               Welcome back, <span className="text-white font-semibold">{user.name}</span>
             </span>
           </div>

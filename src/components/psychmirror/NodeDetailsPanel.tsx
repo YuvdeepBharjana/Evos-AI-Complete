@@ -48,7 +48,10 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
   };
 
   const handleWorkOnThis = () => {
-    // Add a context message to main chat
+    // Create a new session for this work
+    const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Add a context message to main chat with new session
     const workMessage = {
       id: `msg-work-${Date.now()}`,
       content: `I want to work on "${cleanText(node.label)}" (${node.type}). It's currently at ${node.strength}% strength. Help me make progress on this.`,
@@ -56,7 +59,8 @@ export const NodeDetailsPanel = ({ node, onClose }: NodeDetailsPanelProps) => {
       timestamp: new Date(),
       nodeId: node.id,
       nodeName: cleanText(node.label),
-      context: 'work-session' as const
+      context: 'work-session' as const,
+      sessionId: newSessionId
     };
     addMessage(workMessage);
     onClose();

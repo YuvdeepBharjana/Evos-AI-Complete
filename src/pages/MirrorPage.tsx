@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Header } from '../components/layout/Header';
 import { PsychMirror } from '../components/psychmirror/PsychMirror';
@@ -8,6 +9,7 @@ import { getMentorStyle, type AIMentorStyle } from '../lib/api';
 import { useUserStore } from '../store/useUserStore';
 
 export const MirrorPage = () => {
+  const navigate = useNavigate();
   const { user } = useUserStore();
   const [showMentorModal, setShowMentorModal] = useState(false);
   const [hasCheckedMentor, setHasCheckedMentor] = useState(false);
@@ -44,9 +46,17 @@ export const MirrorPage = () => {
 
   console.log('📄 MirrorPage rendering');
   
+  const handleDashboardClick = () => {
+    navigate('/dashboard');
+  };
+
   return (
     <>
-      <Header title="Evos AI" />
+      <Header 
+        title="Evos AI" 
+        showDashboardButton 
+        onDashboardClick={handleDashboardClick}
+      />
       <TrackingReminder variant="banner" />
       <motion.div
         initial={{ opacity: 0 }}
