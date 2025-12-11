@@ -32,23 +32,35 @@ CRITICAL: You have access to the user's complete identity profile, including:
 ALWAYS reference their specific identity nodes by name when relevant.
 When you see identity nodes in the context, USE THEM. Reference specific nodes by name.
 
-NODE SUGGESTIONS - BE CONSERVATIVE:
-Only suggest adding a node to the user's identity mirror in these cases:
-1. The user EXPLICITLY asks to add something (e.g., "add this to my mirror", "track this goal")
-2. The user has REPEATEDLY mentioned the same topic across multiple messages
-3. It's a clearly important life goal, habit, or struggle they're actively working on
+=== NODE SUGGESTIONS - EXTREMELY CONSERVATIVE ===
+You should RARELY suggest adding nodes. The user's identity mirror should be curated, not cluttered.
 
-When you want to suggest a node, include at the END of your response:
+BEFORE suggesting a node, you MUST:
+1. ASK THE USER DIRECTLY: "Would you like to add [specific thing] to your psychological mirror?"
+2. WAIT for their explicit "yes" before including the ADD_NODE tag
+3. NEVER auto-add nodes based on conversation topics
+
+ONLY suggest adding a node when ALL of these are true:
+- The user has EXPLICITLY stated this is important to them
+- It represents a CORE part of their identity (not just something they mentioned)
+- It's NOT already covered by existing nodes
+- It's something they want to actively track and develop
+
+When the user confirms YES, include at the END of your response:
 [ADD_NODE:type:label:strength]
-Where: type = goal|habit|trait|emotion|struggle|interest, label = 2-5 words, strength = 1-100
+Where: type = goal|habit|trait|emotion|struggle|interest, label = 2-5 words MAX, strength = 1-100
 
-DO NOT suggest nodes for:
+ABSOLUTELY DO NOT suggest nodes for:
 - Casual mentions of activities or feelings
-- One-time topics that haven't been discussed repeatedly
-- Things the user is just venting about
+- One-time topics in conversation
+- Things the user is venting about
 - Minor preferences or opinions
+- Anything they haven't explicitly said is important to track
 
-The user will be asked to confirm before any node is added. Be selective - quality over quantity.
+Example of correct behavior:
+User: "I've been trying to wake up earlier"
+BAD: Immediately suggesting to add "Morning Routine" node
+GOOD: "Are you actively working on waking up earlier? Would you like to add this as a habit to track in your psychological mirror?"
 
 FORMATTING RULES:
 - DO NOT use markdown formatting (no asterisks, no bold, no italic, no code blocks)
@@ -267,6 +279,8 @@ Guidelines:
 
   dailyActions: `You are generating daily proof-moves for identity engineering.
 
+CRITICAL: Generate EXACTLY 3 actions. No more, no less.
+
 Each action must be:
 1. BINARY - Either done or not done (no partial credit)
 2. SPECIFIC - Clear what success looks like
@@ -275,7 +289,7 @@ Each action must be:
 
 IMPORTANT: Each node is provided with an ID (e.g., ID: "abc123"). You MUST use the exact ID provided for the nodeId field. Do NOT make up IDs.
 
-Respond ONLY in this JSON format:
+Respond ONLY in this JSON format with EXACTLY 3 actions:
 {
   "actions": [
     {
@@ -289,7 +303,12 @@ Respond ONLY in this JSON format:
   ]
 }
 
-Focus on nodes that are "developing" or have low strength. One action should always be data tracking (use nodeId: "tracking" for that one).`,
+The 3 actions should be:
+1. One data tracking action (use nodeId: "tracking")
+2. One challenge action for a node that is "developing" or has low strength
+3. One practice/reflection action for growth
+
+EXACTLY 3 ACTIONS. Not 4, not 5. Three.`,
 
   endOfDaySummary: `You are generating an end-of-day identity summary.
 
@@ -597,11 +616,13 @@ function mockDailyActions(nodes: any[]): any {
   const habits = nodes.filter(n => n.type === 'habit');
   const goals = nodes.filter(n => n.type === 'goal');
   
-  // Select up to 2 unique target nodes for actions
+  // Select 2 unique target nodes for actions (plus tracking = 3 total)
   const targetNode1 = struggles[0] || developing[0] || nodes[0];
-  const targetNode2 = struggles[1] || developing[1] || habits[0] || goals[0] || nodes[1];
+  const targetNode2 = struggles[1] || developing[1] || habits[0] || goals[0] || nodes[1] || targetNode1;
   
+  // EXACTLY 3 actions - no more, no less
   const actions: any[] = [
+    // Action 1: Data tracking
     {
       nodeId: 'tracking',
       nodeName: "📊 Daily Data",
@@ -609,42 +630,30 @@ function mockDailyActions(nodes: any[]): any {
       action: "Open the Daily Tracker. Enter all 5 numbers: calories, exercise minutes, work hours, sleep hours, mood (1-10). All 5 or it doesn't count. Takes 2 minutes.",
       timeEstimate: "2 min",
       whyItMatters: "Data closes the identity loop. No tracking, no growth."
-    }
-  ];
-  
-  // Add first target node action
-  if (targetNode1) {
-    actions.push({
-      nodeId: targetNode1.id,
-      nodeName: targetNode1.label || "Growth Edge",
+    },
+    // Action 2: Challenge action
+    {
+      nodeId: targetNode1?.id || 'tracking',
+      nodeName: targetNode1?.label || "Growth Edge",
       category: "💪 Challenge",
-      action: `Identify one moment today where "${targetNode1.label || 'your growth edge'}" shows up. When you notice it, pause and choose a different response than usual. Write down what happened.`,
+      action: targetNode1 
+        ? `Identify one moment today where "${targetNode1.label}" shows up. When you notice it, pause and choose a different response than usual. Write down what happened.`
+        : "Identify one pattern today that's holding you back. Write it down and take one small action against it.",
       timeEstimate: "15 min",
       whyItMatters: "Awareness + action = identity change"
-    });
-  }
-  
-  // Add second target node action (if different from first)
-  if (targetNode2 && targetNode2.id !== targetNode1?.id) {
-    actions.push({
-      nodeId: targetNode2.id,
-      nodeName: targetNode2.label || "Focus Area",
+    },
+    // Action 3: Practice/Reflection action
+    {
+      nodeId: targetNode2?.id || targetNode1?.id || 'tracking',
+      nodeName: targetNode2?.label || targetNode1?.label || "Evening Reflection",
       category: "🎯 Practice",
-      action: `Spend 10 minutes actively working on "${targetNode2.label}". Set a timer, eliminate distractions, and fully engage with this aspect of your growth.`,
+      action: targetNode2 && targetNode2.id !== targetNode1?.id
+        ? `Spend 10 minutes actively working on "${targetNode2.label}". Set a timer, eliminate distractions, and fully engage with this aspect of your growth.`
+        : `Before bed, write 3 sentences about "${targetNode1?.label || 'your growth'}": What did I prove about myself today? What pattern did I notice? What will I do differently tomorrow?`,
       timeEstimate: "10 min",
       whyItMatters: "Consistent practice builds lasting identity change"
-    });
-  } else {
-    // Fallback reflection action if no second unique node
-    actions.push({
-      nodeId: targetNode1?.id || null,
-      nodeName: targetNode1?.label || "Evening Reflection",
-      category: "📝 Reflection",
-      action: `Before bed, write 3 sentences about "${targetNode1?.label || 'your growth'}": What did I prove about myself today? What pattern did I notice? What will I do differently tomorrow?`,
-      timeEstimate: "5 min",
-      whyItMatters: "Reflection consolidates identity changes"
-    });
-  }
+    }
+  ];
   
   return { actions };
 }

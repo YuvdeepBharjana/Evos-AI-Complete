@@ -179,6 +179,7 @@ const migrations = [
   "ALTER TABLE users ADD COLUMN longest_streak INTEGER DEFAULT 0",
   "ALTER TABLE users ADD COLUMN last_active_date DATE",
   "ALTER TABLE users ADD COLUMN ai_mentor_style TEXT DEFAULT 'ruthless'",
+  "ALTER TABLE daily_actions ADD COLUMN strength_change INTEGER DEFAULT 0",
 ];
 
 for (const migration of migrations) {

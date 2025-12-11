@@ -12,6 +12,7 @@ import type { DailyAction } from '../../types';
 export const DailyProofCard = () => {
   const navigate = useNavigate();
   const { user, setDailyActions, markActionComplete, addMessage, lastUpdatedNodeId, getTodayDateString } = useUserStore();
+  const getStore = useUserStore.getState;
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [showReflection, setShowReflection] = useState(false);
   const [reflectionText, setReflectionText] = useState('');
@@ -56,7 +57,7 @@ export const DailyProofCard = () => {
               timeEstimate: a.time_estimate || a.timeEstimate || '5 min',
               completed: a.status === 'done' ? true : a.status === 'skipped' ? false : undefined,
               skipped: a.status === 'skipped',
-              strengthChange: 0,
+              strengthChange: a.strength_change !== undefined && a.strength_change !== null ? a.strength_change : (a.status === 'done' || a.status === 'skipped' ? 0 : undefined),
               createdAt: a.date ? new Date(a.date + 'T00:00:00') : new Date(a.created_at || Date.now()),
               date: a.date || today,
             }));
@@ -129,14 +130,24 @@ export const DailyProofCard = () => {
     
     // Save to backend
     try {
-      // Update action status in backend
-      await updateActionStatus(action.id, completed ? 'done' : 'skipped');
+      // Get the updated action from store to get the calculated strengthChange
+      // Use getState() to get the latest state after markActionComplete
+      const currentState = getStore();
+      const updatedAction = currentState.user?.dailyActions?.find(a => a.id === action.id);
+      const strengthChange = updatedAction?.strengthChange;
+      
+      // Update action status in backend (including strengthChange)
+      await updateActionStatus(
+        action.id, 
+        completed ? 'done' : 'skipped',
+        strengthChange
+      );
       
       // If action has a node and strength change, update the node in backend
-      if (action.nodeId && action.nodeId !== 'tracking' && action.strengthChange) {
+      if (action.nodeId && action.nodeId !== 'tracking' && strengthChange) {
         const node = user?.identityNodes.find(n => n.id === action.nodeId);
         if (node) {
-          const newStrength = Math.max(0, Math.min(100, node.strength + action.strengthChange));
+          const newStrength = Math.max(0, Math.min(100, node.strength + strengthChange));
           await updateNode(action.nodeId, { strength: newStrength });
         }
       }
@@ -328,15 +339,19 @@ export const DailyProofCard = () => {
                   {cleanText(action.action)}
                 </p>
                 
-                {/* Strength change indicator */}
-                {action.strengthChange !== undefined && action.strengthChange !== null && (
-                  <p className={`text-xs mt-2 font-medium ${
-                    action.strengthChange > 0 ? 'text-green-400' : 
-                    action.strengthChange < 0 ? 'text-red-400' : 
-                    'text-gray-400'
-                  }`}>
-                    {action.strengthChange > 0 ? '↑ ' : action.strengthChange < 0 ? '↓ ' : ''}{Math.abs(action.strengthChange)}% strength
-                  </p>
+                {/* Strength change indicator - only show if action is completed and has a change */}
+                {action.completed !== null && action.completed !== undefined && action.strengthChange !== undefined && action.strengthChange !== null && action.strengthChange !== 0 && (
+                  <motion.p 
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`text-xs mt-2 font-semibold flex items-center gap-1 ${
+                      action.strengthChange > 0 ? 'text-green-400' : 'text-red-400'
+                    }`}
+                  >
+                    <span>{action.strengthChange > 0 ? '↑' : '↓'}</span>
+                    <span>{Math.abs(action.strengthChange)}%</span>
+                    <span className="text-gray-500 text-[10px]">strength change</span>
+                  </motion.p>
                 )}
               </div>
 

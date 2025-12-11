@@ -655,16 +655,25 @@ export async function getDailyActions(date?: string): Promise<DailyAction[]> {
   }
 }
 
-export async function updateActionStatus(id: string, status: 'done' | 'skipped'): Promise<DailyAction | null> {
+export async function updateActionStatus(
+  id: string, 
+  status: 'done' | 'skipped',
+  strengthChange?: number
+): Promise<DailyAction | null> {
   try {
+    const body: any = { status };
+    if (strengthChange !== undefined && strengthChange !== null) {
+      body.strength_change = strengthChange;
+    }
+    
     const response = await fetch(`${API_BASE}/actions/${id}`, {
       method: 'PATCH',
       headers: getHeaders(),
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(body),
     });
-    
+
     if (!response.ok) return null;
-    
+
     const data = await response.json();
     return data.action;
   } catch {

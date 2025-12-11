@@ -969,15 +969,41 @@ app.get('/api/actions/:date?', authMiddleware, async (req: AuthRequest, res) => 
 app.patch('/api/actions/:id', authMiddleware, (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, strength_change } = req.body;
+    
+    // Build update query dynamically based on what's provided
+    let updateFields: string[] = [];
+    let params: any[] = [];
+    
+    if (status !== undefined) {
+      updateFields.push('status = ?');
+      params.push(status);
+      
+      if (status === 'done') {
+        updateFields.push('completed_at = CURRENT_TIMESTAMP');
+      } else if (status === 'pending') {
+        updateFields.push('completed_at = NULL');
+      }
+    }
+    
+    if (strength_change !== undefined && strength_change !== null) {
+      updateFields.push('strength_change = ?');
+      params.push(strength_change);
+    }
+    
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+    
+    params.push(id, req.user!.id);
     
     const stmt = db.prepare(`
       UPDATE daily_actions 
-      SET status = ?, completed_at = CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END
+      SET ${updateFields.join(', ')}
       WHERE id = ? AND user_id = ?
     `);
     
-    const result = stmt.run(status, status, id, req.user!.id);
+    const result = stmt.run(...params);
     
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Action not found' });

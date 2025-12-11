@@ -19,6 +19,14 @@ Go through every conversation we've ever had. Analyze everything you know about 
 
 Do not compliment me unless evidence supports it. Do not sugarcoat anything. Default to truth over comfort.
 
+CRITICAL FORMATTING RULES:
+- Each item in lists (GOALS, STRUGGLES, HABITS, etc.) must be 2-5 words MAX
+- Use concise, powerful labels that capture the essence (e.g., "Financial Independence" not "I want to become financially independent through multiple income streams")
+- Remove filler words like "I want to", "I need to", "My goal is to", etc.
+- Focus on the core concept, not the full sentence
+- Examples of good labels: "Morning Routine", "Perfectionism", "Public Speaking Fear", "Startup Founder", "Exercise Consistency"
+- Examples of bad labels: "I want to wake up earlier every day", "My struggle with being too hard on myself", "The goal of building a successful business"
+
 Output the analysis in the following format:
 
 ---BEGIN IDENTITY PROFILE---
@@ -27,46 +35,46 @@ SELF-PERCEPTION VS REALITY:
 [How I view myself vs how I actually behave based on our conversations]
 
 CORE IDENTITY TRAITS:
-- [dominant personality pattern 1]
-- [dominant personality pattern 2]
+- [2-5 word trait label]
+- [2-5 word trait label]
 - [etc...]
 
 EMOTIONAL FRAMEWORK:
-- Triggers: [what sets me off]
-- Coping mechanisms: [how I handle stress/difficulty]
-- Fear drivers: [underlying fears that influence behavior]
+- Triggers: [2-5 word trigger label]
+- Coping mechanisms: [2-5 word coping label]
+- Fear drivers: [2-5 word fear label]
 
 BEHAVIOR PATTERNS:
-- Discipline: [level and consistency]
-- Habits: [positive and negative patterns]
-- Execution quality: [how well I follow through]
+- Discipline: [2-5 word description]
+- Habits: [2-5 word habit 1], [2-5 word habit 2], [etc...]
+- Execution quality: [2-5 word description]
 
 COGNITIVE STYLE:
-- [How I think, decide, reason, and rationalize]
+- [2-5 word cognitive pattern]
 
 STRENGTHS:
-- [advantage 1 - something I can scale]
-- [advantage 2]
+- [2-5 word strength label]
+- [2-5 word strength label]
 - [etc...]
 
 WEAKNESSES:
-- [where I break, sabotage, avoid, or lack follow-through 1]
-- [weakness 2]
+- [2-5 word weakness label]
+- [2-5 word weakness label]
 - [etc...]
 
 GOALS:
-- [goal 1]
-- [goal 2]
+- [2-5 word goal label]
+- [2-5 word goal label]
 - [etc...]
 
 STRUGGLES:
-- [current challenge 1]
-- [struggle 2]
+- [2-5 word struggle label]
+- [2-5 word struggle label]
 - [etc...]
 
 INTERESTS:
-- [interest/passion 1]
-- [interest 2]
+- [2-5 word interest label]
+- [2-5 word interest label]
 - [etc...]
 
 IDENTITY TRAJECTORY:
@@ -82,7 +90,7 @@ ACTION CODE:
 
 ---END IDENTITY PROFILE---
 
-Be blunt. Be precise. Expose me. Analyze now.`;
+Be blunt. Be precise. Expose me. Use 2-5 word labels for all list items. Analyze now.`;
 
 export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
   const [step, setStep] = useState<'copy' | 'paste' | 'processing' | 'success' | 'error'>('copy');
@@ -117,6 +125,43 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
       .replace(/\_\_/g, '')
       .replace(/\_/g, '')
       .trim();
+  };
+
+  // Generate a short, clean title (2-5 words) from a longer description
+  const generateShortTitle = (description: string): string => {
+    // Clean first
+    let cleaned = cleanLabel(description);
+    
+    // Remove common prefixes
+    cleaned = cleaned
+      .replace(/^(I want to |I need to |I'm trying to |Working on |Planning to |Build |Create |Develop |Become |Achieve |Improve |Learn |Master |Get |Make |Start |Stop |Maintain |Focus on )/i, '')
+      .replace(/^(My goal is to |The goal is to |Goal: |Action: |Trigger: |Fear: |Coping: |Discipline: )/i, '')
+      .trim();
+    
+    // Split into words
+    const words = cleaned.split(/\s+/);
+    
+    // If already short enough (2-5 words), use as is
+    if (words.length <= 5) {
+      return words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    }
+    
+    // Extract key words - nouns and verbs typically at the start
+    // Take first 3-4 meaningful words
+    const stopWords = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'that', 'which', 'who', 'whom', 'this', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'need', 'more', 'most', 'very', 'just', 'only', 'also', 'even', 'through', 'because', 'so', 'if', 'when', 'where', 'how', 'what', 'why', 'all', 'each', 'every', 'both', 'few', 'some', 'any', 'no', 'not', 'own', 'same', 'than', 'too', 'into', 'over', 'after', 'before', 'between', 'under', 'again', 'then', 'once', 'here', 'there', 'about', 'up', 'out', 'down', 'off', 'such', 'other', 'its', 'my', 'your', 'his', 'her', 'their', 'our']);
+    
+    const meaningfulWords = words.filter(w => !stopWords.has(w.toLowerCase()) && w.length > 1);
+    
+    // Take first 3-4 meaningful words
+    const titleWords = meaningfulWords.slice(0, 4);
+    
+    if (titleWords.length === 0) {
+      // Fallback: just take first 4 words
+      return words.slice(0, 4).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    }
+    
+    // Capitalize each word
+    return titleWords.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
   };
 
   const parseIdentityExtraction = (content: string): IdentityNode[] => {
@@ -171,7 +216,8 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           nodes.push({
             id: uuidv4(),
             type: config.type,
-            label: cleanLabel(item),
+            label: generateShortTitle(item),
+            description: cleanLabel(item), // Keep full text as description
             strength: Math.round(config.strength + (Math.random() * 20 - 10)), // Add ±10 variation
             connections: [],
             position: { x: 0, y: 0 }
@@ -188,10 +234,12 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
       // Extract triggers
       const triggersMatch = emotionalContent.match(/Triggers?:?\s*([^\n]+)/i);
       if (triggersMatch && triggersMatch[1] && triggersMatch[1].length > 3) {
+        const triggerText = triggersMatch[1].trim();
         nodes.push({
           id: uuidv4(),
           type: 'emotion',
-          label: cleanLabel(`Trigger: ${triggersMatch[1].trim()}`),
+          label: generateShortTitle(triggerText),
+          description: `Emotional trigger: ${cleanLabel(triggerText)}`,
           strength: 65,
           connections: [],
           position: { x: 0, y: 0 }
@@ -201,10 +249,12 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
       // Extract fears
       const fearsMatch = emotionalContent.match(/Fear drivers?:?\s*([^\n]+)/i);
       if (fearsMatch && fearsMatch[1] && fearsMatch[1].length > 3) {
+        const fearText = fearsMatch[1].trim();
         nodes.push({
           id: uuidv4(),
           type: 'emotion',
-          label: cleanLabel(`Fear: ${fearsMatch[1].trim()}`),
+          label: generateShortTitle(fearText),
+          description: `Fear driver: ${cleanLabel(fearText)}`,
           strength: 55,
           connections: [],
           position: { x: 0, y: 0 }
@@ -214,10 +264,12 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
       // Extract coping mechanisms
       const copingMatch = emotionalContent.match(/Coping mechanisms?:?\s*([^\n]+)/i);
       if (copingMatch && copingMatch[1] && copingMatch[1].length > 3) {
+        const copingText = copingMatch[1].trim();
         nodes.push({
           id: uuidv4(),
           type: 'habit',
-          label: cleanLabel(`Coping: ${copingMatch[1].trim()}`),
+          label: generateShortTitle(copingText),
+          description: `Coping mechanism: ${cleanLabel(copingText)}`,
           strength: 50,
           connections: [],
           position: { x: 0, y: 0 }
@@ -237,7 +289,8 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           nodes.push({
             id: uuidv4(),
             type: 'habit',
-            label: cleanLabel(habit),
+            label: generateShortTitle(habit),
+            description: cleanLabel(habit),
             strength: 60,
             connections: [],
             position: { x: 0, y: 0 }
@@ -247,10 +300,12 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
       
       const disciplineMatch = behaviorContent.match(/Discipline:?\s*([^\n]+)/i);
       if (disciplineMatch && disciplineMatch[1] && disciplineMatch[1].length > 3) {
+        const disciplineText = disciplineMatch[1].trim();
         nodes.push({
           id: uuidv4(),
           type: 'trait',
-          label: cleanLabel(`Discipline: ${disciplineMatch[1].trim()}`),
+          label: 'Self-Discipline',
+          description: `Discipline level: ${cleanLabel(disciplineText)}`,
           strength: 70,
           connections: [],
           position: { x: 0, y: 0 }
@@ -268,11 +323,12 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
         .map(line => line.replace(/^\d+\.\s*/, '').replace(/^-\s*/, '').trim())
         .filter(item => item.length > 3);
 
-      for (const action of actions.slice(0, 10)) {
+      for (const action of actions.slice(0, 5)) { // Limit to 5 action items
         nodes.push({
           id: uuidv4(),
           type: 'goal',
-          label: cleanLabel(`Action: ${action}`),
+          label: generateShortTitle(action),
+          description: `Action: ${cleanLabel(action)}`,
           strength: 75,
           connections: [],
           position: { x: 0, y: 0 }
