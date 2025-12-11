@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   User, Shield, Download, Trash2, Lock, Save, 
-  AlertCircle, CheckCircle, ArrowLeft, Eye, EyeOff,
+  AlertCircle, CheckCircle, ArrowLeft, Eye,
   Flame, Calendar, Target, Dna, Compass, Heart
 } from 'lucide-react';
 import { 

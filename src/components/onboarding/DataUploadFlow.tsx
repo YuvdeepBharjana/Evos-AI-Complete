@@ -219,6 +219,7 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
             label: generateShortTitle(item),
             description: cleanLabel(item), // Keep full text as description
             strength: Math.round(config.strength + (Math.random() * 20 - 10)), // Add ±10 variation
+            status: 'active',
             connections: [],
             lastUpdated: new Date(),
             createdAt: new Date()
@@ -242,6 +243,7 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           label: generateShortTitle(triggerText),
           description: `Emotional trigger: ${cleanLabel(triggerText)}`,
           strength: 65,
+          status: 'active',
           connections: [],
           lastUpdated: new Date(),
           createdAt: new Date()
@@ -258,6 +260,7 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           label: generateShortTitle(fearText),
           description: `Fear driver: ${cleanLabel(fearText)}`,
           strength: 55,
+          status: 'active',
           connections: [],
           lastUpdated: new Date(),
           createdAt: new Date()
@@ -274,6 +277,7 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           label: generateShortTitle(copingText),
           description: `Coping mechanism: ${cleanLabel(copingText)}`,
           strength: 50,
+          status: 'active',
           connections: [],
           lastUpdated: new Date(),
           createdAt: new Date()
@@ -296,6 +300,7 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
             label: generateShortTitle(habit),
             description: cleanLabel(habit),
             strength: 60,
+            status: 'active',
             connections: [],
             lastUpdated: new Date(),
             createdAt: new Date()
@@ -312,6 +317,7 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           label: 'Self-Discipline',
           description: `Discipline level: ${cleanLabel(disciplineText)}`,
           strength: 70,
+          status: 'active',
           connections: [],
           lastUpdated: new Date(),
           createdAt: new Date()
@@ -336,6 +342,7 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           label: generateShortTitle(action),
           description: `Action: ${cleanLabel(action)}`,
           strength: 75,
+          status: 'active',
           connections: [],
           lastUpdated: new Date(),
           createdAt: new Date()
