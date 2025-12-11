@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Flame, Dumbbell, Briefcase, Moon, 
-  Heart, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Check, AlertCircle,
+  Heart, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Check,
   TrendingUp, Zap, Edit3, Loader2, Calendar
 } from 'lucide-react';
 import { useUserStore } from '../../store/useUserStore';

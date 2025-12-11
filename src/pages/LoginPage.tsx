@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, ArrowRight, Dna, User, Eye, EyeOff, Shield, AlertCircle, CheckCircle } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Dna, User, Eye, EyeOff, Shield, AlertCircle } from 'lucide-react';
 import { useUserStore } from '../store/useUserStore';
 import { login, register, demoLogin } from '../lib/api';
 

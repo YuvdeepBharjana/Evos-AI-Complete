@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { 
   Flame, Calendar, Trophy, Target, ArrowLeft, Play, 
-  CheckCircle, Clock, Star, Zap, Award, TrendingUp
+  CheckCircle, Clock, Star, Zap, Award
 } from 'lucide-react';
 import { getExperiment, startExperiment, type ExperimentData } from '../lib/api';
 import { useUserStore } from '../store/useUserStore';
@@ -130,7 +130,7 @@ export const ExperimentPage = () => {
     );
   }
 
-  const milestoneIcons: Record<string, JSX.Element> = {
+  const milestoneIcons: Record<string, React.ReactElement> = {
     'experiment_started': <Play className="w-5 h-5" />,
     'day_7': <Star className="w-5 h-5" />,
     'day_14': <Zap className="w-5 h-5" />,

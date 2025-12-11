@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Bot, User, Target, Zap, MessageSquare } from 'lucide-react';
+import { Bot, User, Target, Zap } from 'lucide-react';
 import { cleanText } from '../../lib/cleanText';
 import type { Message } from '../../types';
 

@@ -163,11 +163,9 @@ const summarizeLabel = (label: string): string => {
 };
 
 export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
-  const fullLabel = cleanLabel(data?.label || 'Unknown');
   const nodeLabel = summarizeLabel(data?.label || 'Unknown');
   const nodeType = data?.type || 'trait';
   const nodeStrength = typeof data?.strength === 'number' ? data.strength : 50;
-  const nodeStatus = data?.status || 'developing';
   const hasDailyAction = data?.hasDailyAction || false;
   const todayChange = data?.todayChange || 0;
   

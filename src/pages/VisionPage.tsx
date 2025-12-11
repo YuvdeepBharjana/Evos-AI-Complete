@@ -25,7 +25,7 @@ const TypeWriter = ({
   useEffect(() => {
     if (!isInView) return;
     
-    let timeout: NodeJS.Timeout;
+    let timeout: ReturnType<typeof setTimeout>;
     let currentIndex = 0;
     
     const startTyping = () => {
@@ -82,7 +82,7 @@ const TypeWriterBlock = ({
   useEffect(() => {
     if (!isInView) return;
     
-    let timeout: NodeJS.Timeout;
+    let timeout: ReturnType<typeof setTimeout>;
     let charIndex = 0;
     const currentLine = lines[currentLineIndex]?.text || '';
 

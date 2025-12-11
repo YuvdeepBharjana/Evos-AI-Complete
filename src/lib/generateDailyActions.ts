@@ -163,7 +163,7 @@ export function generateDailyActions(nodes: IdentityNode[]): DailyAction[] {
     nodeName: '📊 Daily Data',
     action: trackingProof,
     timeEstimate: '2 min',
-    completed: null,
+    completed: undefined,
     createdAt: new Date()
   };
   

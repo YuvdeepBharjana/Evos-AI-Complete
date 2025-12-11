@@ -13,8 +13,6 @@ interface HeaderProps {
 export const Header = ({ title, showMirrorButton, onMirrorClick, showDashboardButton, onDashboardClick }: HeaderProps) => {
   const { user } = useUserStore();
 
-  const hasRightButton = showMirrorButton || showDashboardButton;
-
   return (
     <motion.header
       initial={{ y: -20, opacity: 0 }}

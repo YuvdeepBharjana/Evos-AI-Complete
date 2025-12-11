@@ -220,7 +220,8 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
             description: cleanLabel(item), // Keep full text as description
             strength: Math.round(config.strength + (Math.random() * 20 - 10)), // Add ±10 variation
             connections: [],
-            position: { x: 0, y: 0 }
+            lastUpdated: new Date(),
+            createdAt: new Date()
           });
         }
       }
@@ -242,7 +243,8 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           description: `Emotional trigger: ${cleanLabel(triggerText)}`,
           strength: 65,
           connections: [],
-          position: { x: 0, y: 0 }
+          lastUpdated: new Date(),
+          createdAt: new Date()
         });
       }
       
@@ -257,7 +259,8 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           description: `Fear driver: ${cleanLabel(fearText)}`,
           strength: 55,
           connections: [],
-          position: { x: 0, y: 0 }
+          lastUpdated: new Date(),
+          createdAt: new Date()
         });
       }
       
@@ -272,7 +275,8 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           description: `Coping mechanism: ${cleanLabel(copingText)}`,
           strength: 50,
           connections: [],
-          position: { x: 0, y: 0 }
+          lastUpdated: new Date(),
+          createdAt: new Date()
         });
       }
     }
@@ -293,7 +297,8 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
             description: cleanLabel(habit),
             strength: 60,
             connections: [],
-            position: { x: 0, y: 0 }
+            lastUpdated: new Date(),
+            createdAt: new Date()
           });
         }
       }
@@ -308,7 +313,8 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           description: `Discipline level: ${cleanLabel(disciplineText)}`,
           strength: 70,
           connections: [],
-          position: { x: 0, y: 0 }
+          lastUpdated: new Date(),
+          createdAt: new Date()
         });
       }
     }
@@ -331,7 +337,8 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           description: `Action: ${cleanLabel(action)}`,
           strength: 75,
           connections: [],
-          position: { x: 0, y: 0 }
+          lastUpdated: new Date(),
+          createdAt: new Date()
         });
       }
     }

@@ -28,7 +28,7 @@ export const WorkSessionPage = () => {
 
   // Check API availability
   useEffect(() => {
-    checkApiHealth().then(setApiAvailable);
+    checkApiHealth().then((health) => setApiAvailable(health.ok && health.aiAvailable));
   }, []);
 
   // Session timer

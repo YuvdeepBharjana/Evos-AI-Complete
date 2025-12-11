@@ -231,7 +231,7 @@ export const ChatInterface = () => {
 
   // Check if API is available on mount
   useEffect(() => {
-    checkApiHealth().then(setApiAvailable);
+    checkApiHealth().then((health) => setApiAvailable(health.ok && health.aiAvailable));
   }, []);
 
   // Auto-respond to externally added messages (e.g., from "Work on" button)

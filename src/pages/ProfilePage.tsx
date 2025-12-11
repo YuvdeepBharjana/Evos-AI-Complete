@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  User, Mail, Shield, Download, Trash2, Lock, Save, 
+  User, Shield, Download, Trash2, Lock, Save, 
   AlertCircle, CheckCircle, ArrowLeft, Eye, EyeOff,
-  Flame, Calendar, Target, Clock, Dna, Compass, Heart
+  Flame, Calendar, Target, Dna, Compass, Heart
 } from 'lucide-react';
 import { 
   getProfile, updateProfile, changePassword, exportUserData, 

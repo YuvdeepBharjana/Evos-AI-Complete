@@ -11,7 +11,7 @@ import type { DailyAction } from '../../types';
 
 export const DailyProofCard = () => {
   const navigate = useNavigate();
-  const { user, setDailyActions, markActionComplete, addMessage, lastUpdatedNodeId, getTodayDateString } = useUserStore();
+  const { user, setDailyActions, markActionComplete, addMessage, getTodayDateString } = useUserStore();
   const getStore = useUserStore.getState;
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [showReflection, setShowReflection] = useState(false);
@@ -266,7 +266,6 @@ export const DailyProofCard = () => {
         {actions.map((action, index) => {
           const isToday = isActionForToday(action);
           const isPendingToday = action.completed === null && isToday && action.nodeId !== 'tracking';
-          const isLastUpdated = lastUpdatedNodeId === action.nodeId;
           
           return (
           <motion.div
@@ -274,16 +273,10 @@ export const DailyProofCard = () => {
             initial={{ opacity: 0, x: -20 }}
             animate={{ 
               opacity: 1, 
-              x: 0,
-              scale: isLastUpdated ? 1.02 : 1,
-              boxShadow: isLastUpdated 
-                ? '0 0 20px rgba(168, 85, 247, 0.5)' 
-                : 'none'
+              x: 0
             }}
             transition={{ 
-              delay: index * 0.1,
-              scale: { duration: 0.3 },
-              boxShadow: { duration: 0.3 }
+              delay: index * 0.1
             }}
             className={`p-4 rounded-xl border transition-all relative ${
               action.completed === true

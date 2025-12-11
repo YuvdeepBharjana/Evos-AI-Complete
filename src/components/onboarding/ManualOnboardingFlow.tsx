@@ -136,8 +136,6 @@ export const ManualOnboardingFlow = ({ onComplete }: ManualOnboardingFlowProps) 
     onComplete(identityNodes);
   };
 
-  const canProceed = nodes[currentType].length > 0 || currentTypeIndex > 0;
-
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#030014] relative">
       {/* Background */}
