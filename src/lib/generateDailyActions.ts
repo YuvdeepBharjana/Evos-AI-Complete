@@ -152,7 +152,7 @@ export function generateDailyActions(nodes: IdentityNode[]): DailyAction[] {
     nodeName: cleanText(gap.node.label),
     action: cleanText(gap.suggestedAction),
     timeEstimate: ['15 min', '20 min', '25 min', '30 min'][Math.floor(Math.random() * 4)],
-    completed: null,
+    completed: undefined,
     createdAt: new Date()
   }));
   
