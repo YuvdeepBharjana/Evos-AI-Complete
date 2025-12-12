@@ -1,5 +1,5 @@
 # Fly.io configuration for Evos AI Backend
-app = "evos-ai-api"
+app = "evos-ai"
 primary_region = "iad"
 
 [build]
