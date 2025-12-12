@@ -1,11 +1,26 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const db = new Database(path.join(__dirname, 'evos.db'));
+// Use data directory if it exists (for Fly.io persistent volumes), otherwise use current directory
+const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'evos.db');
+const dbDir = path.dirname(dbPath);
+
+// Ensure directory exists
+try {
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+} catch (e) {
+  console.error('Failed to create database directory:', e);
+  // Continue anyway - directory might already exist
+}
+
+const db = new Database(dbPath);
 
 // Enable WAL mode for better performance
 db.pragma('journal_mode = WAL');

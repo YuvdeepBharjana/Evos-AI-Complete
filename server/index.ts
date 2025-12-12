@@ -36,7 +36,7 @@ import {
 import crypto from 'crypto';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 
 // CORS configuration - allow frontend domain
 const allowedOrigins = [
@@ -1818,13 +1818,14 @@ app.post('/api/experiment/checkin', authMiddleware, (req: AuthRequest, res) => {
 // START SERVER
 // ============================================
 
-app.listen(PORT, () => {
+// Listen on all interfaces (0.0.0.0) not just localhost for Docker/Fly.io
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`
 🧬 ═══════════════════════════════════════════════════════════
    EVOS API - The World's First Identity Engineering Platform
    ═══════════════════════════════════════════════════════════
    
-   Server running on: http://localhost:${PORT}
+   Server running on: http://0.0.0.0:${PORT}
    AI Mode: ${isAIAvailable() ? '🟢 OpenAI Connected' : '🟡 Mock Mode (no API key)'}
    Database: SQLite (evos.db)
    
