@@ -50,37 +50,55 @@ export async function register(
   name: string,
   acceptedTerms: boolean = true
 ): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE}/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, name, acceptedTerms }),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Registration failed');
+  try {
+    const response = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, name, acceptedTerms }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: `Server error: ${response.status}` }));
+      throw new Error(error.error || 'Registration failed');
+    }
+    
+    const data = await response.json();
+    setAuthToken(data.token);
+    return data;
+  } catch (err: any) {
+    // Network error or CORS issue
+    if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.name === 'TypeError') {
+      console.error('API connection error:', API_BASE);
+      throw new Error(`Cannot connect to server. Please check your connection. (API: ${API_BASE})`);
+    }
+    throw err;
   }
-  
-  const data = await response.json();
-  setAuthToken(data.token);
-  return data;
 }
 
 export async function login(email: string, password: string): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Login failed');
+  try {
+    const response = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: `Server error: ${response.status}` }));
+      throw new Error(error.error || 'Login failed');
+    }
+    
+    const data = await response.json();
+    setAuthToken(data.token);
+    return data;
+  } catch (err: any) {
+    // Network error or CORS issue
+    if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.name === 'TypeError') {
+      console.error('API connection error:', API_BASE);
+      throw new Error(`Cannot connect to server. Please check your connection. (API: ${API_BASE})`);
+    }
+    throw err;
   }
-  
-  const data = await response.json();
-  setAuthToken(data.token);
-  return data;
 }
 
 export async function demoLogin(): Promise<AuthResponse> {
