@@ -7,20 +7,25 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++ sqlite
 
 # Copy package files first (for better caching)
-COPY package*.json ./
+COPY package.json package-lock.json ./
 COPY tsconfig.json ./
 
 # Install ALL dependencies (including devDependencies for TypeScript build)
 RUN npm ci
 
-# Copy all TypeScript source files
-COPY *.ts ./
+# Copy all TypeScript source files explicitly
+COPY ai.ts ./
+COPY auth.ts ./
+COPY db.ts ./
+COPY email.ts ./
+COPY env.ts ./
+COPY index.ts ./
 
 # Build TypeScript to JavaScript
 RUN npm run build
 
-# Verify build output exists
-RUN ls -la dist/ || (echo "Build failed - dist directory not found" && exit 1)
+# Verify build output exists and has the main file
+RUN test -f dist/index.js || (echo "ERROR: dist/index.js not found after build" && ls -la dist/ && exit 1)
 
 # Remove dev dependencies to reduce image size (keep only production deps)
 RUN npm prune --production
