@@ -1,10 +1,17 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// Construct API base URL - ensure it ends with /api
+let API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-// Debug: Log API URL in development
-if (import.meta.env.DEV) {
-  console.log('🔗 API Base URL:', API_BASE);
-  console.log('🔗 VITE_API_URL env:', import.meta.env.VITE_API_URL || 'NOT SET');
+// If VITE_API_URL is set but doesn't end with /api, add it
+if (import.meta.env.VITE_API_URL && !import.meta.env.VITE_API_URL.endsWith('/api')) {
+  // Remove trailing slash if present, then add /api
+  const baseUrl = import.meta.env.VITE_API_URL.replace(/\/$/, '');
+  API_BASE = `${baseUrl}/api`;
 }
+
+// Always log in production for debugging
+console.log('🔗 API Base URL:', API_BASE);
+console.log('🔗 VITE_API_URL env:', import.meta.env.VITE_API_URL || 'NOT SET');
+console.log('🔗 Environment:', import.meta.env.MODE);
 
 // Token management
 let authToken: string | null = localStorage.getItem('evos_token');
