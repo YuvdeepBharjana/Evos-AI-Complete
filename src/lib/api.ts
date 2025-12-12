@@ -1,5 +1,11 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
+// Debug: Log API URL in development
+if (import.meta.env.DEV) {
+  console.log('🔗 API Base URL:', API_BASE);
+  console.log('🔗 VITE_API_URL env:', import.meta.env.VITE_API_URL || 'NOT SET');
+}
+
 // Token management
 let authToken: string | null = localStorage.getItem('evos_token');
 
