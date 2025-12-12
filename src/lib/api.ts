@@ -1,5 +1,9 @@
 // Construct API base URL - ensure it ends with /api
-let API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// Production fallback: use the actual backend URL if env var is not set
+const PRODUCTION_API_URL = 'https://evos-ai-hvb34q.fly.dev/api';
+
+let API_BASE = import.meta.env.VITE_API_URL || 
+  (import.meta.env.PROD ? PRODUCTION_API_URL : 'http://localhost:3001/api');
 
 // If VITE_API_URL is set but doesn't end with /api, add it
 if (import.meta.env.VITE_API_URL && !import.meta.env.VITE_API_URL.endsWith('/api')) {
@@ -12,6 +16,7 @@ if (import.meta.env.VITE_API_URL && !import.meta.env.VITE_API_URL.endsWith('/api
 console.log('🔗 API Base URL:', API_BASE);
 console.log('🔗 VITE_API_URL env:', import.meta.env.VITE_API_URL || 'NOT SET');
 console.log('🔗 Environment:', import.meta.env.MODE);
+console.log('🔗 Using fallback:', !import.meta.env.VITE_API_URL && import.meta.env.PROD ? 'YES (production fallback)' : 'NO');
 
 // Token management
 let authToken: string | null = localStorage.getItem('evos_token');
