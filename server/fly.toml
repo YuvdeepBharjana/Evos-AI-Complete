@@ -5,6 +5,8 @@ primary_region = "iad"
 [build]
   dockerfile = "Dockerfile"
   build_args = []
+  # Force fresh build by adding timestamp
+  # Remove this comment after successful build
 
 [env]
   PORT = "3001"
