@@ -67,6 +67,18 @@ app.use(express.json({ limit: '10mb' }));
 // HEALTH & STATUS
 // ============================================
 
+app.get('/', (req, res) => {
+  res.json({
+    service: 'Evos AI API',
+    status: 'running',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      docs: 'See API documentation'
+    }
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
