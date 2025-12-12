@@ -1660,7 +1660,7 @@ app.get('/api/experiment', authMiddleware, (req: AuthRequest, res) => {
     
     // Get daily activity for calendar view
     // Simplified query that gets all dates and counts
-    const activities: Array<{ date: string; actions_done: number; tracked: number }> = [];
+    const activities: Array<{ date: string; actions_done: number; actions_total: number; tracked: number }> = [];
     
     // Get all dates from actions
     const actionDates = db.prepare(`
