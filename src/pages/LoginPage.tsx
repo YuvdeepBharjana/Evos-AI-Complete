@@ -18,6 +18,7 @@ export const LoginPage = () => {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const navigate = useNavigate();
   const { setUserFromApi } = useUserStore();
+  const { signInWithGoogle } = useAuthStore();
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
