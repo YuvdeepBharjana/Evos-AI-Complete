@@ -20,6 +20,12 @@ import type { User } from './auth.js';
 const FRONTEND_URL = process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
 
+// Log OAuth configuration for debugging
+console.log('🔐 OAuth Configuration:');
+console.log(`   FRONTEND_URL: ${FRONTEND_URL}`);
+console.log(`   BACKEND_URL: ${BACKEND_URL}`);
+console.log(`   Google Callback: ${BACKEND_URL}/api/auth/google/callback`);
+
 /**
  * Configure Google OAuth Strategy
  * Requires GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET env vars
@@ -159,6 +165,9 @@ export function getOAuthRedirectURL(token?: string, error?: string): string {
     params.append('error', error);
   }
   
-  return `${FRONTEND_URL}/auth/callback?${params.toString()}`;
+  const redirectURL = `${FRONTEND_URL}/auth/callback?${params.toString()}`;
+  console.log(`🔗 OAuth redirect URL: ${redirectURL}`);
+  return redirectURL;
 }
+
 

@@ -144,6 +144,7 @@ export const useAuthStore = create<AuthStore>()(
           if (viteUrl) {
             return viteUrl.replace(/\/api\/?$/, '');
           }
+          // Use backend port directly for OAuth (bypasses proxy)
           return 'http://localhost:3001';
         };
         const API_BASE = getApiBase();
@@ -227,4 +228,5 @@ export const useAuthStore = create<AuthStore>()(
     }
   )
 );
+
 

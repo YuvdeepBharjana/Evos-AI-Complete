@@ -33,6 +33,7 @@ import {
   sendPasswordResetEmail,
   isEmailConfigured
 } from './email.js';
+import { passport, handleOAuthSuccess, getOAuthRedirectURL } from './oauth.js';
 import crypto from 'crypto';
 
 const app = express();
@@ -42,9 +43,9 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 const allowedOrigins = [
   'https://evosai.ca',
   'https://www.evosai.ca',
+  'http://localhost:8080',
   'http://localhost:5173',
   'http://localhost:3000',
-  'http://localhost:8080',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
@@ -262,6 +263,57 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/auth/me', authMiddleware, (req: AuthRequest, res) => {
   res.json({ user: req.user });
 });
+
+// ============================================
+// OAUTH AUTHENTICATION (Google & Apple)
+// ============================================
+
+// Initialize Passport middleware
+app.use(passport.initialize());
+
+// Google OAuth - Initiate sign-in
+app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+// Google OAuth - Callback handler
+app.get('/api/auth/google/callback', 
+  passport.authenticate('google', { session: false, failureRedirect: '/auth/callback?error=google_auth_failed' }),
+  (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.redirect(getOAuthRedirectURL(undefined, 'google_callback_error'));
+      }
+      
+      const { token } = handleOAuthSuccess(user);
+      res.redirect(getOAuthRedirectURL(token));
+    } catch (error: any) {
+      console.error('Google OAuth callback error:', error);
+      res.redirect(getOAuthRedirectURL(undefined, 'google_callback_error'));
+    }
+  }
+);
+
+// Apple OAuth - Initiate sign-in
+app.get('/api/auth/apple', passport.authenticate('apple', { scope: ['name', 'email'] }));
+
+// Apple OAuth - Callback handler
+app.post('/api/auth/apple/callback',
+  passport.authenticate('apple', { session: false, failureRedirect: '/auth/callback?error=apple_auth_failed' }),
+  (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.redirect(getOAuthRedirectURL(undefined, 'apple_callback_error'));
+      }
+      
+      const { token } = handleOAuthSuccess(user);
+      res.redirect(getOAuthRedirectURL(token));
+    } catch (error: any) {
+      console.error('Apple OAuth callback error:', error);
+      res.redirect(getOAuthRedirectURL(undefined, 'apple_callback_error'));
+    }
+  }
+);
 
 // ============================================
 // EMAIL VERIFICATION & PASSWORD RESET

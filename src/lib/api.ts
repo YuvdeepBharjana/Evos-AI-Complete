@@ -3,7 +3,7 @@
 const PRODUCTION_API_URL = 'https://evos-ai-hvb34q.fly.dev/api';
 
 let API_BASE = import.meta.env.VITE_API_URL || 
-  (import.meta.env.PROD ? PRODUCTION_API_URL : 'http://localhost:3001/api');
+  (import.meta.env.PROD ? PRODUCTION_API_URL : '/api');
 
 // If VITE_API_URL is set but doesn't end with /api, add it
 if (import.meta.env.VITE_API_URL && !import.meta.env.VITE_API_URL.endsWith('/api')) {

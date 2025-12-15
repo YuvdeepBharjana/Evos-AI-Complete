@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader2, AlertCircle } from 'lucide-react';
-import { setAuthToken } from '../lib/api';
+import { setAuthToken, getCurrentUser } from '../lib/api';
+import { useAuthStore } from '../store/useAuthStore';
+import { useUserStore } from '../store/useUserStore';
 
 /**
  * OAuth Callback Page
@@ -14,6 +16,8 @@ import { setAuthToken } from '../lib/api';
 export const OAuthCallbackPage = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { user: authUser } = useAuthStore();
+  const { setUserFromApi } = useUserStore();
 
   useEffect(() => {
     const handleOAuthCallback = async () => {
@@ -22,6 +26,18 @@ export const OAuthCallbackPage = () => {
         const params = new URLSearchParams(window.location.search);
         const token = params.get('token');
         const errorParam = params.get('error');
+        
+        // If no token and no error param, this might be an accidental visit
+        if (!token && !errorParam) {
+          // If user is already logged in, redirect to dashboard
+          if (authUser) {
+            navigate('/dashboard', { replace: true });
+            return;
+          }
+          // Otherwise redirect to login
+          navigate('/login', { replace: true });
+          return;
+        }
 
         if (errorParam) {
           // OAuth error occurred
@@ -51,14 +67,29 @@ export const OAuthCallbackPage = () => {
           return;
         }
 
-        // Set token in localStorage - auth listener will pick it up
+        // Set token and fetch user data
         setAuthToken(token);
+        
+        // Fetch user data immediately
+        const currentUser = await getCurrentUser();
+        
+        if (!currentUser) {
+          setError('Failed to load user data. Please try again.');
+          setTimeout(() => {
+            navigate('/login');
+          }, 2000);
+          return;
+        }
 
-        // Wait a moment for auth listener to detect token, then redirect
-        // The auth listener will fetch user data and update state
-        setTimeout(() => {
+        // Update user store with the user data
+        await setUserFromApi(currentUser, token);
+
+        // Redirect based on onboarding status
+        if (currentUser.onboarding_complete) {
           navigate('/dashboard', { replace: true });
-        }, 500);
+        } else {
+          navigate('/onboarding', { replace: true });
+        }
       } catch (err) {
         console.error('OAuth callback error:', err);
         setError('An unexpected error occurred. Please try again.');
@@ -69,7 +100,7 @@ export const OAuthCallbackPage = () => {
     };
 
     handleOAuthCallback();
-  }, [navigate]);
+  }, [navigate, authUser, setUserFromApi]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#030014]">
@@ -107,3 +138,4 @@ export const OAuthCallbackPage = () => {
     </div>
   );
 };
+

@@ -5,6 +5,7 @@ import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { VisionPage } from './pages/VisionPage';
 import { ContactPage } from './pages/ContactPage';
 import { TermsPage } from './pages/TermsPage';
@@ -119,6 +120,7 @@ function App() {
             </AuthRoute>
           }
         />
+        <Route path="/auth/callback" element={<OAuthCallbackPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         {/* Onboarding is NOT wrapped in AuthRoute to allow mentor selection flow to complete */}
