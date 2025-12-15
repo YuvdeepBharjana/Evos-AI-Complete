@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Dna, User, Eye, EyeOff, Shield, AlertCircle } from 'lucide-react';
 import { useUserStore } from '../store/useUserStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { login, register, demoLogin } from '../lib/api';
 
 type AuthMode = 'login' | 'register';
