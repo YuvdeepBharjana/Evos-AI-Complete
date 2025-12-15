@@ -237,6 +237,10 @@ export interface OnboardingResult {
   nodes: any[];
 }
 
+// ============================================
+// ONBOARDING
+// ============================================
+
 export async function completeOnboarding(
   method: 'questionnaire' | 'upload' | 'manual',
   nodes: any[]

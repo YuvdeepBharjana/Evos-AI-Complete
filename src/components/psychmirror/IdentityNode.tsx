@@ -72,7 +72,7 @@ const NODE_ICONS: Record<string, any> = {
 };
 
 const cleanLabel = (label: string): string => {
-  return label.replace(/\*\*/g, '').replace(/\*/g, '').replace(/\_\_/g, '').replace(/\_/g, '').trim();
+  return label.replace(/\*\*/g, '').replace(/\*/g, '').replace(/__/g, '').replace(/_/g, '').trim();
 };
 
 // Smart summarization - allow up to 3 words for better readability
@@ -133,7 +133,7 @@ const summarizeLabel = (label: string): string => {
   }
   
   // Filter out skip words and get meaningful words
-  let words = cleaned.split(' ').filter(w => w.length > 0 && w !== '—' && w !== '-');
+  const words = cleaned.split(' ').filter(w => w.length > 0 && w !== '—' && w !== '-');
   
   // Remove leading skip words
   while (words.length > 0 && skipWords.includes(words[0].toLowerCase())) {
@@ -178,13 +178,25 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
   // All nodes are the same size for a professional appearance
   const nodeSize = 120;
   
-  // Detect strength changes
+  // Detect strength changes - respond to prop changes
   useEffect(() => {
     if (data.strengthChange && data.strengthChange !== 0) {
-      setDisplayedChange(data.strengthChange);
-      setShowChange(true);
-      const timer = setTimeout(() => setShowChange(false), 2500);
-      return () => clearTimeout(timer);
+      // Use setTimeout to defer setState calls and avoid synchronous setState in effect
+      const showTimer = setTimeout(() => {
+        if (data.strengthChange !== undefined) {
+          setDisplayedChange(data.strengthChange);
+          setShowChange(true);
+        }
+      }, 0);
+      
+      const hideTimer = setTimeout(() => {
+        setShowChange(false);
+      }, 2500);
+      
+      return () => {
+        clearTimeout(showTimer);
+        clearTimeout(hideTimer);
+      };
     }
   }, [data?.strengthChange]);
 

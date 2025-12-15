@@ -43,3 +43,4 @@ primary_region = "iad"
 
 [processes]
   app = "node dist/index.js"
+

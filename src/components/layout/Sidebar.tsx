@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Brain, User, LogOut, FlaskConical, Menu, X, AlertCircle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useUserStore } from '../../store/useUserStore';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, clearUser } = useUserStore();
+  const { user, signOut } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -18,7 +18,7 @@ export const Sidebar = () => {
   ];
 
   const handleLogout = () => {
-    clearUser();
+    signOut();
     navigate('/');
     setShowLogoutConfirm(false);
   };

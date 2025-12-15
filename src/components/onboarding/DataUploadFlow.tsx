@@ -122,8 +122,8 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
     return label
       .replace(/\*\*/g, '')
       .replace(/\*/g, '')
-      .replace(/\_\_/g, '')
-      .replace(/\_/g, '')
+      .replace(/__/g, '')
+      .replace(/_/g, '')
       .trim();
   };
 

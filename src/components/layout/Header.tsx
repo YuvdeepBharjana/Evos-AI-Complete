@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Brain, MessageSquare } from 'lucide-react';
-import { useUserStore } from '../../store/useUserStore';
+import { useAuthStore } from '../../store/useAuthStore';
 
 interface HeaderProps {
   title: string;
@@ -11,7 +11,7 @@ interface HeaderProps {
 }
 
 export const Header = ({ title, showMirrorButton, onMirrorClick, showDashboardButton, onDashboardClick }: HeaderProps) => {
-  const { user } = useUserStore();
+  const { user } = useAuthStore();
 
   return (
     <motion.header

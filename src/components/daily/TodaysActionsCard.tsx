@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   CheckCircle, XCircle, TrendingUp, TrendingDown, 
@@ -12,7 +12,7 @@ export const TodaysActionsCard = () => {
   const { user, getTodayDateString } = useUserStore();
   
   // Helper to check if action is for today using date string (YYYY-MM-DD)
-  const isActionForToday = (action: DailyAction): boolean => {
+  const isActionForToday = useCallback((action: DailyAction): boolean => {
     const today = getTodayDateString();
     
     // Prefer the date field if available (most reliable)
@@ -23,13 +23,13 @@ export const TodaysActionsCard = () => {
     // Fallback to createdAt date comparison
     if (!action.createdAt) return false;
     return new Date(action.createdAt).toISOString().split('T')[0] === today;
-  };
+  }, [getTodayDateString]);
   
   // Filter actions for today only
   const todaysActions = useMemo(() => {
     if (!user?.dailyActions) return [];
     return user.dailyActions.filter(isActionForToday);
-  }, [user?.dailyActions, getTodayDateString]);
+  }, [user.dailyActions, isActionForToday]);
   
   // Separate completed and pending actions
   const completedActions = todaysActions.filter(a => a.completed === true);

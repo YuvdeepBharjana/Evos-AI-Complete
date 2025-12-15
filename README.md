@@ -31,18 +31,93 @@ The star feature - a beautiful, interactive neural network visualization showing
 
 ### Prerequisites
 - Node.js 18+ and npm
+- OpenAI API key (required for AI features)
+- (Optional) Google OAuth credentials
+- (Optional) Apple Sign-In credentials
+- (Optional) Resend API key for emails
 
 ### Installation
 
 ```bash
-# Install dependencies
+# Install frontend dependencies
 npm install
 
-# Start development server
-npm run dev
+# Install backend dependencies
+cd server && npm install
+```
 
-# Build for production
+### Environment Setup
+
+#### Backend (.env in root directory)
+Copy `server/.env.example` to `.env` in the root directory and configure:
+
+**Required:**
+```bash
+OPENAI_API_KEY=sk-your-key-here
+JWT_SECRET=your-secure-random-string
+APP_URL=http://localhost:5173
+BACKEND_URL=http://localhost:3001
+```
+
+**Optional - Google OAuth:**
+```bash
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+```
+
+Setup: https://console.cloud.google.com/apis/credentials
+- Create OAuth 2.0 Client ID
+- Add redirect URI: `http://localhost:3001/api/auth/google/callback`
+- For production: `https://yourdomain.com/api/auth/google/callback`
+
+**Optional - Apple Sign-In:**
+```bash
+APPLE_CLIENT_ID=com.yourcompany.yourapp
+APPLE_TEAM_ID=YOUR10DIGIT
+APPLE_KEY_ID=YOUR10CHAR
+APPLE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----
+```
+
+Setup: https://developer.apple.com
+1. Create Service ID in Identifiers
+2. Enable "Sign in with Apple"
+3. Add return URL: `http://localhost:3001/api/auth/apple/callback`
+4. Create Key for Sign in with Apple
+5. Download .p8 private key file
+
+**Optional - Email:**
+```bash
+RESEND_API_KEY=re_your_resend_key
+```
+
+#### Frontend (.env.local)
+```bash
+VITE_API_URL=http://localhost:3001/api
+```
+
+### Running the App
+
+```bash
+# Terminal 1: Start backend server
+cd server && npm run dev
+
+# Terminal 2: Start frontend
+npm run dev
+```
+
+App will be available at: http://localhost:5173
+
+### Build for Production
+
+```bash
+# Build frontend
 npm run build
+
+# Build backend
+cd server && npm run build
+
+# Start production server
+cd server && npm run start:prod
 ```
 
 ## 🛠 Tech Stack

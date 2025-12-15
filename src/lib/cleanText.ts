@@ -10,11 +10,12 @@ export const cleanText = (text: string | null | undefined): string => {
     .replace(/\*/g, '') // Remove italic/asterisks *
     .replace(/#/g, '') // Remove headers #
     .replace(/`/g, '') // Remove code blocks `
-    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Remove markdown links [text](url) -> text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove markdown links [text](url) -> text
     .replace(/_{2,}/g, '') // Remove underscores __
     .replace(/~{2,}/g, '') // Remove strikethrough ~~
     .trim();
 };
+
 
 
 

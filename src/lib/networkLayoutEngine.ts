@@ -194,7 +194,7 @@ function findNonOverlappingPosition(
   // This creates an organized, professional look
   
   const ringSpacing = minSpacing;
-  let ring = nodeIndex === 0 ? 1 : Math.ceil(nodeIndex / 6);
+  const ring = nodeIndex === 0 ? 1 : Math.ceil(nodeIndex / 6);
   
   // Try positions in expanding rings
   for (let r = ring; r <= ring + 10; r++) {

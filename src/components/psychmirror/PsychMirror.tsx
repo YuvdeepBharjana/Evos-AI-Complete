@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactFlow, {
   Background,
-  MiniMap,
   useNodesState,
   useEdgesState,
   type NodeTypes
@@ -65,13 +64,13 @@ export const PsychMirror = ({ onChangeMentor }: PsychMirrorProps = {}) => {
       })
       .map(action => action.nodeId)
       .filter((id): id is string => typeof id === 'string' && id.length > 0);
-  }, [user?.dailyActions]);
+  }, [user]);
 
   // Filter out 100% completed nodes (they've mastered it!)
   const visibleNodes = useMemo(() => {
     if (!user?.identityNodes) return [];
     return user.identityNodes.filter(node => node.strength < 100);
-  }, [user?.identityNodes]);
+  }, [user]);
 
 
   // Generate React Flow elements from visible identity nodes (excluding 100%)
@@ -96,6 +95,35 @@ export const PsychMirror = ({ onChangeMentor }: PsychMirrorProps = {}) => {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(filteredNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(filteredEdges);
+
+  // Generate particle data once using lazy initializer
+  type Particle = {
+    width: number;
+    height: number;
+    left: string;
+    top: string;
+    colorIndex: number;
+    y: number;
+    x: number;
+    duration: number;
+    delay: number;
+    glow: number;
+  };
+
+  const [particles] = useState<Particle[]>(() =>
+    Array.from({ length: 20 }).map(() => ({
+      width: Math.random() * 4 + 2,
+      height: Math.random() * 4 + 2,
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      colorIndex: Math.floor(Math.random() * 5),
+      y: -100 - Math.random() * 200,
+      x: (Math.random() - 0.5) * 100,
+      duration: 10 + Math.random() * 10,
+      delay: Math.random() * 10,
+      glow: Math.random() * 10 + 5,
+    }))
+  );
 
   // Update nodes when filter changes
   useMemo(() => {
@@ -280,32 +308,35 @@ export const PsychMirror = ({ onChangeMentor }: PsychMirrorProps = {}) => {
           />
 
           {/* Floating particles */}
-          {[...Array(20)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute rounded-full"
-              style={{
-                width: Math.random() * 4 + 2,
-                height: Math.random() * 4 + 2,
-                background: ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#06b6d4'][Math.floor(Math.random() * 5)],
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                opacity: 0.4,
-                boxShadow: `0 0 ${Math.random() * 10 + 5}px currentColor`,
-              }}
-              animate={{
-                y: [0, -100 - Math.random() * 200],
-                x: [0, (Math.random() - 0.5) * 100],
-                opacity: [0.4, 0.8, 0],
-              }}
-              transition={{
-                duration: 10 + Math.random() * 10,
-                repeat: Infinity,
-                delay: Math.random() * 10,
-                ease: 'easeOut',
-              }}
-            />
-          ))}
+          {particles.map((particle, i) => {
+            const colors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#06b6d4'];
+            return (
+              <motion.div
+                key={i}
+                className="absolute rounded-full"
+                style={{
+                  width: particle.width,
+                  height: particle.height,
+                  background: colors[particle.colorIndex],
+                  left: particle.left,
+                  top: particle.top,
+                  opacity: 0.4,
+                  boxShadow: `0 0 ${particle.glow}px currentColor`,
+                }}
+                animate={{
+                  y: [0, particle.y],
+                  x: [0, particle.x],
+                  opacity: [0.4, 0.8, 0],
+                }}
+                transition={{
+                  duration: particle.duration,
+                  repeat: Infinity,
+                  delay: particle.delay,
+                  ease: 'easeOut',
+                }}
+              />
+            );
+          })}
 
           {/* Grid lines - subtle neural network effect */}
           <svg className="absolute inset-0 w-full h-full opacity-[0.03]">
@@ -327,28 +358,7 @@ export const PsychMirror = ({ onChangeMentor }: PsychMirrorProps = {}) => {
         </div>
         
         <Background color="#1a1a2e" gap={60} size={1} />
-        {/* MiniMap - Hidden on mobile */}
-        <MiniMap
-          nodeColor={(node) => {
-            if (node.id === 'growth-core') return '#8b5cf6';
-            const colors = {
-              habit: '#10b981',
-              goal: '#3b82f6',
-              trait: '#a855f7',
-              emotion: '#f59e0b',
-              struggle: '#ef4444',
-              interest: '#06b6d4'
-            };
-            return colors[node.data?.type as keyof typeof colors] || '#6b7280';
-          }}
-          maskColor="rgba(0, 0, 0, 0.9)"
-          className="hidden sm:block"
-          style={{
-            background: 'linear-gradient(135deg, rgba(20,20,30,0.95) 0%, rgba(10,10,20,0.95) 100%)',
-            borderRadius: '12px',
-            border: '1px solid rgba(139, 92, 246, 0.2)',
-          }}
-        />
+        {/* MiniMap removed for cleaner full-screen experience */}
       </ReactFlow>
 
 

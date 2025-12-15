@@ -1,5 +1,50 @@
 import OpenAI from 'openai';
 
+// Type definitions
+interface IdentityNode {
+  label: string;
+  type: string;
+  strength: number;
+  status?: string;
+  description?: string;
+}
+
+interface DailyAction {
+  nodeId: string;
+  nodeName: string;
+  category: string;
+  action: string;
+  timeEstimate: string;
+}
+
+interface IdentityAnalysis {
+  nodes: IdentityNode[];
+}
+
+interface DailyActionsResult {
+  actions: DailyAction[];
+}
+
+interface TrackingData {
+  calories?: number;
+  exercise_mins?: number;
+  deep_work_hrs?: number;
+  sleep_hrs?: number;
+  mood?: number;
+}
+
+interface CompletedAction {
+  status: string;
+  [key: string]: unknown;
+}
+
+interface DailySummary {
+  headline: string;
+  summary: string;
+  alignmentScore: number;
+  insights: string;
+}
+
 // Initialize OpenAI client (may be null if no API key)
 let openai: OpenAI | null = null;
 
@@ -10,7 +55,7 @@ try {
   } else {
     console.log('⚠️  No OPENAI_API_KEY - running in mock mode');
   }
-} catch (e) {
+} catch {
   console.log('⚠️  OpenAI initialization failed - running in mock mode');
 }
 
@@ -371,7 +416,7 @@ export async function chat(
 
   try {
     // Use mentor style prompt if provided, otherwise use the passed systemPrompt
-    let basePrompt = mentorStyle ? MENTOR_STYLE_PROMPTS[mentorStyle] : systemPrompt;
+    const basePrompt = mentorStyle ? MENTOR_STYLE_PROMPTS[mentorStyle] : systemPrompt;
     
     console.log(`📝 Using mentor style: ${mentorStyle || 'default'}`);
     console.log(`📝 Prompt preview: ${basePrompt.substring(0, 100)}...`);
@@ -409,7 +454,7 @@ export async function chat(
 }
 
 // Analyze text for identity patterns
-export async function analyzeIdentity(text: string): Promise<any> {
+export async function analyzeIdentity(text: string): Promise<IdentityAnalysis> {
   if (!openai) {
     return mockIdentityAnalysis();
   }
@@ -441,7 +486,7 @@ export async function analyzeIdentity(text: string): Promise<any> {
 }
 
 // Generate daily actions
-export async function generateDailyActions(nodes: any[]): Promise<any> {
+export async function generateDailyActions(nodes: IdentityNode[]): Promise<DailyActionsResult> {
   if (!openai) {
     return mockDailyActions(nodes);
   }
@@ -590,7 +635,7 @@ function mockChatResponse(message: string, mentorStyle?: AIMentorStyle): string 
   return "I hear you. What patterns do you notice? Every insight is data for your identity map.";
 }
 
-function mockIdentityAnalysis(): any {
+function mockIdentityAnalysis(): IdentityAnalysis {
   return {
     nodes: [
       { label: "Personal Growth", type: "goal", strength: 75, description: "Strong drive for self-improvement" },
@@ -609,7 +654,7 @@ function mockIdentityAnalysis(): any {
   };
 }
 
-function mockDailyActions(nodes: any[]): any {
+function mockDailyActions(nodes: IdentityNode[]): DailyActionsResult {
   // Get nodes that need work - struggles or developing
   const struggles = nodes.filter(n => n.type === 'struggle' || n.strength < 50);
   const developing = nodes.filter(n => n.status === 'developing');
@@ -621,7 +666,7 @@ function mockDailyActions(nodes: any[]): any {
   const targetNode2 = struggles[1] || developing[1] || habits[0] || goals[0] || nodes[1] || targetNode1;
   
   // EXACTLY 3 actions - no more, no less
-  const actions: any[] = [
+  const actions: DailyAction[] = [
     // Action 1: Data tracking
     {
       nodeId: 'tracking',
@@ -658,7 +703,7 @@ function mockDailyActions(nodes: any[]): any {
   return { actions };
 }
 
-function mockSummary(trackingData: any, completedActions: any[]): any {
+function mockSummary(trackingData: TrackingData, completedActions: CompletedAction[]): DailySummary {
   const completed = completedActions.filter(a => a.status === 'done').length;
   const total = completedActions.length || 3;
   const alignmentScore = Math.round((completed / total) * 100);

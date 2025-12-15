@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -45,15 +45,26 @@ export const ProfilePage = () => {
   const { logout } = useUserStore();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadProfile();
-    loadMentorStyle();
-  }, []);
-
-  const loadMentorStyle = async () => {
+  const loadMentorStyle = useCallback(async () => {
     const style = await getMentorStyle();
     setCurrentMentorStyle(style);
-  };
+  }, []);
+
+  const loadProfile = useCallback(async () => {
+    const data = await getProfile();
+    if (data) {
+      setProfile(data);
+      setName(data.user.name);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      await loadProfile();
+      await loadMentorStyle();
+    })();
+  }, [loadProfile, loadMentorStyle]);
 
   const handleMentorChange = async (style: AIMentorStyle) => {
     setSavingMentor(true);
@@ -65,15 +76,6 @@ export const ProfilePage = () => {
       setSaveMessage({ type: 'error', text: 'Failed to update mentor style' });
     }
     setSavingMentor(false);
-  };
-
-  const loadProfile = async () => {
-    const data = await getProfile();
-    if (data) {
-      setProfile(data);
-      setName(data.user.name);
-    }
-    setLoading(false);
   };
 
   const handleSaveProfile = async () => {

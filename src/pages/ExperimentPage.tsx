@@ -47,21 +47,23 @@ export const ExperimentPage = () => {
       console.log('✅ All actions completed, refreshing experiment data...');
       // Small delay to ensure backend has processed
       const timer = setTimeout(() => {
-        loadExperiment();
+        void loadExperiment();
       }, 500);
       return () => clearTimeout(timer);
     }
   }, [user?.dailyActions, experiment?.started, loadExperiment]);
 
   useEffect(() => {
-    loadExperiment();
+    void (async () => {
+      await loadExperiment();
+    })();
     
     // Listen for check-in events to auto-refresh
     const handleCheckIn = () => {
       console.log('🔄 Experiment check-in event received, refreshing...');
       // Add a small delay to ensure backend has processed the check-in
       setTimeout(() => {
-        loadExperiment();
+        void loadExperiment();
       }, 500);
     };
     
@@ -69,7 +71,7 @@ export const ExperimentPage = () => {
     const handleActionCompleted = () => {
       console.log('✅ Action completed, refreshing calendar...');
       setTimeout(() => {
-        loadExperiment();
+        void loadExperiment();
       }, 300);
     };
     
@@ -77,7 +79,7 @@ export const ExperimentPage = () => {
     const handleAllActionsComplete = () => {
       console.log('🎉 All actions complete! Calendar should turn green...');
       setTimeout(() => {
-        loadExperiment();
+        void loadExperiment();
       }, 300);
     };
     
@@ -88,7 +90,7 @@ export const ExperimentPage = () => {
     // Also listen for focus events to refresh when user returns to the page
     const handleFocus = () => {
       console.log('👁️ Page focused, refreshing experiment data...');
-      loadExperiment();
+      void loadExperiment();
     };
     
     window.addEventListener('focus', handleFocus);
@@ -107,7 +109,7 @@ export const ExperimentPage = () => {
     
     const pollInterval = setInterval(() => {
       console.log('⏰ Polling experiment data...');
-      loadExperiment();
+      void loadExperiment();
     }, 30000);
     
     return () => clearInterval(pollInterval);
@@ -117,7 +119,7 @@ export const ExperimentPage = () => {
     setStarting(true);
     const result = await startExperiment();
     if (result.success) {
-      loadExperiment();
+      void loadExperiment();
     }
     setStarting(false);
   };

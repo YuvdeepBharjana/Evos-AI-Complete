@@ -195,7 +195,7 @@ export const WorkSessionPage = () => {
       
       // Save AI response to backend
       saveWorkSessionMessage(activeWorkSession.nodeId, 'assistant', responseText);
-    } catch (error) {
+    } catch {
       const errorResponse: Message = {
         id: `msg-${Date.now() + 1}`,
         content: "I'm having trouble connecting. Let's keep working - what progress have you made?",
@@ -423,7 +423,7 @@ export const WorkSessionPage = () => {
                 ].map((option) => (
                   <button
                     key={option.key}
-                    onClick={() => handleEndSession(option.key as any)}
+                    onClick={() => handleEndSession(option.key as 'high' | 'medium' | 'low' | 'none')}
                     className="w-full p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/50 text-left transition-all"
                   >
                     <div className="flex items-center justify-between">

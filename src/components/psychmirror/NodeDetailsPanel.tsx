@@ -15,8 +15,8 @@ const cleanText = (text: string): string => {
   return text
     .replace(/\*\*/g, '')
     .replace(/\*/g, '')
-    .replace(/\_\_/g, '')
-    .replace(/\_/g, '')
+    .replace(/__/g, '')
+    .replace(/_/g, '')
     .trim();
 };
 

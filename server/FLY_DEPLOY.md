@@ -7,6 +7,21 @@
 
 ## Step-by-Step Deployment
 
+### Option A: Deploy via Fly.io Dashboard (Recommended)
+
+1. **Go to Fly.io Dashboard:** https://fly.io/dashboard
+2. **Create/Select your app**
+3. **Go to Settings → Source**
+4. **Configure GitHub Repository:**
+   - **Current Working Directory:** `server` ⚠️ **CRITICAL: Must be set to `server`**
+   - **Config path:** `server/fly.toml` (or leave empty if it auto-detects)
+   - **Deploy branch:** `main`
+   - **Auto-deploy on push:** (optional, can enable later)
+5. **Click "Update"**
+6. **Trigger a deployment** (or push to main if auto-deploy is enabled)
+
+### Option B: Deploy via CLI
+
 ### 1. Navigate to Server Directory
 ```bash
 cd server
@@ -17,7 +32,7 @@ cd server
 flyctl launch
 ```
 - When prompted, **don't** deploy yet (choose "No")
-- App name: `evos-ai-api` (or choose your own)
+- App name: `evos-ai` (or choose your own)
 - Region: Choose closest to your users (e.g., `iad` for US East)
 
 ### 3. Set Environment Variables
@@ -119,3 +134,4 @@ Fly.io free tier includes:
 - 160GB outbound data transfer
 
 This should be enough for development and small production use.
+

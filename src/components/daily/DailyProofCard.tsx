@@ -16,7 +16,18 @@ export const DailyProofCard = () => {
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [showReflection, setShowReflection] = useState(false);
   const [reflectionText, setReflectionText] = useState('');
-  const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
+  const [hasCheckedInToday, setHasCheckedInToday] = useState(() => {
+    const today = getTodayDateString();
+    const lastCheckInDate = localStorage.getItem('lastCheckInDate');
+
+    // If last check-in date isn't today, treat as not checked in yet
+    if (lastCheckInDate !== today) {
+      localStorage.setItem('lastCheckInDate', today);
+      return false;
+    }
+
+    return true;
+  });
 
   // Helper to check if action is for today using date string (YYYY-MM-DD)
   const isActionForToday = (action: DailyAction): boolean => {
@@ -35,7 +46,7 @@ export const DailyProofCard = () => {
 
   // Load daily actions from backend on mount if none exist for today
   useEffect(() => {
-    const loadActions = async () => {
+    void (async () => {
       const today = getTodayDateString();
       const existingTodayActions = user?.dailyActions?.filter(a => {
         if (a.date) return a.date === today;
@@ -68,19 +79,8 @@ export const DailyProofCard = () => {
           console.error('Failed to load daily actions:', error);
         }
       }
-    };
-    loadActions();
-  }, [user?.identityNodes]);
-
-  // Reset check-in flag at start of new day
-  useEffect(() => {
-    const today = new Date().toDateString();
-    const lastCheckInDate = localStorage.getItem('lastCheckInDate');
-    if (lastCheckInDate !== today) {
-      setHasCheckedInToday(false);
-      localStorage.setItem('lastCheckInDate', today);
-    }
-  }, []);
+    })();
+  }, [user?.identityNodes, getTodayDateString, setDailyActions, getDailyActions]);
 
   const actions = user?.dailyActions || [];
   const todayActions = actions.filter(isActionForToday);
