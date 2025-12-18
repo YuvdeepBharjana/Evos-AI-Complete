@@ -4,9 +4,11 @@ import type { AuthStatus, AppUser } from '../types/auth';
 import {
   getNodes,
   setAuthToken,
+  getCurrentUser,
   logout as apiLogout,
   completeOnboarding as apiCompleteOnboarding,
   getTrackingHistory,
+  getDailyActions,
   type User as ApiUser,
   type DailyTracking
 } from '../lib/api';
@@ -53,6 +55,13 @@ export interface UserStore {
   completeOnboarding: (method: 'questionnaire' | 'upload' | 'manual', nodes: any[]) => Promise<void>;
   loadTrackingFromBackend: () => Promise<void>;
   checkDailyReset: () => Promise<boolean>;
+  
+  // Helper functions
+  getTodayDateString: () => string;
+  setDailyActions: (actions: DailyAction[]) => void;
+  markActionComplete: (actionId: string, completed: boolean) => void;
+  addMessage: (message: any) => void;
+  generateDailySummary: () => Promise<void>;
 }
 
 export const useUserStore = create<UserStore>()(
@@ -99,6 +108,29 @@ export const useUserStore = create<UserStore>()(
       },
 
       setUserFromApi: async (apiUser, token) => {
+        // Ensure token is set in API module and localStorage
+        setAuthToken(token);
+        localStorage.setItem('evos_token', token);
+        
+        // Load user nodes and daily actions (with error handling)
+        let identityNodes = [];
+        let dailyActions: DailyAction[] = [];
+        
+        try {
+          identityNodes = await getNodes();
+        } catch (error) {
+          console.error('Failed to load nodes:', error);
+        }
+        
+        try {
+          // Get today's daily actions (proof actions from nodes)
+          const todayActions = await getDailyActions();
+          // Transform API response to DailyAction format (handles snake_case from backend)
+          dailyActions = todayActions.map(transformAction);
+        } catch (error) {
+          console.error('Failed to load daily actions:', error);
+        }
+        
         const appUser: AppUser = {
           id: apiUser.id,
           email: apiUser.email,
@@ -106,13 +138,17 @@ export const useUserStore = create<UserStore>()(
           onboardingComplete: apiUser.onboarding_complete,
           onboardingMethod: apiUser.onboarding_method,
           emailVerified: apiUser.email_verified,
-          // Load user nodes and daily actions
-          identityNodes: await getNodes(),
-          dailyActions: await getTrackingHistory(),
+          identityNodes,
+          dailyActions,
         };
 
-        set({ user: appUser });
-        get()._setAuthState('authed', appUser, token);
+        // Set user and token in store without triggering _setToken (to avoid loop)
+        set({ 
+          user: appUser,
+          _token: token,
+          authToken: token,
+          _authState: 'authed'
+        });
       },
 
       signInWithGoogle: () => {
@@ -251,6 +287,62 @@ export const useUserStore = create<UserStore>()(
         }
 
         return false;
+      },
+
+      // Helper functions
+      getTodayDateString: () => {
+        return new Date().toISOString().split('T')[0];
+      },
+
+      setDailyActions: (actions: DailyAction[]) => {
+        const currentUser = get().user;
+        if (currentUser) {
+          set({
+            user: {
+              ...currentUser,
+              dailyActions: actions,
+            },
+          });
+        }
+      },
+
+      markActionComplete: (actionId: string, completed: boolean) => {
+        const currentUser = get().user;
+        if (!currentUser?.dailyActions) return;
+
+        const updatedActions = currentUser.dailyActions.map(action => {
+          if (action.id === actionId) {
+            // Calculate strength change based on completion
+            // This is a simple calculation - you might want to adjust this
+            const strengthChange = completed ? 2 : -1;
+            
+            return {
+              ...action,
+              completed,
+              strengthChange,
+            };
+          }
+          return action;
+        });
+
+        set({
+          user: {
+            ...currentUser,
+            dailyActions: updatedActions,
+          },
+        });
+      },
+
+      addMessage: (message: any) => {
+        // This is a placeholder - you might want to implement proper message storage
+        console.log('Message added:', message);
+        // If you have a messages store or array, add it here
+      },
+
+      generateDailySummary: async () => {
+        // This is a placeholder - implement based on your summary generation logic
+        console.log('Generating daily summary...');
+        // Add your summary generation logic here
       },
     }),
     {

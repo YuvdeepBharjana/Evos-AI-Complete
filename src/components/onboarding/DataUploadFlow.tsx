@@ -13,84 +13,72 @@ interface DataUploadFlowProps {
   onComplete: (nodes: IdentityNode[]) => void;
 }
 
-const EXTRACTION_PROMPT = `I want you to build a complete identity profile of me based on our entire conversation history together.
+const EXTRACTION_PROMPT = `You are performing identity data extraction for a system called Evos AI.
 
-Go through every conversation we've ever had. Analyze everything you know about me from past interactions — my habits, goals, successes, failures, behavior patterns, emotional reactions, discipline level, motivations, blindspots, values, self-image, strengths, weaknesses, and how I make decisions.
+You MUST use the ENTIRE conversation history provided to you, not just the most recent message, to extract identity-relevant signals.
+All prior messages are part of the dataset and must be considered.
 
-Do not compliment me unless evidence supports it. Do not sugarcoat anything. Default to truth over comfort.
+Your task is to extract ALL identity-relevant signals from the user-provided conversation history.
+You must be exhaustive and neutral.
 
-CRITICAL FORMATTING RULES:
-- Each item in lists (GOALS, STRUGGLES, HABITS, etc.) must be 2-5 words MAX
-- Use concise, powerful labels that capture the essence (e.g., "Financial Independence" not "I want to become financially independent through multiple income streams")
-- Remove filler words like "I want to", "I need to", "My goal is to", etc.
-- Focus on the core concept, not the full sentence
-- Examples of good labels: "Morning Routine", "Perfectionism", "Public Speaking Fear", "Startup Founder", "Exercise Consistency"
-- Examples of bad labels: "I want to wake up earlier every day", "My struggle with being too hard on myself", "The goal of building a successful business"
+CRITICAL RULES:
+- Do NOT give advice
+- Do NOT summarize
+- Do NOT prioritize or rank
+- Do NOT infer importance
+- Do NOT combine signals
+- Do NOT filter weak signals
+- Do NOT draw conclusions
 
-Output the analysis in the following format:
+Evos AI will decide what matters later.
 
----BEGIN IDENTITY PROFILE---
+EXTRACTION REQUIREMENTS:
+- Extract traits, habits, goals, struggles, emotions, interests, strengths
+- Include BOTH explicit statements and repeated behavioral signals
+- Include contradictory signals if they exist
+- If a signal appears multiple times across the conversation history, increase confidence
 
-SELF-PERCEPTION VS REALITY:
-[How I view myself vs how I actually behave based on our conversations]
+LABEL RULES:
+- Labels must be 2–5 words
+- Use nouns, not verbs
+- No punctuation inside labels
+- No filler words
+- Avoid duplicates unless meaningfully distinct
 
-CORE IDENTITY TRAITS:
-- [2-5 word trait label]
-- [2-5 word trait label]
-- [etc...]
+CATEGORIES (use ONLY these):
+- goal
+- habit
+- trait
+- strength
+- struggle
+- emotion
+- interest
 
-EMOTIONAL FRAMEWORK:
-- Triggers: [2-5 word trigger label]
-- Coping mechanisms: [2-5 word coping label]
-- Fear drivers: [2-5 word fear label]
+CONFIDENCE RULES:
+- high = repeated or explicitly emphasized across conversation history
+- medium = implied or occasional
+- low = weak or one-off signal
 
-BEHAVIOR PATTERNS:
-- Discipline: [2-5 word description]
-- Habits: [2-5 word habit 1], [2-5 word habit 2], [etc...]
-- Execution quality: [2-5 word description]
+OUTPUT FORMAT (JSON ONLY):
 
-COGNITIVE STYLE:
-- [2-5 word cognitive pattern]
+{
+  "identity_signals": [
+    {
+      "label": "",
+      "category": "",
+      "confidence": "high | medium | low",
+      "evidence_summary": "One short sentence referencing behavior or repetition across the conversation history."
+    }
+  ]
+}
 
-STRENGTHS:
-- [2-5 word strength label]
-- [2-5 word strength label]
-- [etc...]
+Do not explain your reasoning.
+Do not add extra fields.
+Do not return empty arrays.
+Do not format as markdown.
 
-WEAKNESSES:
-- [2-5 word weakness label]
-- [2-5 word weakness label]
-- [etc...]
-
-GOALS:
-- [2-5 word goal label]
-- [2-5 word goal label]
-- [etc...]
-
-STRUGGLES:
-- [2-5 word struggle label]
-- [2-5 word struggle label]
-- [etc...]
-
-INTERESTS:
-- [2-5 word interest label]
-- [2-5 word interest label]
-- [etc...]
-
-IDENTITY TRAJECTORY:
-[Where this version of me is likely headed if nothing changes]
-
-IF OPTIMIZED:
-[What my ceiling looks like with identity upgrades]
-
-ACTION CODE:
-1. [behavioral change 1 - sharp, actionable, no fluff]
-2. [behavioral change 2]
-3. [etc... 5-10 total]
-
----END IDENTITY PROFILE---
-
-Be blunt. Be precise. Expose me. Use 2-5 word labels for all list items. Analyze now.`;
+TEXT TO ANALYZE:
+[PASTE CONTENT HERE]`;
 
 export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
   const [step, setStep] = useState<'copy' | 'paste' | 'processing' | 'success' | 'error'>('copy');
@@ -167,6 +155,101 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
   const parseIdentityExtraction = (content: string): IdentityNode[] => {
     const nodes: IdentityNode[] = [];
     
+    try {
+      // Try to extract JSON from markdown code blocks first
+      let jsonString = content;
+      
+      // Extract JSON from markdown code blocks
+      const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+      if (codeBlockMatch && codeBlockMatch[1]) {
+        jsonString = codeBlockMatch[1];
+      } else {
+        // Try to find JSON object directly
+        const jsonMatch = content.match(/\{[\s\S]*"identity_signals"[\s\S]*\}/);
+        if (jsonMatch && jsonMatch[0]) {
+          jsonString = jsonMatch[0];
+        }
+      }
+
+      // Parse JSON
+      const data = JSON.parse(jsonString);
+      
+      if (!data.identity_signals || !Array.isArray(data.identity_signals)) {
+        throw new Error('Invalid JSON format: missing identity_signals array');
+      }
+
+      // Map category to NodeType (strength category maps to trait)
+      const categoryMap: Record<string, NodeType> = {
+        'goal': 'goal',
+        'habit': 'habit',
+        'trait': 'trait',
+        'strength': 'trait', // Map strength to trait type
+        'struggle': 'struggle',
+        'emotion': 'emotion',
+        'interest': 'interest',
+      };
+
+      // Map confidence to strength value
+      const confidenceMap: Record<string, number> = {
+        'high': 80,
+        'medium': 60,
+        'low': 40,
+      };
+
+      // Process each signal
+      for (const signal of data.identity_signals) {
+        if (!signal.label || !signal.category) continue;
+
+        const nodeType = categoryMap[signal.category.toLowerCase()];
+        if (!nodeType) {
+          console.warn(`Unknown category: ${signal.category}, skipping`);
+          continue;
+        }
+
+        // Determine strength from confidence
+        const confidence = signal.confidence?.toLowerCase() || 'medium';
+        const baseStrength = confidenceMap[confidence] || 60;
+        
+        // Add small variation (±5) to avoid identical strengths
+        const strength = Math.max(0, Math.min(100, baseStrength + Math.round(Math.random() * 10 - 5)));
+
+        // Determine status based on strength
+        let status: 'mastered' | 'active' | 'developing' | 'neglected' = 'active';
+        if (strength >= 80) {
+          status = 'mastered';
+        } else if (strength >= 60) {
+          status = 'active';
+        } else if (strength >= 40) {
+          status = 'developing';
+        } else {
+          status = 'neglected';
+        }
+
+        nodes.push({
+          id: uuidv4(),
+          type: nodeType,
+          label: cleanLabel(signal.label),
+          description: signal.evidence_summary || '',
+          strength,
+          status,
+          connections: [],
+          lastUpdated: new Date(),
+          createdAt: new Date()
+        });
+      }
+    } catch (error) {
+      console.error('Failed to parse JSON extraction:', error);
+      // Fallback: try to parse as old format for backward compatibility
+      return parseLegacyFormat(content);
+    }
+
+    return nodes;
+  };
+
+  // Fallback parser for old markdown format (backward compatibility)
+  const parseLegacyFormat = (content: string): IdentityNode[] => {
+    const nodes: IdentityNode[] = [];
+    
     // Map sections to node types (strength is 0-100)
     const sectionMap: Record<string, { type: NodeType; strength: number }> = {
       'CORE IDENTITY TRAITS': { type: 'trait', strength: 80 },
@@ -217,8 +300,8 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
             id: uuidv4(),
             type: config.type,
             label: generateShortTitle(item),
-            description: cleanLabel(item), // Keep full text as description
-            strength: Math.round(config.strength + (Math.random() * 20 - 10)), // Add ±10 variation
+            description: cleanLabel(item),
+            strength: Math.round(config.strength + (Math.random() * 20 - 10)),
             status: 'active',
             connections: [],
             lastUpdated: new Date(),

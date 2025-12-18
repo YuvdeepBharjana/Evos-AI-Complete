@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OnboardingChoice } from '../components/onboarding/OnboardingChoice';
+import { PersonalContextStep } from '../components/onboarding/PersonalContextStep';
 import { QuestionnaireFlow } from '../components/onboarding/QuestionnaireFlow';
+import { AIImportStep } from '../components/onboarding/AIImportStep';
 import { DataUploadFlow } from '../components/onboarding/DataUploadFlow';
 import { ManualOnboardingFlow } from '../components/onboarding/ManualOnboardingFlow';
 import { MentorSelectionModal } from '../components/psychmirror/MentorSelectionModal';
@@ -11,11 +13,14 @@ import { createDefaultProfile, generateNodesFromQuestionnaire } from '../lib/gen
 import type { IdentityNode } from '../types';
 import type { AIMentorStyle } from '../lib/api';
 import { Dna } from 'lucide-react';
+import { onboardingV2Questions } from '../data/onboardingV2';
 
-type OnboardingStep = 'choice' | 'questionnaire' | 'upload' | 'manual' | 'complete' | 'mentor-selection';
+// V2 onboarding: single guided flow (method selection disabled)
+type OnboardingStep = 'personal-context' | 'choice' | 'questionnaire' | 'ai-import' | 'upload' | 'manual' | 'complete' | 'mentor-selection';
 
 export const OnboardingPage = () => {
-    const [step, setStep] = useState<OnboardingStep>('choice');
+    console.log('Onboarding V2 loaded:', onboardingV2Questions.length);
+    const [step, setStep] = useState<OnboardingStep>('personal-context');
     const navigate = useNavigate();
     const { setUser, completeOnboarding } = useUserStore();
 
@@ -41,12 +46,27 @@ export const OnboardingPage = () => {
     const handleQuestionnaireComplete = async (answers: Record<string, string>) => {
         const nodes = generateNodesFromQuestionnaire(answers);
         await completeOnboarding('questionnaire', nodes);
-        setStep('complete');
+        // Navigate to AI import step instead of directly to completion
+        setStep('ai-import');
+    };
 
+    const proceedToCompletion = () => {
+        setStep('complete');
         // Show mentor selection after animation
         setTimeout(() => {
             setStep('mentor-selection');
         }, 2000);
+    };
+
+    const handleAIImportSkip = () => {
+        proceedToCompletion();
+    };
+
+    const handleAIImportComplete = async (nodes: IdentityNode[]) => {
+        // If user imports data, merge it with existing nodes
+        // Note: This doesn't persist yet per requirements
+        console.log('AI import completed with nodes:', nodes.length);
+        proceedToCompletion();
     };
 
     const handleUploadComplete = async (nodes: IdentityNode[]) => {
@@ -65,17 +85,24 @@ export const OnboardingPage = () => {
         navigate('/mirror');
     };
 
+    const handlePersonalContextComplete = (data: { gender: string; height_feet?: number; height_inches?: number; weight?: number }) => {
+        console.log('Personal context collected:', data);
+        // Store personal context data (not persisting yet per requirements)
+        // Advance to questionnaire
+        setStep('questionnaire');
+    };
+
     return (
         <div className="min-h-screen w-full">
             <AnimatePresence mode="wait">
-                {step === 'choice' && (
+                {step === 'personal-context' && (
                     <motion.div
-                        key="choice"
+                        key="personal-context"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                     >
-                        <OnboardingChoice onSelectMethod={handleMethodSelect} />
+                        <PersonalContextStep onComplete={handlePersonalContextComplete} />
                     </motion.div>
                 )}
 
@@ -87,6 +114,20 @@ export const OnboardingPage = () => {
                         exit={{ opacity: 0 }}
                     >
                         <QuestionnaireFlow onComplete={handleQuestionnaireComplete} />
+                    </motion.div>
+                )}
+
+                {step === 'ai-import' && (
+                    <motion.div
+                        key="ai-import"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <AIImportStep 
+                            onSkip={handleAIImportSkip}
+                            onImportComplete={handleAIImportComplete}
+                        />
                     </motion.div>
                 )}
 

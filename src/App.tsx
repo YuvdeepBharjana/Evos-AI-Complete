@@ -24,8 +24,14 @@ import { LoadingScreen } from './components/ui/LoadingScreen';
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useUserStore();
   
-  if (!user || !user.onboardingComplete) {
+  // If no user, redirect to login
+  if (!user) {
     return <Navigate to="/login" replace />;
+  }
+  
+  // If user exists but hasn't completed onboarding, redirect to onboarding
+  if (!user.onboardingComplete) {
+    return <Navigate to="/onboarding" replace />;
   }
   
   return <>{children}</>;
