@@ -83,3 +83,5 @@ FRONTEND_URL=http://localhost:5173
 - **Fix**: Check browser console for API errors
 - Verify backend `/api/auth/me` endpoint is working
 - Check network tab to see if user fetch is successful
+
+

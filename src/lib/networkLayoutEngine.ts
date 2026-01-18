@@ -25,8 +25,8 @@ const CANVAS_CENTER = { x: 1200, y: 850 };
 const CATEGORY_RADIUS = 650;
 
 // CRITICAL: Minimum spacing between node centers
-// Node visual size is ~130px, so 200px guarantees no overlap
-const MIN_NODE_SPACING = 200;
+// Node visual size is ~160px (increased for better visibility), so 240px guarantees no overlap
+const MIN_NODE_SPACING = 240;
 
 // Growth Core size (for spacing calculations)
 const GROWTH_CORE_SIZE = 180;
@@ -128,11 +128,11 @@ export const generateReactFlowElements = (
       allPlacedPositions.push(position);
       
       // Create the flow node (offset by half node size to center it)
-      // Node size is 120px, so offset by 60 to center
+      // Node size is 160px (increased), so offset by 80 to center
       flowNodes.push({
         id: node.id,
         type: 'identityNode',
-        position: { x: position.x - 60, y: position.y - 60 },
+        position: { x: position.x - 80, y: position.y - 80 },
         data: {
           label: node.label,
           type: node.type,

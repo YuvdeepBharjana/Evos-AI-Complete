@@ -4,6 +4,43 @@ import { Plus, X, Target, Repeat, Sparkles, Heart, AlertTriangle, Lightbulb, Che
 import { v4 as uuidv4 } from 'uuid';
 import type { IdentityNode } from '../../types';
 
+// Universal preview data - same as QuadrantHoverPreview (3 items per quadrant)
+const UNIVERSAL_PREVIEW = {
+  habits: [
+    "Sleep consistency",
+    "Focus blocks",
+    "Daily movement",
+  ],
+  struggles: [
+    "Procrastination loops",
+    "Self-doubt",
+    "Overwhelm",
+  ],
+  emotions: [
+    "Stress reactivity",
+    "Frustration tolerance",
+    "Motivation dips",
+  ],
+  goals: [
+    "Priority clarity",
+    "Short-term wins",
+    "Long-term direction",
+  ],
+};
+
+// Get preview items for a type (same logic as QuadrantHoverPreview)
+const getPreviewItemsForType = (type: string): string[] => {
+  const mapping: Record<string, keyof typeof UNIVERSAL_PREVIEW> = {
+    habit: 'habits',
+    struggle: 'struggles',
+    emotion: 'emotions',
+    goal: 'goals',
+  };
+  
+  const key = mapping[type];
+  return key ? UNIVERSAL_PREVIEW[key].slice(0, 3) : [];
+};
+
 interface ManualOnboardingFlowProps {
   onComplete: (nodes: IdentityNode[]) => void;
 }
@@ -63,6 +100,7 @@ export const ManualOnboardingFlow = ({ onComplete }: ManualOnboardingFlowProps) 
   });
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hoveredType, setHoveredType] = useState<NodeType | null>(null);
 
   const currentConfig = nodeTypeConfig[currentType];
   const currentTypeIndex = nodeTypes.indexOf(currentType);
@@ -170,33 +208,78 @@ export const ManualOnboardingFlow = ({ onComplete }: ManualOnboardingFlowProps) 
         </div>
 
         {/* Type Selector */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+        <div className="relative flex gap-2 mb-6 overflow-x-auto pb-2">
           {nodeTypes.map((type) => {
             const config = nodeTypeConfig[type];
             const Icon = config.icon;
             const count = nodes[type].length;
             const isActive = type === currentType;
+            const isHovered = hoveredType === type;
+            const previewItems = getPreviewItemsForType(type);
             
             return (
-              <button
-                key={type}
-                onClick={() => setCurrentType(type)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                  isActive
-                    ? `bg-gradient-to-r ${config.color} text-white`
-                    : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                }`}
+              <div 
+                key={type} 
+                className="relative"
+                onMouseEnter={() => setHoveredType(type)}
+                onMouseLeave={() => setHoveredType(null)}
               >
-                <Icon className="w-4 h-4" />
-                {config.label}
-                {count > 0 && (
-                  <span className={`px-1.5 py-0.5 rounded text-xs ${
-                    isActive ? 'bg-white/20' : 'bg-white/10'
-                  }`}>
-                    {count}
-                  </span>
-                )}
-              </button>
+                <button
+                  onClick={() => setCurrentType(type)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                    isActive
+                      ? `bg-gradient-to-r ${config.color} text-white`
+                      : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {config.label}
+                  {count > 0 && (
+                    <span className={`px-1.5 py-0.5 rounded text-xs ${
+                      isActive ? 'bg-white/20' : 'bg-white/10'
+                    }`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+                
+                {/* Hover Preview - simplified for button positioning */}
+                <AnimatePresence>
+                  {isHovered && previewItems.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 6 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 pointer-events-none"
+                      style={{ width: '280px' }}
+                    >
+                      <div
+                        className="rounded-2xl p-4 border border-white/10"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(15,15,25,0.98) 0%, rgba(20,20,35,0.95) 100%)',
+                          backdropFilter: 'blur(20px)',
+                          boxShadow: '0 20px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+                        }}
+                      >
+                        {/* Header - text only, no icons */}
+                        <div className="mb-3">
+                          <span className="text-sm font-semibold text-white">Work on →</span>
+                        </div>
+
+                        {/* Universal items list - simple bullet format */}
+                        <div className="space-y-1.5">
+                          {previewItems.map((item) => (
+                            <div key={item} className="text-sm text-gray-300">
+                              • {item}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             );
           })}
         </div>

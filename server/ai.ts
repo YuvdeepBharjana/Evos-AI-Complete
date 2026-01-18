@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 
 // Type definitions
 interface IdentityNode {
+  id?: string;
   label: string;
   type: string;
   strength: number;
@@ -15,10 +16,13 @@ interface DailyAction {
   category: string;
   action: string;
   timeEstimate: string;
+  whyItMatters?: string;
 }
 
 interface IdentityAnalysis {
   nodes: IdentityNode[];
+  connections?: Array<{ source: string; target: string; reason: string }>;
+  summary?: string;
 }
 
 interface DailyActionsResult {
@@ -40,9 +44,13 @@ interface CompletedAction {
 
 interface DailySummary {
   headline: string;
-  summary: string;
+  summary?: string;
   alignmentScore: number;
-  insights: string;
+  insights?: string;
+  proved?: string[];
+  strengthened?: string[];
+  watchPattern?: string;
+  tomorrowFocus?: string;
 }
 
 // Initialize OpenAI client (may be null if no API key)

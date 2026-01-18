@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactFlow, {
   Background,
@@ -11,9 +11,22 @@ import { IdentityNode } from './IdentityNode';
 import { GrowthCoreNode } from './GrowthCoreNode';
 import { NodeDetailsPanel } from './NodeDetailsPanel';
 import { MirrorControls } from './MirrorControls';
-import { AddNodeModal } from './AddNodeModal';
+import { QuadrantHoverPreview } from './QuadrantHoverPreview';
 import { useUserStore } from '../../store/useUserStore';
 import { generateReactFlowElements } from '../../lib/networkLayoutEngine';
+import { CANVAS_CENTER } from '../../lib/networkLayoutEngine';
+
+// Category positions matching networkLayoutEngine
+const TYPE_POSITIONS: Record<string, { angle: number; color: string }> = {
+  goal:     { angle: 270, color: '#3b82f6' },  // Top (12 o'clock)
+  habit:    { angle: 330, color: '#10b981' },  // Top-right (2 o'clock)
+  trait:    { angle: 30,  color: '#a855f7' },  // Bottom-right (4 o'clock)
+  interest: { angle: 90,  color: '#06b6d4' },  // Bottom (6 o'clock)
+  emotion:  { angle: 150, color: '#f59e0b' },  // Bottom-left (8 o'clock)
+  struggle: { angle: 210, color: '#ef4444' },  // Top-left (10 o'clock)
+};
+
+const CATEGORY_RADIUS = 650;
 import type { NodeType, IdentityNode as IdentityNodeType } from '../../types';
 import { Brain, Target, Zap, Trophy, Heart, AlertCircle, Sparkles, ChevronDown, ChevronUp, X, TrendingUp, Calendar, Award } from 'lucide-react';
 
@@ -32,21 +45,13 @@ const BRAIN_REGIONS = [
   { type: 'interest', label: 'Interests', region: 'Reward Center', icon: Sparkles, color: '#06b6d4', description: 'Passions & curiosities' },
 ];
 
-interface PsychMirrorProps {
-  onChangeMentor?: () => void;
-}
-
-export const PsychMirror = ({ onChangeMentor }: PsychMirrorProps = {}) => {
-  const { user, recentStrengthChanges, todayStrengthChanges, addNodes } = useUserStore();
+export const PsychMirror = () => {
+  const navigate = useNavigate();
+  const { user, recentStrengthChanges, todayStrengthChanges } = useUserStore();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<NodeType | 'all'>('all');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [legendCollapsed, setLegendCollapsed] = useState(false);
   const [showCoreSummary, setShowCoreSummary] = useState(false);
-
-  const handleAddNode = (node: IdentityNodeType) => {
-    addNodes([node]);
-  };
+  const [quadrantPositions, setQuadrantPositions] = useState<Record<string, { x: number; y: number }>>({});
 
   // Get daily action node IDs (pending actions for today)
   const dailyActionNodeIds = useMemo(() => {
@@ -133,28 +138,53 @@ export const PsychMirror = ({ onChangeMentor }: PsychMirrorProps = {}) => {
 
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
 
+  // Calculate quadrant positions when ReactFlow instance or viewport changes
+  const calculateQuadrantPositions = useCallback(() => {
+    if (!reactFlowInstance) return {};
+
+    const positions: Record<string, { x: number; y: number }> = {};
+    
+    BRAIN_REGIONS.forEach(region => {
+      const typeConfig = TYPE_POSITIONS[region.type] || TYPE_POSITIONS.trait;
+      const angleRad = (typeConfig.angle * Math.PI) / 180;
+      
+      // Calculate quadrant center position (same as in networkLayoutEngine)
+      const quadrantPosition = {
+        x: CANVAS_CENTER.x + Math.cos(angleRad) * CATEGORY_RADIUS,
+        y: CANVAS_CENTER.y + Math.sin(angleRad) * CATEGORY_RADIUS
+      };
+
+      // Convert ReactFlow coordinates to screen coordinates
+      const screenPosition = reactFlowInstance.project(quadrantPosition);
+      positions[region.type] = screenPosition;
+    });
+
+    return positions;
+  }, [reactFlowInstance]);
+
+  // Update positions when instance is ready or nodes change
+  useEffect(() => {
+    if (!reactFlowInstance) return;
+    
+    // Use setTimeout to avoid synchronous setState in effect
+    const timer = setTimeout(() => {
+      const positions = calculateQuadrantPositions();
+      setQuadrantPositions(positions);
+    }, 0);
+    
+    return () => clearTimeout(timer);
+  }, [reactFlowInstance, nodes, calculateQuadrantPositions]);
+
   const onNodeClick = useCallback((_event: any, node: any) => {
     // Show core summary for Growth Core
     if (node.id === 'growth-core') {
       setShowCoreSummary(true);
       return;
     }
-    setSelectedNodeId(node.id);
     
-    // Zoom to node and center it on screen
-    if (reactFlowInstance && node.position) {
-      const nodeWidth = 120; // approximate node width
-      const nodeHeight = 120; // approximate node height
-      const x = node.position.x + nodeWidth / 2;
-      const y = node.position.y + nodeHeight / 2;
-      
-      // Gentle zoom and center on the node with smooth animation
-      reactFlowInstance.setCenter(x, y, { 
-        zoom: 1.1, 
-        duration: 600 
-      });
-    }
-  }, [reactFlowInstance]);
+    // Navigate to work environment for regular nodes
+    navigate(`/work/${node.id}`);
+  }, [navigate]);
 
   const handleZoomIn = () => reactFlowInstance?.zoomIn();
   const handleZoomOut = () => reactFlowInstance?.zoomOut();
@@ -203,14 +233,6 @@ export const PsychMirror = ({ onChangeMentor }: PsychMirrorProps = {}) => {
         onFitView={handleFitView}
         selectedFilter={filterType}
         onFilterChange={setFilterType}
-        onAddNode={() => setShowAddModal(true)}
-        onChangeMentor={onChangeMentor}
-      />
-
-      <AddNodeModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onAdd={handleAddNode}
       />
 
       <ReactFlow
@@ -220,6 +242,13 @@ export const PsychMirror = ({ onChangeMentor }: PsychMirrorProps = {}) => {
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         onInit={setReactFlowInstance}
+        onMove={() => {
+          // Trigger position recalculation on viewport move
+          if (reactFlowInstance) {
+            const positions = calculateQuadrantPositions();
+            setQuadrantPositions(positions);
+          }
+        }}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ 
@@ -361,6 +390,26 @@ export const PsychMirror = ({ onChangeMentor }: PsychMirrorProps = {}) => {
         {/* MiniMap removed for cleaner full-screen experience */}
       </ReactFlow>
 
+      {/* Quadrant Hover Previews - positioned relative to ReactFlow viewport */}
+      {reactFlowInstance && Object.keys(quadrantPositions).length > 0 && (
+        <div className="absolute inset-0 pointer-events-none z-40">
+          {BRAIN_REGIONS.map(region => {
+            const typeConfig = TYPE_POSITIONS[region.type] || TYPE_POSITIONS.trait;
+            const position = quadrantPositions[region.type];
+            
+            if (!position) return null;
+
+            return (
+              <QuadrantHoverPreview
+                key={region.type}
+                type={region.type as any}
+                position={position}
+                angle={typeConfig.angle}
+              />
+            );
+          })}
+        </div>
+      )}
 
       <NodeDetailsPanel 
         node={selectedNode} 
@@ -377,167 +426,6 @@ export const PsychMirror = ({ onChangeMentor }: PsychMirrorProps = {}) => {
         }} 
       />
 
-      {/* Brain Map Legend - Hidden on mobile, shown on larger screens */}
-      <motion.div
-        initial={{ x: -20, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        className="hidden md:block absolute bottom-4 left-4 max-w-[320px]"
-        style={{
-          background: 'linear-gradient(135deg, rgba(15,15,25,0.95) 0%, rgba(20,20,35,0.9) 100%)',
-          backdropFilter: 'blur(20px)',
-          borderRadius: '18px',
-          border: '1px solid rgba(139, 92, 246, 0.15)',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
-          padding: '16px',
-        }}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
-            <div 
-              className="w-9 h-9 rounded-lg flex items-center justify-center"
-              style={{
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%)',
-                border: '1px solid rgba(139, 92, 246, 0.3)',
-              }}
-            >
-              <Brain className="w-4.5 h-4.5 text-purple-400" />
-            </div>
-            <div>
-              <span className="font-bold text-sm text-white">Neural Map</span>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Identity Regions</div>
-            </div>
-          </div>
-          <motion.button
-            onClick={() => setLegendCollapsed(!legendCollapsed)}
-            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            aria-label={legendCollapsed ? "Expand legend" : "Collapse legend"}
-          >
-            {legendCollapsed ? (
-              <ChevronUp className="w-4 h-4 text-gray-400" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-gray-400" />
-            )}
-          </motion.button>
-        </div>
-        
-        <AnimatePresence>
-          {!legendCollapsed && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
-              style={{ overflow: 'hidden' }}
-            >
-              <div className="space-y-2">
-                {BRAIN_REGIONS.map(region => {
-            const Icon = region.icon;
-            const count = user.identityNodes.filter(n => n.type === region.type).length;
-            const isActive = filterType === region.type;
-            return (
-              <motion.button
-                key={region.type}
-                onClick={() => setFilterType(isActive ? 'all' : region.type as NodeType)}
-                className="w-full flex items-center gap-2.5 p-2.5 rounded-lg transition-all"
-                style={{
-                  background: isActive 
-                    ? `linear-gradient(135deg, ${region.color}15 0%, ${region.color}08 100%)`
-                    : 'transparent',
-                  border: isActive 
-                    ? `1px solid ${region.color}40` 
-                    : '1px solid transparent',
-                  boxShadow: isActive ? `0 0 20px ${region.color}15` : 'none',
-                }}
-                whileHover={{ 
-                  x: 4,
-                  background: `linear-gradient(135deg, ${region.color}10 0%, ${region.color}05 100%)`,
-                }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <div 
-                  className="w-8 h-8 rounded-lg flex items-center justify-center relative overflow-hidden"
-                  style={{ 
-                    background: `linear-gradient(135deg, ${region.color}25 0%, ${region.color}10 100%)`,
-                    border: `1px solid ${region.color}30`,
-                  }}
-                >
-                  <Icon size={16} style={{ color: region.color }} />
-                  {isActive && (
-                    <motion.div
-                      className="absolute inset-0"
-                      style={{ background: `${region.color}20` }}
-                      animate={{ opacity: [0.3, 0.6, 0.3] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    />
-                  )}
-                </div>
-                <div className="flex-1 text-left">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-white/90">{region.label}</span>
-                    <span 
-                      className="text-xs font-bold px-2 py-0.5 rounded-full"
-                      style={{ 
-                        background: count > 0 ? `${region.color}20` : 'rgba(255,255,255,0.05)',
-                        color: count > 0 ? region.color : 'rgba(255,255,255,0.3)',
-                      }}
-                    >
-                      {count}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-gray-500">{region.region}</div>
-                </div>
-              </motion.button>
-            );
-          })}
-              </div>
-
-              {/* Stats summary */}
-              {stats && (
-                <div 
-                  className="mt-4 pt-3 grid grid-cols-3 gap-3"
-                  style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
-                >
-                  <div className="text-center">
-                    <div 
-                      className="text-lg font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent"
-                    >
-                      {stats.visible}
-                    </div>
-                    <div className="text-[10px] text-gray-500 uppercase tracking-wider">Active</div>
-                  </div>
-                  <div className="text-center">
-                    <div 
-                      className="text-lg font-black bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent"
-                    >
-                      {stats.avgStrength}%
-                    </div>
-                    <div className="text-[10px] text-gray-500 uppercase tracking-wider">Avg</div>
-                  </div>
-                  <div className="text-center">
-                    <div 
-                      className="text-lg font-black bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent"
-                    >
-                      {stats.completed}
-                    </div>
-                    <div className="text-[10px] text-gray-500 uppercase tracking-wider">Complete</div>
-                  </div>
-                </div>
-              )}
-
-              {/* Completed nodes note */}
-              {stats && stats.completed > 0 && (
-                <div className="mt-3 pt-3 text-center" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                  <p className="text-[10px] text-green-400">
-                    ✓ {stats.completed} node{stats.completed > 1 ? 's' : ''} at 100% - fully integrated!
-                  </p>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
 
       {/* Core Summary Modal */}
       <AnimatePresence>

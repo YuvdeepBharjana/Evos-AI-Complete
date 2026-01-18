@@ -187,14 +187,67 @@ const TrackerItem = ({ metric, value, onChange, onEdit }: TrackerItemProps) => {
 };
 
 export const DailyTracker = () => {
-  const { 
-    customMetrics, 
-    getActiveMetrics,
-    updateMetric,
-    upsertMetricEntry,
-    getMetricValue,
-    user
-  } = useUserStore();
+  const { user } = useUserStore();
+  
+  // Local state for metrics (stored in localStorage for now)
+  const [customMetrics, setCustomMetrics] = useState<DailyMetric[]>(() => {
+    const stored = localStorage.getItem('evos_custom_metrics');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return [];
+      }
+    }
+    // Default metrics
+    return [
+      { id: 'calories', label: 'Calories', unit: 'cal', type: 'number', target: 2000, isDefault: true, isActive: true, icon: 'Flame' },
+      { id: 'exercise', label: 'Exercise', unit: 'min', type: 'number', target: 30, isDefault: true, isActive: true, icon: 'Dumbbell' },
+      { id: 'deep_work', label: 'Deep Work', unit: 'hrs', type: 'number', target: 4, isDefault: true, isActive: true, icon: 'Briefcase' },
+      { id: 'sleep', label: 'Sleep', unit: 'hrs', type: 'number', target: 8, isDefault: true, isActive: true, icon: 'Moon' },
+      { id: 'mood', label: 'Mood', type: 'scale_1_10', target: 7, isDefault: true, isActive: true, icon: 'Heart' },
+    ];
+  });
+
+  // Local state for metric entries (stored in localStorage)
+  const [metricEntries, setMetricEntries] = useState<DailyMetricEntry[]>(() => {
+    const stored = localStorage.getItem('evos_metric_entries');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  // Helper functions
+  const getActiveMetrics = (): DailyMetric[] => {
+    return customMetrics.filter(m => m.isActive);
+  };
+
+  const updateMetric = (metricId: string, updates: Partial<DailyMetric>) => {
+    setCustomMetrics(prev => {
+      const updated = prev.map(m => m.id === metricId ? { ...m, ...updates } : m);
+      localStorage.setItem('evos_custom_metrics', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const upsertMetricEntry = (date: string, metricId: string, value: number) => {
+    setMetricEntries(prev => {
+      const filtered = prev.filter(e => !(e.date === date && e.metricId === metricId));
+      const updated = [...filtered, { id: `${date}-${metricId}`, date, metricId, value }];
+      localStorage.setItem('evos_metric_entries', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const getMetricValue = (date: string, metricId: string): number | undefined => {
+    const entry = metricEntries.find(e => e.date === date && e.metricId === metricId);
+    return entry?.value;
+  };
   
   const [isExpanded, setIsExpanded] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);

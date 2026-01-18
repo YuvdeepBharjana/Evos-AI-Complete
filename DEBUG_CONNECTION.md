@@ -216,3 +216,6 @@ curl -X POST https://evos-ai.fly.dev/api/auth/register \
 - Check URL includes `/api`
 - Verify endpoint exists in `server/index.ts`
 
+
+
+

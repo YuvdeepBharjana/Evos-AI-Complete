@@ -7,6 +7,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { VisionPage } from './pages/VisionPage';
+import { PricingPage } from './pages/PricingPage';
 import { ContactPage } from './pages/ContactPage';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
@@ -16,6 +17,7 @@ import { MirrorPage } from './pages/MirrorPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ExperimentPage } from './pages/ExperimentPage';
 import { WorkSessionPage } from './pages/WorkSessionPage';
+import { WorkEnvironmentPage } from './pages/WorkEnvironmentPage';
 import { AppLayout } from './components/layout/AppLayout';
 import { setAuthToken, getCurrentUser } from './lib/api';
 import { LoadingScreen } from './components/ui/LoadingScreen';
@@ -113,6 +115,7 @@ function App() {
         {/* Public Marketing Pages */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/vision" element={<VisionPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
@@ -163,6 +166,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ExperimentPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/work/:nodeId"
+            element={
+              <ProtectedRoute>
+                <WorkEnvironmentPage />
               </ProtectedRoute>
             }
           />

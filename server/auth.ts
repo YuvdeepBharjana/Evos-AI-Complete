@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
+import * as crypto from 'crypto';
 import { db } from './db.js';
 import type { Request, Response, NextFunction } from 'express';
 
@@ -16,6 +17,19 @@ export interface User {
   onboarding_method?: string;
   email_verified?: boolean;
   password_hash?: string;
+}
+
+// Declare module augmentation for Express to fix type conflicts
+declare global {
+  namespace Express {
+    interface User {
+      id: string;
+      email: string;
+      name: string;
+      created_at: string;
+      onboarding_complete: boolean;
+    }
+  }
 }
 
 export interface AuthRequest extends Request {
@@ -163,4 +177,55 @@ export function optionalAuthMiddleware(req: AuthRequest, res: Response, next: Ne
   next();
 }
 
+// Find or create OAuth user
+export function findOrCreateOAuthUser(
+  provider: 'google' | 'apple',
+  providerId: string,
+  email: string,
+  name: string,
+  accessToken: string,
+  refreshToken: string | undefined,
+  expiresAt: Date | undefined
+): User {
+  // Check if user exists by email
+  let user = findUserByEmail(email);
+  
+  if (user) {
+    // User exists - update name if needed and mark email as verified
+    const updateStmt = db.prepare(`
+      UPDATE users 
+      SET name = ?, email_verified = 1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    updateStmt.run(name, user.id);
+    
+    // Return updated user
+    return {
+      ...user,
+      name,
+      email_verified: true,
+    };
+  } else {
+    // Create new user (OAuth users don't have password_hash)
+    const id = uuidv4();
+    const insertStmt = db.prepare(`
+      INSERT INTO users (id, email, password_hash, name, email_verified)
+      VALUES (?, ?, ?, ?, 1)
+    `);
+    
+    // Set a placeholder password hash (OAuth users don't need passwords)
+    // Use a random string that can't be guessed
+    const placeholderHash = '$2a$12$' + crypto.randomBytes(16).toString('base64').slice(0, 22);
+    insertStmt.run(id, email.toLowerCase(), placeholderHash, name);
+    
+    return {
+      id,
+      email: email.toLowerCase(),
+      name,
+      created_at: new Date().toISOString(),
+      onboarding_complete: false,
+      email_verified: true,
+    };
+  }
+}
 

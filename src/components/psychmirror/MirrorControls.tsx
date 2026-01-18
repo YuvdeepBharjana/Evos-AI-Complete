@@ -1,4 +1,4 @@
-import { ZoomIn, ZoomOut, Maximize2, Sparkles, Plus, Filter, Dna } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, Sparkles, Filter } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { NodeType } from '../../types';
 
@@ -8,8 +8,6 @@ interface MirrorControlsProps {
   onFitView: () => void;
   selectedFilter: NodeType | 'all';
   onFilterChange: (filter: NodeType | 'all') => void;
-  onAddNode?: () => void;
-  onChangeMentor?: () => void;
 }
 
 const FILTER_COLORS: Record<string, string> = {
@@ -27,9 +25,7 @@ export const MirrorControls = ({
   onZoomOut,
   onFitView,
   selectedFilter,
-  onFilterChange,
-  onAddNode,
-  onChangeMentor
+  onFilterChange
 }: MirrorControlsProps) => {
   const filters: Array<{ label: string; value: NodeType | 'all' }> = [
     { label: 'All', value: 'all' },
@@ -106,74 +102,6 @@ export const MirrorControls = ({
 
       {/* Right Controls */}
       <div className="flex gap-2 pointer-events-auto self-end sm:self-auto">
-        {/* Change Mentor Button */}
-        {onChangeMentor && (
-          <motion.button
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.15 }}
-            onClick={onChangeMentor}
-            className="group relative overflow-hidden"
-            style={{
-              background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.9) 0%, rgba(168, 85, 247, 0.9) 100%)',
-              borderRadius: '10px',
-              padding: '8px 12px',
-              border: '1px solid rgba(255,255,255,0.2)',
-              boxShadow: '0 10px 30px rgba(168, 85, 247, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)',
-            }}
-            whileHover={{ 
-              scale: 1.02,
-              boxShadow: '0 15px 40px rgba(168, 85, 247, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
-            }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <div className="flex items-center gap-1.5 text-white font-semibold text-xs sm:text-sm">
-              <Dna size={16} />
-              <span className="hidden sm:inline">AI Mentor</span>
-            </div>
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0"
-              initial={{ x: '-100%' }}
-              whileHover={{ x: '100%' }}
-              transition={{ duration: 0.6 }}
-            />
-          </motion.button>
-        )}
-
-        {/* Add Node Button */}
-        {onAddNode && (
-          <motion.button
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            onClick={onAddNode}
-            className="group relative overflow-hidden"
-            style={{
-              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(59, 130, 246, 0.9) 100%)',
-              borderRadius: '10px',
-              padding: '8px 12px',
-              border: '1px solid rgba(255,255,255,0.2)',
-              boxShadow: '0 10px 30px rgba(139, 92, 246, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)',
-            }}
-            whileHover={{ 
-              scale: 1.02,
-              boxShadow: '0 15px 40px rgba(139, 92, 246, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
-            }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <div className="flex items-center gap-1.5 text-white font-semibold text-xs sm:text-sm">
-              <Plus size={16} />
-              <span className="hidden sm:inline">Add Node</span>
-            </div>
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0"
-              initial={{ x: '-100%' }}
-              whileHover={{ x: '100%' }}
-              transition={{ duration: 0.6 }}
-            />
-          </motion.button>
-        )}
-
         {/* Zoom Controls */}
         <motion.div
           initial={{ y: -20, opacity: 0 }}

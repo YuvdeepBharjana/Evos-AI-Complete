@@ -68,3 +68,5 @@ When you visit `http://localhost:5173`:
 2. Console shows: `🔗 API Base URL: /api`
 3. API calls go to `/api/*` (proxied to backend)
 4. No CORS errors in console
+
+

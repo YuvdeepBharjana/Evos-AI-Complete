@@ -1013,10 +1013,10 @@ app.get('/api/actions/:date?', authMiddleware, async (req: AuthRequest, res) => 
     
     // Generate new actions if none exist for today
     if (actions.length === 0 && date === new Date().toISOString().split('T')[0]) {
-      const nodes = db.prepare('SELECT * FROM nodes WHERE user_id = ?').all(req.user!.id);
+      const nodes = db.prepare('SELECT * FROM nodes WHERE user_id = ?').all(req.user!.id) as any[];
       
       if (nodes.length > 0) {
-        const generated = await generateDailyActions(nodes);
+        const generated = await generateDailyActions(nodes as any);
         
         const insertAction = db.prepare(`
           INSERT INTO daily_actions (id, user_id, date, node_id, node_name, action_text, time_estimate)
@@ -1114,8 +1114,8 @@ app.post('/api/actions/regenerate', authMiddleware, async (req: AuthRequest, res
     `).run(req.user!.id, date);
     
     // Generate new ones
-    const nodes = db.prepare('SELECT * FROM nodes WHERE user_id = ?').all(req.user!.id);
-    const generated = await generateDailyActions(nodes);
+    const nodes = db.prepare('SELECT * FROM nodes WHERE user_id = ?').all(req.user!.id) as any[];
+    const generated = await generateDailyActions(nodes as any);
     
     const insertAction = db.prepare(`
       INSERT INTO daily_actions (id, user_id, date, node_id, node_name, action_text, time_estimate)

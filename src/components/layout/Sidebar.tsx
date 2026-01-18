@@ -1,21 +1,42 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Brain, User, LogOut, FlaskConical, Menu, X, AlertCircle } from 'lucide-react';
+import { MessageSquare, Brain, User, LogOut, FlaskConical, Menu, X, AlertCircle, Plus, Dna } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
+import { AddNodeModal } from '../psychmirror/AddNodeModal';
+import { MentorSelectionModal } from '../psychmirror/MentorSelectionModal';
+import { useUserStore } from '../../store/useUserStore';
+import type { IdentityNode } from '../../types';
+import type { AIMentorStyle } from '../../lib/api';
 
 export const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuthStore();
+  const { addNodes } = useUserStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showMentorModal, setShowMentorModal] = useState(false);
 
   const navItems = [
     { icon: MessageSquare, label: 'Chat', path: '/dashboard', tooltip: 'Chat with your AI companion' },
     { icon: Brain, label: 'Mirror', path: '/mirror', tooltip: 'View your Psychological Mirror' },
     { icon: FlaskConical, label: '30-Day', path: '/experiment', tooltip: '30-Day Growth Experiment' }
   ];
+
+  // Show Mirror actions only on Mirror page
+  const showActions = location.pathname === '/mirror';
+
+  const handleAddNode = (node: IdentityNode) => {
+    addNodes([node]);
+    setShowAddModal(false);
+  };
+
+  const handleMentorSelect = (style: AIMentorStyle) => {
+    console.log('✅ Mentor style selected:', style);
+    setShowMentorModal(false);
+  };
 
   const handleLogout = () => {
     signOut();
@@ -80,6 +101,30 @@ export const Sidebar = () => {
             );
           })}
         </nav>
+
+        {/* Mirror Actions - Only show on Mirror page */}
+        {showActions && (
+          <div className="flex flex-col gap-3 pb-4 border-b border-gray-800">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowAddModal(true)}
+              className="p-3 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-indigo-500/50 transition-all"
+              title="Add a new identity node"
+            >
+              <Plus size={24} />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowMentorModal(true)}
+              className="p-3 rounded-xl bg-gradient-to-br from-pink-500 to-purple-500 text-white hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+              title="Change AI Mentor style"
+            >
+              <Dna size={24} />
+            </motion.button>
+          </div>
+        )}
 
         {/* User Profile */}
         <div className="mt-auto flex flex-col gap-4">
@@ -171,6 +216,33 @@ export const Sidebar = () => {
                     </button>
                   );
                 })}
+
+                {/* Mirror Actions - Only show on Mirror page */}
+                {showActions && (
+                  <>
+                    <div className="my-3 border-t border-gray-800" />
+                    <button
+                      onClick={() => {
+                        setShowAddModal(true);
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white hover:opacity-90 transition-opacity"
+                    >
+                      <Plus size={20} />
+                      <span>Add Node</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMentorModal(true);
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:opacity-90 transition-opacity"
+                    >
+                      <Dna size={20} />
+                      <span>AI Mentor</span>
+                    </button>
+                  </>
+                )}
               </nav>
 
               {/* User Actions */}
@@ -293,6 +365,22 @@ export const Sidebar = () => {
           </>
         )}
       </AnimatePresence>
+
+      {/* Mirror Modals - Only active on Mirror page */}
+      {showActions && (
+        <>
+          <AddNodeModal
+            isOpen={showAddModal}
+            onClose={() => setShowAddModal(false)}
+            onAdd={handleAddNode}
+          />
+          <MentorSelectionModal
+            isOpen={showMentorModal}
+            onClose={() => setShowMentorModal(false)}
+            onSelect={handleMentorSelect}
+          />
+        </>
+      )}
     </>
   );
 };

@@ -2,7 +2,7 @@
  * IDENTITY NODE COMPONENT
  * =======================
  * 
- * CRITICAL: Node size is FIXED at 120px to ensure consistent spacing
+ * CRITICAL: Node size is FIXED at 160px to ensure consistent spacing
  * and prevent overlap. The networkLayoutEngine relies on this size
  * for its collision detection algorithm.
  * 
@@ -176,7 +176,8 @@ export const IdentityNode = memo(({ data, selected }: IdentityNodeProps) => {
   
   // Fixed node size for consistent, clean layout (prevents overlap)
   // All nodes are the same size for a professional appearance
-  const nodeSize = 120;
+  // Increased to 160px for better visibility and user interaction
+  const nodeSize = 160;
   
   // Detect strength changes - respond to prop changes
   useEffect(() => {

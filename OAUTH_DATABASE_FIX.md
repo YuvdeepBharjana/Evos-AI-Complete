@@ -73,3 +73,6 @@ Go to `http://localhost:8080/login` and click "Continue with Google"
 - Migration is safe - it preserves all existing data
 - After migration, both email/password and OAuth users will work
 
+
+
+
