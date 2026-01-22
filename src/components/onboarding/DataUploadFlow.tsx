@@ -494,7 +494,7 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-2xl w-full relative"
       >
-        {/* Data Safety Banner */}
+        {/* Data Safety Banner - TRADER COPY */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -503,7 +503,7 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           <div className="flex items-start gap-3">
             <Shield className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm">
-              <p className="text-green-400 font-medium mb-1">Your data stays private</p>
+              <p className="text-green-400 font-medium mb-1">Your trading data stays private</p>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-gray-400 text-xs">
                 <span className="flex items-center gap-1">
                   <Lock className="w-3 h-3" /> Processed locally
@@ -517,17 +517,17 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
           </div>
         </motion.div>
 
-        {/* Header */}
+        {/* Header - TRADER COPY */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-indigo-500/10 to-cyan-500/10 border border-indigo-500/20 mb-4">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-green-500/10 to-cyan-500/10 border border-green-500/20 mb-4">
             <Zap className="w-4 h-4 text-cyan-400" />
             <span className="text-sm text-gray-300">Deep analysis — 2 minutes</span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent mb-4">
-            Identity Profile Extraction
+          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-green-400 via-emerald-400 to-cyan-400 bg-clip-text text-transparent mb-4">
+            Trading Profile Extraction
           </h1>
           <p className="text-gray-400">
-            Let your AI expose your patterns — the good, the bad, and the blind spots
+            Let your AI expose your trading patterns — the good, the bad, and the blind spots
           </p>
         </div>
 
@@ -619,10 +619,11 @@ export const DataUploadFlow = ({ onComplete }: DataUploadFlowProps) => {
                   </Button>
                 </div>
 
+                {/* TRADER COPY: Pro tip */}
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                   <p className="text-sm text-gray-400">
-                    <span className="text-white font-medium">💡 Pro tip:</span> Use the AI you've been most honest with. 
-                    It's seen your wins, failures, excuses, and real patterns. Let it expose you.
+                    <span className="text-white font-medium">💡 Pro tip:</span> Use the AI you've been most honest with about your trading. 
+                    It's seen your wins, losses, excuses, and real patterns. Let it expose you.
                   </p>
                 </div>
               </motion.div>
@@ -755,9 +756,10 @@ GOALS:
                 >
                   <CheckCircle size={64} className="mx-auto mb-4 text-green-500" />
                 </motion.div>
-                <h3 className="text-2xl font-bold mb-2 text-white">Identity Map Created!</h3>
+                {/* TRADER COPY: Success message */}
+                <h3 className="text-2xl font-bold mb-2 text-white">Trading Profile Created!</h3>
                 <p className="text-gray-400 mb-6">
-                  Extracted {extractedNodes.length} identity patterns
+                  Extracted {extractedNodes.length} behavioral patterns
                 </p>
                 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8 max-w-lg mx-auto">
@@ -779,9 +781,10 @@ GOALS:
                   ))}
                 </div>
 
+                {/* TRADER COPY: CTA button */}
                 <Button onClick={handleComplete} size="lg">
                   <Sparkles className="w-4 h-4 mr-2" />
-                  View Your Identity Mirror
+                  View Your Trading Profile
                 </Button>
               </motion.div>
             )}

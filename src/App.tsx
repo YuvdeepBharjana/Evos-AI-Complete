@@ -12,15 +12,21 @@ import { ContactPage } from './pages/ContactPage';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { OnboardingPage } from './pages/OnboardingPage';
+import { HomePage } from './pages/HomePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { MirrorPage } from './pages/MirrorPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ExperimentPage } from './pages/ExperimentPage';
 import { WorkSessionPage } from './pages/WorkSessionPage';
 import { WorkEnvironmentPage } from './pages/WorkEnvironmentPage';
+import { PremarketCalibrationPage } from './pages/PremarketCalibrationPage';
+import { PostMarketReviewPage } from './pages/PostMarketReviewPage';
+import { DisciplineCalendarPage } from './pages/DisciplineCalendarPage';
 import { AppLayout } from './components/layout/AppLayout';
+import { PublicLayout } from './components/layout/PublicLayout';
 import { setAuthToken, getCurrentUser } from './lib/api';
 import { LoadingScreen } from './components/ui/LoadingScreen';
+import { useTradingDayStore } from './store/useTradingDayStore';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -39,20 +45,25 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Auth Route Component (redirects to dashboard if already logged in)
+// Auth Route Component (redirects to home if already logged in)
 const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useUserStore();
   
   if (user?.onboardingComplete) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/home" replace />;
   }
   
   return <>{children}</>;
 };
 
 function App() {
-  const { authToken, user, setUserFromApi, logout, loadTrackingFromBackend, checkDailyReset } = useUserStore();
+  const { authToken, user, setUserFromApi, signOut, loadTrackingFromBackend, checkDailyReset } = useUserStore();
   const [isInitializing, setIsInitializing] = useState(true);
+
+  // Initialize TradingDay system on app load
+  useEffect(() => {
+    useTradingDayStore.getState().initializeToday();
+  }, []);
 
   // Restore and validate session on app load
   useEffect(() => {
@@ -90,18 +101,30 @@ function App() {
           } else {
             // Token is invalid or expired, clear everything
             console.log('Session expired or invalid, logging out');
-            logout();
+            signOut();
           }
+        } else {
+          // No auth token - user is not logged in, proceed to show app
+          console.log('No auth token found - user not logged in');
         }
       } catch (error) {
         console.error('Failed to restore session:', error);
-        logout();
+        signOut();
       } finally {
+        console.log('Initialization complete, setting isInitializing to false');
         setIsInitializing(false);
       }
     };
 
-    initializeAuth();
+    // Add timeout safety net - if initialization takes more than 10 seconds, force completion
+    const timeoutId = setTimeout(() => {
+      console.warn('Initialization timeout - forcing app to render');
+      setIsInitializing(false);
+    }, 10000);
+
+    initializeAuth().finally(() => {
+      clearTimeout(timeoutId);
+    });
   }, []); // Run only once on mount
 
   // Show loading screen while initializing
@@ -112,15 +135,32 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public Marketing Pages */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/vision" element={<VisionPage />} />
-        <Route path="/pricing" element={<PricingPage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/privacy" element={<PrivacyPage />} />
+        {/* ============================================
+            PUBLIC ROUTES (Marketing Pages with PublicLayout)
+            ============================================ */}
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/vision" element={<VisionPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route 
+            path="/testimonials" 
+            element={
+              <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                  <h1 className="text-4xl font-bold mb-4">Testimonials</h1>
+                  <p className="text-gray-400">Coming soon</p>
+                </div>
+              </div>
+            } 
+          />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+        </Route>
 
-        {/* Auth Routes */}
+        {/* ============================================
+            AUTH ROUTES (Login, OAuth, Password Reset)
+            ============================================ */}
         <Route
           path="/login"
           element={
@@ -135,8 +175,46 @@ function App() {
         {/* Onboarding is NOT wrapped in AuthRoute to allow mentor selection flow to complete */}
         <Route path="/onboarding" element={<OnboardingPage />} />
 
-        {/* Protected Routes */}
+        {/* ============================================
+            AUTHENTICATED APP ROUTES (With AppLayout Sidebar)
+            All authenticated routes use AppLayout for consistent sidebar navigation.
+            ============================================ */}
         <Route element={<AppLayout />}>
+          {/* Core Discipline Routes */}
+          <Route
+            path="/home"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/premarket"
+            element={
+              <ProtectedRoute>
+                <PremarketCalibrationPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/postmarket"
+            element={
+              <ProtectedRoute>
+                <PostMarketReviewPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/calendar"
+            element={
+              <ProtectedRoute>
+                <DisciplineCalendarPage />
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* Secondary Routes */}
           <Route
             path="/dashboard"
             element={
@@ -146,18 +224,38 @@ function App() {
             }
           />
           <Route
-            path="/mirror"
-            element={
-              <ProtectedRoute>
-                <MirrorPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/profile"
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <div className="min-h-screen flex items-center justify-center">
+                  <div className="text-center">
+                    <h1 className="text-4xl font-bold mb-4">Settings</h1>
+                    <p className="text-gray-400">Coming soon</p>
+                  </div>
+                </div>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ============================================
+              LEGACY / DEPRECATED ROUTES
+              These are from the identity-era system and are
+              not part of the core trader discipline workflow.
+              Kept for backward compatibility but de-prioritized.
+              ============================================ */}
+          <Route
+            path="/mirror"
+            element={
+              <ProtectedRoute>
+                <MirrorPage />
               </ProtectedRoute>
             }
           />
@@ -179,7 +277,9 @@ function App() {
           />
         </Route>
 
-        {/* Work Session (full screen, no app layout) */}
+        {/* ============================================
+            LEGACY FULLSCREEN ROUTES
+            ============================================ */}
         <Route
           path="/work-session"
           element={
@@ -189,7 +289,7 @@ function App() {
           }
         />
 
-        {/* Catch all - redirect to home */}
+        {/* Catch all - redirect to landing */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

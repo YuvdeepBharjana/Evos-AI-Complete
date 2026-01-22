@@ -137,7 +137,7 @@ export const useUserStore = create<UserStore>()(
           name: apiUser.name,
           onboardingComplete: apiUser.onboarding_complete,
           onboardingMethod: apiUser.onboarding_method,
-          emailVerified: apiUser.email_verified,
+          tier: apiUser.tier || 'free', // Default to 'free' if not provided
           identityNodes,
           dailyActions,
         };

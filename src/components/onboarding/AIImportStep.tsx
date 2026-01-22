@@ -49,12 +49,13 @@ export const AIImportStep = ({ onSkip, onImportComplete }: AIImportStepProps) =>
               </div>
             </div>
 
+            {/* TRADER COPY: Updated for trading context */}
             <h2 className="text-2xl md:text-3xl font-bold mb-4 text-white text-center">
               Want Evos to learn faster?
             </h2>
 
             <p className="text-sm text-gray-400 mb-8 text-center max-w-xl mx-auto leading-relaxed">
-              If you regularly use another AI for journaling or reflection, you can import that data to help Evos recognize deeper patterns. This is optional and can be done later.
+              If you regularly use another AI for trading journals, trade reflections, or strategy notes, you can import that data to help Evos recognize deeper behavioral patterns. This is optional and can be done later.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

@@ -141,7 +141,7 @@ export const QuestionnaireFlow = ({ onComplete }: QuestionnaireFlowProps) => {
         animate={{ opacity: 1 }}
         className="max-w-2xl w-full relative"
       >
-        {/* Data Safety Notice */}
+        {/* Data Safety Notice - TRADER COPY */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -149,7 +149,7 @@ export const QuestionnaireFlow = ({ onComplete }: QuestionnaireFlowProps) => {
         >
           <Shield className="w-5 h-5 text-green-400 flex-shrink-0" />
           <p className="text-sm text-green-300">
-            Your answers are encrypted and never shared. You can delete your data anytime.
+            Your trading behavior and journal data are encrypted and never shared. You can delete everything anytime.
           </p>
         </motion.div>
 
@@ -163,23 +163,57 @@ export const QuestionnaireFlow = ({ onComplete }: QuestionnaireFlowProps) => {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
           >
-            <Card>
-              <div className="mb-2 text-sm text-indigo-400 font-medium">
-                Question {currentQuestion + 1} of {onboardingV2Questions.length}
-              </div>
+            {/* PREMIUM UPGRADE: Stronger backdrop blur, gradient border */}
+            <div className="relative rounded-2xl p-8 backdrop-blur-xl bg-gradient-to-br from-gray-900/80 via-gray-900/70 to-gray-800/80 border border-white/10 shadow-2xl">
+              {/* Subtle gradient border glow */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-green-500/10 via-emerald-500/10 to-cyan-500/10 blur-xl -z-10" />
               
-              <h2 className="text-2xl md:text-3xl font-bold mb-3 text-white">
+              {/* PREMIUM: Updated question counter with pulse dot + gradient underline */}
+              <div className="mb-6">
+                <div className="flex items-center gap-2 text-sm text-green-400 font-medium mb-2">
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                    className="w-2 h-2 rounded-full bg-green-400"
+                  />
+                  <span>Building Your Trader Profile — Step {currentQuestion + 1} of {onboardingV2Questions.length}</span>
+                </div>
+                {/* Gradient accent underline */}
+                <div className="h-0.5 w-32 bg-gradient-to-r from-green-400 via-emerald-400 to-transparent rounded-full" />
+              </div>
+
+              {/* PREMIUM: Founders Note (show only on Q1) - UPDATED COPY */}
+              {currentQuestion === 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="mb-6 p-5 rounded-xl backdrop-blur-md bg-gradient-to-br from-indigo-500/10 via-cyan-500/10 to-blue-500/10 border border-cyan-400/30 shadow-lg shadow-cyan-500/10"
+                >
+                  <div className="text-xs font-bold text-cyan-300 uppercase tracking-wider mb-2">
+                    Founder Note
+                  </div>
+                  <p className="text-sm text-white leading-relaxed font-medium">
+                    Most traders use AI to get better trades.
+                    <br />
+                    Evos uses AI to build a better trader — because discipline, not signals, is what actually scales your career.
+                  </p>
+                </motion.div>
+              )}
+              
+              {/* PREMIUM: Larger question text */}
+              <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white leading-tight">
                 {question.question}
               </h2>
               
-              {/* Why It Matters Explanation */}
-              <p className="text-sm text-gray-400 mb-6 max-w-2xl leading-relaxed">
+              {/* PREMIUM: Slightly brighter subtext */}
+              <p className="text-sm text-gray-300 mb-8 max-w-2xl leading-relaxed">
                 {question.whyItMatters}
               </p>
               
-              {/* Multiple Choice Options */}
+              {/* PREMIUM: Enhanced Multiple Choice Options */}
               <div 
-                className="space-y-2"
+                className="space-y-3"
                 onKeyDown={handleKeyDown}
                 tabIndex={0}
               >
@@ -198,27 +232,35 @@ export const QuestionnaireFlow = ({ onComplete }: QuestionnaireFlowProps) => {
                       disabled={isSubmitting || isMaxReached}
                       onFocus={() => setFocusedIndex(index)}
                       onBlur={() => setFocusedIndex(null)}
-                      className={`w-full text-left p-4 rounded-xl border transition-all ${
+                      className={`relative w-full text-left p-5 rounded-xl border transition-all ${
                         isSelected
-                          ? 'bg-indigo-500/20 border-indigo-500 text-white'
+                          ? 'bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-green-400 text-white shadow-lg shadow-green-500/20'
                           : isFocused
-                          ? 'bg-gray-800/50 border-indigo-400 text-gray-100'
+                          ? 'bg-gray-800/60 border-green-400/50 text-gray-100'
                           : isMaxReached
                           ? 'bg-gray-900/30 border-gray-700 text-gray-500 cursor-not-allowed'
-                          : 'bg-gray-900/50 border-gray-700 text-gray-300 hover:border-gray-600 hover:bg-gray-800/50'
+                          : 'bg-gray-900/40 border-gray-700 text-gray-300 hover:border-green-500/50 hover:bg-gray-800/60 hover:shadow-md hover:shadow-green-500/10'
                       } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                      whileHover={!isSubmitting && !isMaxReached ? { scale: 1.01 } : {}}
-                      whileTap={!isSubmitting && !isMaxReached ? { scale: 0.99 } : {}}
+                      whileHover={!isSubmitting && !isMaxReached ? { scale: 1.02, y: -2 } : {}}
+                      whileTap={!isSubmitting && !isMaxReached ? { scale: 0.98 } : {}}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{option.label}</span>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <span className="font-semibold text-base block mb-1">{option.label}</span>
+                          {/* PREMIUM: Render micro-label if exists */}
+                          {option.microlabel && (
+                            <span className="text-xs text-gray-400 font-medium">
+                              {option.microlabel}
+                            </span>
+                          )}
+                        </div>
                         {isSelected && (
                           <motion.div
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
-                            className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center"
+                            className="w-6 h-6 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center flex-shrink-0 shadow-lg"
                           >
-                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           </motion.div>
@@ -252,7 +294,8 @@ export const QuestionnaireFlow = ({ onComplete }: QuestionnaireFlowProps) => {
               </AnimatePresence>
 
 
-              <div className="flex justify-between mt-8">
+              {/* PREMIUM: Better spacing for navigation */}
+              <div className="flex justify-between mt-10 pt-6 border-t border-white/10">
                 <Button
                   onClick={handleBack}
                   variant="ghost"
@@ -278,17 +321,18 @@ export const QuestionnaireFlow = ({ onComplete }: QuestionnaireFlowProps) => {
                   )}
                 </Button>
               </div>
-            </Card>
+            </div>
           </motion.div>
         </AnimatePresence>
 
+        {/* TRADER COPY: identity profile → trading profile */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="text-center mt-6 space-y-2"
         >
           <p className="text-gray-500 text-sm">
-            Take your time. The more thoughtful your answers, the better your identity profile.
+            Take your time. The more honest your answers, the better your trading profile.
           </p>
           <p className="text-gray-600 text-xs">
             Press ⌘+Enter to continue

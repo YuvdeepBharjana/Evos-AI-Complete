@@ -55,6 +55,7 @@ export interface User {
   name: string;
   onboarding_complete: boolean;
   onboarding_method?: string;
+  tier?: 'free' | 'pro';
 }
 
 export interface AuthResponse {
@@ -934,6 +935,95 @@ export async function analyzeIdentity(text: string): Promise<any> {
 // ============================================
 // HEALTH CHECK
 // ============================================
+
+// ============================================
+// PREMARKET COACH
+// ============================================
+
+export interface PremarketCoachRequest {
+  userAnalysis: string;
+  context?: {
+    symbol?: string;
+    date?: string;
+    session?: 'premarket' | 'rth';
+  };
+}
+
+export interface StructuredPlan {
+  bias: 'bullish' | 'bearish' | 'range';
+  setup: string;
+  levels: string[];
+  invalidation: string;
+  scenarios?: string[];
+}
+
+export interface PremarketCoachResponse {
+  refinedAnalysis: string;
+  structuredPlan: StructuredPlan;
+}
+
+export async function coachPremarketAnalysis(
+  request: PremarketCoachRequest
+): Promise<PremarketCoachResponse> {
+  try {
+    const response = await fetch(`${API_BASE}/ai/premarket-coach`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: `Server error: ${response.status}` }));
+      throw new Error(error.error || 'Premarket analysis failed');
+    }
+
+    return await response.json();
+  } catch (err: any) {
+    if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.name === 'TypeError') {
+      console.error('API connection error:', API_BASE);
+      throw new Error('Cannot connect to server. Please check your connection.');
+    }
+    throw err;
+  }
+}
+
+// ============================================
+// DISCIPLINE JUDGE
+// ============================================
+
+import type { TradingDay } from '../types/tradingDay';
+
+export interface DisciplineJudgeResponse {
+  verdict: 'PASS' | 'FAIL';
+  violations: string[];
+  strengths: string[];
+  correction: string;
+}
+
+export async function judgeDiscipline(
+  tradingDay: TradingDay
+): Promise<DisciplineJudgeResponse> {
+  try {
+    const response = await fetch(`${API_BASE}/ai/discipline-judge`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ tradingDay }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: `Server error: ${response.status}` }));
+      throw new Error(error.error || 'Discipline judge failed');
+    }
+
+    return await response.json();
+  } catch (err: any) {
+    if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.name === 'TypeError') {
+      console.error('API connection error:', API_BASE);
+      throw new Error('Cannot connect to server. Please check your connection.');
+    }
+    throw err;
+  }
+}
 
 export async function checkApiHealth(): Promise<{ ok: boolean; aiAvailable: boolean }> {
   try {

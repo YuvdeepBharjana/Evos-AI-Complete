@@ -26,6 +26,8 @@ import {
   isAIAvailable,
   SYSTEM_PROMPTS,
   MENTOR_STYLE_PROMPTS,
+  coachPremarketAnalysis,
+  judgeDiscipline,
   type AIMentorStyle
 } from './ai.js';
 import {
@@ -1292,6 +1294,73 @@ app.post('/api/chat', authMiddleware, async (req: AuthRequest, res) => {
   } catch (error: any) {
     console.error('Chat error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Premarket Analysis Coach
+app.post('/api/ai/premarket-coach', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { userAnalysis, context } = req.body;
+
+    // Validate required field
+    if (!userAnalysis || typeof userAnalysis !== 'string' || userAnalysis.trim().length === 0) {
+      return res.status(400).json({ error: 'userAnalysis is required and must be a non-empty string' });
+    }
+
+    // Call the premarket coach function
+    const result = await coachPremarketAnalysis({
+      userAnalysis: userAnalysis.trim(),
+      context: context || undefined
+    });
+
+    // Validate that result has both required fields
+    if (!result.refinedAnalysis || !result.structuredPlan) {
+      console.error('Premarket coach returned incomplete response:', result);
+      return res.status(500).json({ error: 'Premarket coach returned invalid response structure' });
+    }
+
+    // Validate structuredPlan has required fields
+    const { structuredPlan } = result;
+    if (!structuredPlan.bias || !structuredPlan.setup || !structuredPlan.levels || !structuredPlan.invalidation) {
+      console.error('Premarket coach structuredPlan missing required fields:', structuredPlan);
+      return res.status(500).json({ error: 'Premarket coach structuredPlan missing required fields' });
+    }
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Premarket coach error:', error);
+    const errorMessage = error.message || 'Premarket coach failed';
+    res.status(500).json({ error: errorMessage });
+  }
+});
+
+// Discipline Judge
+app.post('/api/ai/discipline-judge', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { tradingDay } = req.body;
+
+    // Validate required field
+    if (!tradingDay || typeof tradingDay !== 'object') {
+      return res.status(400).json({ error: 'tradingDay is required and must be an object' });
+    }
+
+    // Validate TradingDay structure (basic validation)
+    if (typeof tradingDay.date !== 'string' || 
+        typeof tradingDay.preMarketCompleted !== 'boolean' ||
+        typeof tradingDay.postMarketCompleted !== 'boolean' ||
+        typeof tradingDay.isClosed !== 'boolean') {
+      return res.status(400).json({ error: 'Invalid tradingDay structure. Required fields: date, preMarketCompleted, postMarketCompleted, isClosed' });
+    }
+
+    // Call the discipline judge function
+    const result = await judgeDiscipline({
+      tradingDay: tradingDay
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Discipline judge error:', error);
+    res.status(500).json({ error: 'Discipline judge failed' });
   }
 });
 

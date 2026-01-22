@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Brain, User, LogOut, FlaskConical, Menu, X, AlertCircle, Plus, Dna } from 'lucide-react';
+import { Calendar, MessageSquare, User, LogOut, Menu, X, AlertCircle, Plus, Dna, CheckCircle2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { AddNodeModal } from '../psychmirror/AddNodeModal';
 import { MentorSelectionModal } from '../psychmirror/MentorSelectionModal';
-import { useUserStore } from '../../store/useUserStore';
 import type { IdentityNode } from '../../types';
 import type { AIMentorStyle } from '../../lib/api';
 
@@ -13,23 +12,34 @@ export const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuthStore();
-  const { addNodes } = useUserStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMentorModal, setShowMentorModal] = useState(false);
 
+  // CORE DISCIPLINE NAVIGATION (Primary trader workflow)
   const navItems = [
-    { icon: MessageSquare, label: 'Chat', path: '/dashboard', tooltip: 'Chat with your AI companion' },
-    { icon: Brain, label: 'Mirror', path: '/mirror', tooltip: 'View your Psychological Mirror' },
-    { icon: FlaskConical, label: '30-Day', path: '/experiment', tooltip: '30-Day Growth Experiment' }
+    { icon: MessageSquare, label: 'Premarket', path: '/premarket', tooltip: 'Premarket calibration chatbot' },
+    { icon: CheckCircle2, label: 'Post-Market', path: '/postmarket', tooltip: 'Post-market review' },
+    { icon: Calendar, label: 'Calendar', path: '/calendar', tooltip: 'Discipline calendar update' },
+    { icon: MessageSquare, label: 'Dashboard', path: '/dashboard', tooltip: 'Analytics and chat' },
   ];
 
-  // Show Mirror actions only on Mirror page
+  // LEGACY ROUTES (Hidden from default navigation, but still accessible via direct URL)
+  // These are kept for backward compatibility but not shown in sidebar
+  // const legacyRoutes = [
+  //   { icon: Brain, label: 'Mirror', path: '/mirror', tooltip: 'View your Psychological Mirror' },
+  //   { icon: FlaskConical, label: '30-Day', path: '/experiment', tooltip: '30-Day Growth Experiment' }
+  // ];
+
+  // Show Mirror actions only on Mirror page (legacy feature)
   const showActions = location.pathname === '/mirror';
 
-  const handleAddNode = (node: IdentityNode) => {
-    addNodes([node]);
+  // Legacy: Add node handler (kept for backward compatibility with /mirror route)
+  // Note: This functionality is deprecated but kept for legacy Mirror page access
+  const handleAddNode = (_node: IdentityNode) => {
+    // TODO: Implement node addition if needed for legacy Mirror feature
+    console.warn('Add node functionality is deprecated. Mirror feature is legacy.');
     setShowAddModal(false);
   };
 

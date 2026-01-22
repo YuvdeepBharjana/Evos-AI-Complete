@@ -72,7 +72,7 @@ export const LoginPage = () => {
         setUserFromApi(response.user, response.token);
         
         if (response.user.onboarding_complete) {
-          navigate('/dashboard');
+          navigate('/home');
         } else {
           navigate('/onboarding');
         }
@@ -91,7 +91,7 @@ export const LoginPage = () => {
     try {
       const response = await demoLogin();
       setUserFromApi(response.user, response.token);
-      navigate('/dashboard');
+      navigate('/home');
     } catch (err: any) {
       setError('Demo login failed. Please try again.');
     } finally {
@@ -121,14 +121,14 @@ export const LoginPage = () => {
           className="text-center mb-8"
         >
           <Link to="/" className="inline-block group">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-500 mb-4 group-hover:scale-105 transition-transform">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 via-emerald-500 to-cyan-500 mb-4 group-hover:scale-105 transition-transform">
             <Dna className="w-8 h-8 text-white" />
           </div>
           </Link>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
-            {mode === 'login' ? 'Welcome Back' : 'Create Account'}
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+            {mode === 'login' ? 'Welcome Back' : 'Start Your 30-Day Reset'}
           </h1>
-          <p className="text-gray-400 mt-2">The world's first identity engineering platform</p>
+          <p className="text-gray-400 mt-2">Fix your trading discipline. Start free today.</p>
         </motion.div>
 
         {/* Auth Card */}
@@ -144,7 +144,7 @@ export const LoginPage = () => {
               onClick={() => { setMode('login'); setError(''); }}
               className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
                 mode === 'login'
-                  ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white'
+                  ? 'bg-gradient-to-r from-green-500 to-cyan-500 text-white'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
@@ -154,7 +154,7 @@ export const LoginPage = () => {
               onClick={() => { setMode('register'); setError(''); }}
               className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
                 mode === 'register'
-                  ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white'
+                  ? 'bg-gradient-to-r from-green-500 to-cyan-500 text-white'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
@@ -200,7 +200,7 @@ export const LoginPage = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full pl-10 pr-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-green-500 transition-colors"
                   required
                 />
               </div>
@@ -225,7 +225,7 @@ export const LoginPage = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={mode === 'register' ? 'Min 8 chars, uppercase, number' : '••••••••'}
-                  className="w-full pl-10 pr-12 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full pl-10 pr-12 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-green-500 transition-colors"
                   required
                 />
                 <button
@@ -285,13 +285,13 @@ export const LoginPage = () => {
               disabled={isLoading}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full py-3 px-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-500 text-white font-semibold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3 px-4 bg-gradient-to-r from-green-500 via-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  {mode === 'login' ? 'Sign In' : 'Create Account'}
+                  {mode === 'login' ? 'Sign In' : 'Start Free Trial'}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -335,12 +335,12 @@ export const LoginPage = () => {
             <div className="flex items-start gap-3">
               <Shield className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
               <div className="text-sm">
-                <p className="text-green-400 font-medium mb-1">Your data is protected</p>
+                <p className="text-green-400 font-medium mb-1">Your trading data is private</p>
                 <p className="text-gray-500 text-xs leading-relaxed">
-                  • Passwords encrypted with bcrypt (industry standard)<br />
-                  • Your conversations are never sold or shared<br />
-                  • You can delete all your data anytime<br />
-                  • We don't train AI on your personal data
+                  • Bank-level encryption for all your data<br />
+                  • Your trades and strategies stay confidential<br />
+                  • You own your data — delete it anytime<br />
+                  • We never share your trading information
                 </p>
               </div>
             </div>
@@ -351,9 +351,9 @@ export const LoginPage = () => {
             <button
               onClick={handleDemoLogin}
               disabled={isLoading}
-              className="text-sm text-gray-400 hover:text-indigo-400 transition-colors disabled:opacity-50"
+              className="text-sm text-gray-400 hover:text-green-400 transition-colors disabled:opacity-50"
             >
-              Or try the demo account →
+              Or try with a demo trading account →
             </button>
           </div>
         </motion.div>

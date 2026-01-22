@@ -30,10 +30,10 @@ export const OAuthCallbackPage = () => {
         
         // If no token and no error param, this might be an accidental visit
         if (!token && !errorParam) {
-          // If user is already logged in, redirect to dashboard
+          // If user is already logged in, redirect to home
           if (user) {
             if (user.onboardingComplete) {
-              navigate('/dashboard', { replace: true });
+              navigate('/home', { replace: true });
             } else {
               navigate('/onboarding', { replace: true });
             }
@@ -101,7 +101,7 @@ export const OAuthCallbackPage = () => {
 
         // Redirect based on onboarding status
         if (currentUser.onboarding_complete) {
-          navigate('/dashboard', { replace: true });
+          navigate('/home', { replace: true });
         } else {
           navigate('/onboarding', { replace: true });
         }

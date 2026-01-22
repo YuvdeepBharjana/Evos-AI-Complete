@@ -15,6 +15,7 @@ export interface AppUser {
   name: string;
   onboardingComplete: boolean;
   onboardingMethod?: 'questionnaire' | 'upload' | 'manual';
+  tier?: 'free' | 'pro';
 }
 
 /**

@@ -1,4 +1,6 @@
 import OpenAI from 'openai';
+import { premarketCoachSystemPrompt } from './prompts/premarketCoach.system.js';
+import { disciplineJudgeSystemPrompt } from './prompts/disciplineJudge.system.js';
 
 // Type definitions
 interface IdentityNode {
@@ -576,6 +578,299 @@ ${nodes.slice(0, 5).map(n => `- ${n.label}: ${n.strength}%`).join('\n')}
   } catch (error) {
     console.error('OpenAI summary error:', error);
     return mockSummary(trackingData, completedActions);
+  }
+}
+
+// TradingDay type for discipline judge
+export interface TradingDay {
+  id: string;
+  date: string;
+  preMarketCompleted: boolean;
+  preMarketPlan?: string;
+  preMarketTimestamp?: string;
+  postMarketCompleted: boolean;
+  rulesFollowed: boolean | null;
+  tradesTaken?: number;
+  maxTradesAllowed?: number;
+  stopLossRespected?: boolean;
+  revengeTrades?: boolean;
+  impulsiveTrades?: boolean;
+  finalStatus: 'green' | 'red' | 'neutral' | null;
+  isClosed: boolean;
+  contextTags?: string[];
+  createdAt: string;
+  closedAt?: string;
+}
+
+// Discipline Judge
+export interface DisciplineJudgeRequest {
+  tradingDay: TradingDay;
+}
+
+export interface DisciplineJudgeResponse {
+  verdict: 'PASS' | 'FAIL';
+  violations: string[];
+  strengths: string[];
+  correction: string;
+}
+
+// Premarket Analysis Coach
+export interface PremarketCoachRequest {
+  userAnalysis: string;
+  context?: {
+    symbol?: string;
+    date?: string;
+    session?: 'premarket' | 'rth';
+  };
+}
+
+export interface StructuredPlan {
+  bias: 'bullish' | 'bearish' | 'range';
+  setup: string;
+  levels: string[];
+  invalidation: string;
+  scenarios?: string[];
+}
+
+export interface PremarketCoachResponse {
+  refinedAnalysis: string;
+  structuredPlan: StructuredPlan;
+}
+
+// Discipline Judge
+export async function judgeDiscipline(
+  request: DisciplineJudgeRequest
+): Promise<DisciplineJudgeResponse> {
+  if (!openai) {
+    console.log('⚠️ OpenAI not available, using mock response');
+    return {
+      verdict: 'FAIL',
+      violations: ['[Mock Mode] Discipline Judge unavailable'],
+      strengths: [],
+      correction: 'Enable OpenAI API key to receive discipline evaluation'
+    };
+  }
+
+  try {
+    // Build trading day summary for AI
+    const { tradingDay } = request;
+    const daySummary = `
+Trading Day Evaluation:
+- Date: ${tradingDay.date}
+- Pre-market completed: ${tradingDay.preMarketCompleted}
+- Pre-market plan exists: ${tradingDay.preMarketPlan ? 'Yes' : 'No'}
+- Pre-market plan length: ${tradingDay.preMarketPlan?.length || 0} characters
+- Trades taken: ${tradingDay.tradesTaken ?? 'Not specified'}
+- Max trades allowed: ${tradingDay.maxTradesAllowed ?? 2}
+- Stop loss respected: ${tradingDay.stopLossRespected !== undefined ? tradingDay.stopLossRespected : 'Not specified'}
+- Revenge trades: ${tradingDay.revengeTrades !== undefined ? tradingDay.revengeTrades : 'Not specified'}
+- Impulsive trades: ${tradingDay.impulsiveTrades !== undefined ? tradingDay.impulsiveTrades : 'Not specified'}
+- Post-market completed: ${tradingDay.postMarketCompleted}
+- Final status: ${tradingDay.finalStatus || 'Not set'}
+`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: disciplineJudgeSystemPrompt },
+        { role: 'user', content: `Evaluate this trading day:\n${daySummary}` }
+      ],
+      max_tokens: 500,
+      temperature: 0.3, // Low temperature for consistent, structured output
+      response_format: { type: 'json_object' }, // Force JSON output
+    });
+
+    const responseText = completion.choices[0]?.message?.content || '';
+    
+    // Parse JSON response - handle markdown code blocks or extra text
+    let result: DisciplineJudgeResponse;
+    try {
+      // Try to extract JSON from response (might be wrapped in markdown or have extra text)
+      let jsonText = responseText.trim();
+      
+      // Remove markdown code blocks if present
+      const codeBlockMatch = jsonText.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+      if (codeBlockMatch) {
+        jsonText = codeBlockMatch[1];
+      } else {
+        // Try to find JSON object in the text
+        const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          jsonText = jsonMatch[0];
+        }
+      }
+      
+      result = JSON.parse(jsonText);
+      
+      // Validate response structure
+      if (!result.verdict || !['PASS', 'FAIL'].includes(result.verdict)) {
+        throw new Error('Invalid verdict in response');
+      }
+      if (!Array.isArray(result.violations)) {
+        result.violations = [];
+      }
+      if (!Array.isArray(result.strengths)) {
+        result.strengths = [];
+      }
+      if (typeof result.correction !== 'string' || result.correction.trim().length === 0) {
+        result.correction = 'Review discipline rules and plan for improvement';
+      }
+    } catch (parseError) {
+      console.error('Failed to parse discipline judge response:', parseError);
+      console.error('Response text:', responseText);
+      // Fallback response
+      result = {
+        verdict: 'FAIL',
+        violations: ['Unable to evaluate discipline - invalid response format'],
+        strengths: [],
+        correction: 'Review discipline rules and ensure all required fields are provided'
+      };
+    }
+    
+    console.log('✅ Discipline Judge response generated:', result.verdict);
+    return result;
+  } catch (error) {
+    console.error('OpenAI discipline judge error:', error);
+    throw error; // Let the route handler deal with error response
+  }
+}
+
+export async function coachPremarketAnalysis(
+  request: PremarketCoachRequest
+): Promise<PremarketCoachResponse> {
+  if (!openai) {
+    console.log('⚠️ OpenAI not available, using mock response');
+    return {
+      refinedAnalysis: `[Mock Mode] Premarket Coach would refine your analysis here.\n\nYour input: ${request.userAnalysis.substring(0, 100)}...`,
+      structuredPlan: {
+        bias: 'range',
+        setup: 'Mock setup - enable OpenAI API key for real analysis',
+        levels: ['Mock level 1', 'Mock level 2'],
+        invalidation: 'Mock invalidation condition',
+        scenarios: []
+      }
+    };
+  }
+
+  try {
+    // Build context summary if provided
+    let contextSummary = '';
+    if (request.context) {
+      const parts: string[] = [];
+      if (request.context.symbol) {
+        parts.push(`Symbol: ${request.context.symbol}`);
+      }
+      if (request.context.date) {
+        parts.push(`Date: ${request.context.date}`);
+      }
+      if (request.context.session) {
+        parts.push(`Session: ${request.context.session === 'premarket' ? 'Pre-market' : 'Regular Trading Hours'}`);
+      }
+      if (parts.length > 0) {
+        contextSummary = `\n\nContext: ${parts.join(', ')}`;
+      }
+    }
+
+    const userMessage = `${request.userAnalysis}${contextSummary}`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: premarketCoachSystemPrompt },
+        { role: 'user', content: userMessage }
+      ],
+      max_tokens: 1000,
+      temperature: 0.3, // Lower temperature for more consistent structured output
+      response_format: { type: 'json_object' }, // Force JSON output
+    });
+
+    const responseText = completion.choices[0]?.message?.content || '';
+    
+    // Parse JSON response - handle markdown code blocks or extra text
+    let result: PremarketCoachResponse;
+    try {
+      // Try to extract JSON from response (might be wrapped in markdown or have extra text)
+      let jsonText = responseText.trim();
+      
+      // Remove markdown code blocks if present
+      const codeBlockMatch = jsonText.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+      if (codeBlockMatch) {
+        jsonText = codeBlockMatch[1];
+      } else {
+        // Try to find JSON object in the text
+        const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          jsonText = jsonMatch[0];
+        }
+      }
+      
+      const parsed = JSON.parse(jsonText);
+      
+      // Validate required fields
+      if (!parsed.refinedAnalysis || typeof parsed.refinedAnalysis !== 'string') {
+        throw new Error('Missing or invalid refinedAnalysis field');
+      }
+      
+      if (!parsed.structuredPlan || typeof parsed.structuredPlan !== 'object') {
+        throw new Error('Missing or invalid structuredPlan field');
+      }
+      
+      const plan = parsed.structuredPlan;
+      
+      // Validate structuredPlan fields
+      if (!plan.bias || !['bullish', 'bearish', 'range'].includes(plan.bias)) {
+        throw new Error('Invalid bias - must be bullish, bearish, or range');
+      }
+      
+      if (!plan.setup || typeof plan.setup !== 'string' || plan.setup.trim().length === 0) {
+        throw new Error('Missing or invalid setup field');
+      }
+      
+      if (!Array.isArray(plan.levels) || plan.levels.length === 0) {
+        throw new Error('Missing or invalid levels array');
+      }
+      
+      if (!plan.invalidation || typeof plan.invalidation !== 'string' || plan.invalidation.trim().length === 0) {
+        throw new Error('Missing or invalid invalidation field');
+      }
+      
+      // Validate scenarios if present
+      if (plan.scenarios !== undefined) {
+        if (!Array.isArray(plan.scenarios)) {
+          throw new Error('Invalid scenarios - must be an array');
+        }
+        if (plan.scenarios.length > 3) {
+          plan.scenarios = plan.scenarios.slice(0, 3); // Limit to max 3
+        }
+      }
+      
+      // Ensure levels array has reasonable length
+      if (plan.levels.length > 7) {
+        plan.levels = plan.levels.slice(0, 7); // Limit to max 7
+      }
+      
+      result = {
+        refinedAnalysis: parsed.refinedAnalysis.trim(),
+        structuredPlan: {
+          bias: plan.bias as 'bullish' | 'bearish' | 'range',
+          setup: plan.setup.trim(),
+          levels: plan.levels.map((l: any) => String(l).trim()).filter((l: string) => l.length > 0),
+          invalidation: plan.invalidation.trim(),
+          scenarios: plan.scenarios ? plan.scenarios.map((s: any) => String(s).trim()).filter((s: string) => s.length > 0) : undefined
+        }
+      };
+      
+    } catch (parseError) {
+      console.error('Failed to parse premarket coach response:', parseError);
+      console.error('Response text:', responseText);
+      throw new Error(`Invalid response structure: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+    }
+    
+    console.log('✅ Premarket Coach response generated with structured plan');
+    return result;
+  } catch (error) {
+    console.error('OpenAI premarket coach error:', error);
+    throw error; // Let the route handler deal with error response
   }
 }
 
