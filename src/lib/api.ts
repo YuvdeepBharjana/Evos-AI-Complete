@@ -36,11 +36,13 @@ export function getAuthToken(): string | null {
 
 // Auth headers
 function getHeaders(): HeadersInit {
+  // Always read fresh token from localStorage to avoid stale state
+  const token = authToken || localStorage.getItem('evos_token');
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
   return headers;
 }
@@ -966,9 +968,14 @@ export async function coachPremarketAnalysis(
   request: PremarketCoachRequest
 ): Promise<PremarketCoachResponse> {
   try {
-    const response = await fetch(`${API_BASE}/ai/premarket-coach`, {
+    const url = `${API_BASE}/ai/premarket-coach`;
+    const headers = getHeaders();
+    console.log('🔗 Calling premarket coach API:', url);
+    console.log('🔑 Auth token present:', !!headers['Authorization']);
+    
+    const response = await fetch(url, {
       method: 'POST',
-      headers: getHeaders(),
+      headers,
       body: JSON.stringify(request),
     });
 

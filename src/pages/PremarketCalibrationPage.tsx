@@ -1,218 +1,216 @@
 /**
  * Premarket Calibration Page
  * 
- * Chatbot interface for premarket analysis and plan creation.
+ * Simple interface for premarket plan calibration using AI.
  */
 
-import { useEffect, useState, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Loader2, Send, Lock } from 'lucide-react';
-import { useTradingDayStore } from '../store/useTradingDayStore';
-import { coachPremarketAnalysis } from '../lib/api';
-import { MessageBubble } from '../components/chat/MessageBubble';
-import type { Message } from '../types';
-import type { TradingDay } from '../types/tradingDay';
-import { ActiveTradingPlanPanel } from '../features/premarket/components/ActiveTradingPlanPanel';
+import { useState } from 'react';
+import { coachPremarketAnalysis, type PremarketCoachResponse, getAuthToken } from '../lib/api';
+import { buildTraderContext } from '../lib/traderContext';
+import { useAuthStore } from '../store/useAuthStore';
 
 export function PremarketCalibrationPage() {
-  const {
-    currentDay,
-    initializeToday,
-    setPremarketPlan,
-    isTradingUnlocked,
-  } = useTradingDayStore();
-
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  // ============================================
+  // INPUT STATE
+  // ============================================
+  const [userInput, setUserInput] = useState('');
+  const [aiResponse, setAiResponse] = useState<PremarketCoachResponse | null>(null);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Check authentication
+  const { status: authStatus } = useAuthStore();
 
-  const isPremarketCommitted = currentDay?.preMarketCompleted && currentDay?.preMarketPlan;
-  const tradingUnlocked = isTradingUnlocked();
-
-  // Initialize today on mount
-  useEffect(() => {
-    initializeToday();
-  }, [initializeToday]);
-
-  // Welcome message on mount
-  useEffect(() => {
-    if (messages.length === 0 && !isPremarketCommitted) {
-      const welcomeMessage: Message = {
-        id: 'welcome',
-        sender: 'assistant',
-        content: "Hey! I'm your Premarket Analysis Coach. Share your raw thoughts about today's market—your bias, setups, levels, whatever's on your mind. I'll help you structure it into a clear, executable trading plan.",
-        timestamp: new Date(),
-      };
-      setMessages([welcomeMessage]);
+  // ============================================
+  // HANDLE SUBMIT
+  // ============================================
+  const handleSubmit = async () => {
+    if (!userInput.trim()) {
+      setError('Please enter your market plan');
+      return;
     }
-  }, [messages.length, isPremarketCommitted]);
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    // Check authentication
+    const token = getAuthToken();
+    if (!token || authStatus !== 'authed') {
+      setError('Please log in to use premarket calibration. This feature requires authentication.');
+      return;
+    }
 
-  const handleSendMessage = async () => {
-    if (!input.trim() || loading || isPremarketCommitted) return;
-
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      sender: 'user',
-      content: input.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setLoading(true);
+    setIsLoading(true);
     setError(null);
 
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const result = await coachPremarketAnalysis({
-        userAnalysis: userMessage.content,
-        context: {
-          date: today,
-          session: 'premarket'
-        }
-      });
-
-      // Create assistant response with refined analysis
-      const assistantMessage: Message = {
-        id: `assistant-${Date.now()}`,
-        sender: 'assistant',
-        content: result.refinedAnalysis,
-        timestamp: new Date(),
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-
-      // Auto-commit if structured plan is valid
-      if (result.structuredPlan) {
-        setPremarketPlan(result.refinedAnalysis, result.structuredPlan);
-        
-        const commitMessage: Message = {
-          id: `commit-${Date.now()}`,
-          sender: 'assistant',
-          content: '✅ Plan committed and locked for today. Trading is now unlocked.',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, commitMessage]);
+      // Build trader context for enhanced analysis
+      const traderContext = buildTraderContext();
+      
+      // Enhance user input with trader context if available
+      let enhancedInput = userInput;
+      if (traderContext.strategySummary && traderContext.strategySummary !== 'No strategy configured yet') {
+        enhancedInput = `${userInput}\n\n--- My Trading Strategy Context ---\n${traderContext.strategySummary}\n\nEdge Readiness: ${traderContext.edgeReadiness}%`;
       }
 
+      // Call the premarket coach API
+      const result = await coachPremarketAnalysis({
+        userAnalysis: enhancedInput,
+        context: {
+          session: 'premarket',
+          date: new Date().toISOString().split('T')[0],
+        },
+      });
+
+      setAiResponse(result);
+      setIsSubmitted(true);
     } catch (err: any) {
-      console.error('Premarket coach error:', err);
-      setError(err.message || 'Premarket analysis failed. Try again.');
+      console.error('Premarket calibration error:', err);
       
-      const errorMessage: Message = {
-        id: `error-${Date.now()}`,
-        sender: 'assistant',
-        content: `❌ Error: ${err.message || 'Failed to analyze. Please try again.'}`,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      // Provide more specific error messages
+      let errorMessage = err.message || 'Failed to calibrate plan. Please try again.';
+      
+      if (err.message?.includes('404') || err.message?.includes('Not Found')) {
+        errorMessage = 'API endpoint not found. Please check if the server is running and the route is configured correctly.';
+      } else if (err.message?.includes('401') || err.message?.includes('Unauthorized') || err.message?.includes('token')) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+        errorMessage = 'Cannot connect to server. Please check your connection and ensure the backend is running.';
+      }
+      
+      setError(errorMessage);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
+  // ============================================
+  // HANDLE EDIT PLAN
+  // ============================================
+  const handleEditPlan = () => {
+    setAiResponse(null);
+    setIsSubmitted(false);
+    setError(null);
   };
-
-  if (!currentDay) {
-    return (
-      <div className="min-h-screen bg-[#030014] flex items-center justify-center">
-        <div className="text-white text-lg">Initializing today's checklist...</div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-[#030014] text-white">
-      <div className="max-w-4xl mx-auto py-8 px-4 h-screen flex flex-col">
-        
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Premarket Calibration</h1>
-          <p className="text-gray-400">Chat with your AI coach to build today's trading plan</p>
+    <div className="min-h-screen bg-[#030014] text-white p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* ============================================ */}
+        {/* HEADER */}
+        {/* ============================================ */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">Pre-Market Calibration</h1>
+          <p className="text-gray-400 text-lg">
+            Lock your bias, risk plan, and discipline before the session.
+          </p>
         </div>
 
-        {/* Trading Locked Banner */}
-        {!tradingUnlocked && !isPremarketCommitted && (
-          <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-400/30 text-center">
-            <p className="text-red-400 font-semibold">
-              🔒 Complete premarket calibration to unlock trading
-            </p>
-          </div>
-        )}
-
-        {/* Active Plan Panel (when committed) */}
-        {isPremarketCommitted && (
-          <div className="mb-6">
-            <ActiveTradingPlanPanel 
-              structuredPlan={currentDay.preMarketStructuredPlan}
-              preMarketPlan={currentDay.preMarketPlan}
-              timestamp={currentDay.preMarketTimestamp}
+        {/* ============================================ */}
+        {/* TEXT INPUT UI */}
+        {/* ============================================ */}
+        {!isSubmitted && (
+          <div className="mb-8">
+            <label className="block text-sm font-medium mb-2">
+              Describe today's market plan
+            </label>
+            <textarea
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              rows={12}
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-y"
+              placeholder="What is your bias, key levels, risk plan, and invalidation today?"
             />
           </div>
         )}
 
-        {/* Chat Messages */}
-        <div className="flex-1 overflow-y-auto mb-4 space-y-4">
-          {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
-          ))}
-          {loading && (
-            <div className="flex items-center gap-2 text-gray-400">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Analyzing your analysis...</span>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Chat Input */}
-        {!isPremarketCommitted ? (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="flex gap-3 items-end">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Share your market thoughts, bias, setups, levels..."
-                disabled={loading}
-                className="flex-1 bg-transparent text-white placeholder-gray-500 resize-none focus:outline-none min-h-[60px] max-h-32 overflow-y-auto break-words"
-                rows={2}
-              />
-              <motion.button
-                whileHover={{ scale: loading ? 1 : 1.05 }}
-                whileTap={{ scale: loading ? 1 : 0.95 }}
-                onClick={handleSendMessage}
-                disabled={!input.trim() || loading}
-                className={`p-3 rounded-xl transition-all ${
-                  input.trim() && !loading
-                    ? 'bg-gradient-to-r from-green-500 via-emerald-500 to-cyan-500 text-white'
-                    : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                }`}
-              >
-                {loading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </motion.button>
-            </div>
+        {/* ============================================ */}
+        {/* ERROR MESSAGE */}
+        {/* ============================================ */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
+            <p className="text-red-300 text-sm">{error}</p>
           </div>
-        ) : (
-          <div className="bg-green-500/10 border border-green-400/30 rounded-xl p-4 text-center">
-            <Lock className="w-5 h-5 mx-auto mb-2 text-green-400" />
-            <p className="text-green-400 font-semibold">Plan locked for today</p>
+        )}
+
+        {/* ============================================ */}
+        {/* SUBMIT BUTTON */}
+        {/* ============================================ */}
+        {!isSubmitted && (
+          <button
+            onClick={handleSubmit}
+            disabled={isLoading}
+            className="w-full px-6 py-3 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? 'Calibrating...' : 'Calibrate'}
+          </button>
+        )}
+
+        {/* ============================================ */}
+        {/* OUTPUT UI */}
+        {/* ============================================ */}
+        {aiResponse && (
+          <div className="mt-8 backdrop-blur-xl bg-gradient-to-br from-gray-900/80 to-gray-800/80 border-2 border-white/10 rounded-2xl p-6 shadow-xl">
+            <h2 className="text-2xl font-bold text-white mb-4">Evos Calibration Feedback</h2>
+            
+            {/* Refined Analysis */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-indigo-300 mb-2">Analysis</h3>
+              <p className="text-gray-300 whitespace-pre-wrap">{aiResponse.refinedAnalysis}</p>
+            </div>
+
+            {/* Structured Plan */}
+            <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
+              <h3 className="text-lg font-semibold text-indigo-300 mb-3">Structured Plan</h3>
+              
+              <div className="space-y-3">
+                <div>
+                  <span className="text-gray-400 text-sm">Market Bias:</span>
+                  <span className={`ml-2 font-semibold ${
+                    aiResponse.structuredPlan.bias === 'bullish' ? 'text-green-400' :
+                    aiResponse.structuredPlan.bias === 'bearish' ? 'text-red-400' :
+                    'text-yellow-400'
+                  }`}>
+                    {aiResponse.structuredPlan.bias.toUpperCase()}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-gray-400 text-sm">Primary Setup:</span>
+                  <p className="text-white mt-1">{aiResponse.structuredPlan.setup}</p>
+                </div>
+
+                <div>
+                  <span className="text-gray-400 text-sm">Key Levels:</span>
+                  <ul className="list-disc list-inside mt-1 space-y-1">
+                    {aiResponse.structuredPlan.levels.map((level, idx) => (
+                      <li key={idx} className="text-white">{level}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <span className="text-gray-400 text-sm">Invalidation Rule:</span>
+                  <p className="text-red-300 mt-1 font-medium">{aiResponse.structuredPlan.invalidation}</p>
+                </div>
+
+                {aiResponse.structuredPlan.scenarios && aiResponse.structuredPlan.scenarios.length > 0 && (
+                  <div>
+                    <span className="text-gray-400 text-sm">Scenarios:</span>
+                    <ul className="list-disc list-inside mt-1 space-y-1">
+                      {aiResponse.structuredPlan.scenarios.map((scenario, idx) => (
+                        <li key={idx} className="text-white">{scenario}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={handleEditPlan}
+              className="w-full px-6 py-3 bg-white/10 text-white font-semibold rounded-lg hover:bg-white/20 transition-colors border border-white/10"
+            >
+              Edit Plan
+            </button>
           </div>
         )}
       </div>

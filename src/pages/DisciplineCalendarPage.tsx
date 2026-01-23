@@ -15,6 +15,7 @@ import { useTradingDayStore } from '../store/useTradingDayStore';
 import type { TradingDay } from '../types/tradingDay';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toLocalDateKey } from '../lib/dateKey';
 
 export function DisciplineCalendarPage() {
   // ============================================
@@ -37,13 +38,17 @@ export function DisciplineCalendarPage() {
   /**
    * Get all days in the selected month with proper alignment
    * Returns an array of calendar cells including empty cells for alignment
+   * Calendar starts on Monday (trader calendar)
    */
   const calendarDays = useMemo(() => {
     const year = selectedMonth.getFullYear();
     const month = selectedMonth.getMonth();
     
-    // First day of the month (0 = Sunday, 6 = Saturday)
-    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    // JavaScript day index (0 = Sunday, 6 = Saturday)
+    const jsDay = new Date(year, month, 1).getDay();
+    
+    // Convert to Monday-based index (0 = Monday, 6 = Sunday)
+    const mondayIndex = (jsDay + 6) % 7;
     
     // Total days in the month
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -51,8 +56,8 @@ export function DisciplineCalendarPage() {
     // Create array of calendar cells
     const days: (Date | null)[] = [];
     
-    // Add empty cells for days before the month starts
-    for (let i = 0; i < firstDayOfMonth; i++) {
+    // Add empty cells for days before the month starts (Monday-based alignment)
+    for (let i = 0; i < mondayIndex; i++) {
       days.push(null);
     }
     
@@ -76,8 +81,8 @@ export function DisciplineCalendarPage() {
       map.set(day.date, day);
     });
     
-    // Add current day if it exists and is closed
-    if (currentDay?.isClosed) {
+    // Add current day if it exists (include even if not closed for today highlighting)
+    if (currentDay) {
       map.set(currentDay.date, currentDay);
     }
     
@@ -100,7 +105,7 @@ export function DisciplineCalendarPage() {
    * Get TradingDay for a given date
    */
   const getTradingDayForDate = (date: Date): TradingDay | undefined => {
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = toLocalDateKey(date);
     return tradingDayMap.get(dateString);
   };
 
@@ -222,7 +227,7 @@ export function DisciplineCalendarPage() {
           
           {/* Day of Week Headers */}
           <div className="grid grid-cols-7 gap-2 mb-2">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
               <div key={day} className="text-center text-sm font-medium text-gray-400 py-2">
                 {day}
               </div>
@@ -255,7 +260,7 @@ export function DisciplineCalendarPage() {
         </div>
 
         {/* ========== LEGEND ========== */}
-        <div className="mt-6 flex items-center justify-center gap-6 text-sm">
+        <div className="mt-6 flex items-center justify-center gap-6 text-sm flex-wrap">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-green-500/30 border border-green-400/50" />
             <span className="text-gray-400">Green Day (Disciplined)</span>
@@ -266,7 +271,11 @@ export function DisciplineCalendarPage() {
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-gray-500/30 border border-gray-400/50" />
-            <span className="text-gray-400">Neutral (No Trades)</span>
+            <span className="text-gray-400">Neutral (Logged, No Trades)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-transparent border border-white/5" />
+            <span className="text-gray-400">Empty (No Record)</span>
           </div>
         </div>
       </div>
@@ -302,8 +311,10 @@ function CalendarDayCell({ date, tradingDay, isToday, onClick }: CalendarDayCell
 
   // Determine background color based on status
   const getBgColor = () => {
-    if (!hasData) return 'bg-white/5';
+    // Missing day: no TradingDay data → empty/dim, not clickable
+    if (!hasData) return 'bg-transparent border-white/5';
     
+    // Neutral day: TradingDay exists with finalStatus === 'neutral' → gray, clickable
     switch (status) {
       case 'green':
         return 'bg-green-500/20 border-green-400/40';
@@ -312,7 +323,7 @@ function CalendarDayCell({ date, tradingDay, isToday, onClick }: CalendarDayCell
       case 'neutral':
         return 'bg-gray-500/20 border-gray-400/40';
       default:
-        return 'bg-white/5';
+        return 'bg-transparent border-white/10';
     }
   };
 
@@ -325,7 +336,7 @@ function CalendarDayCell({ date, tradingDay, isToday, onClick }: CalendarDayCell
       className={`
         aspect-square rounded-lg border transition-all
         ${bgColor}
-        ${hasData ? 'hover:scale-105 cursor-pointer' : 'cursor-default border-white/10'}
+        ${hasData ? 'hover:scale-105 cursor-pointer' : 'cursor-default'}
         ${isToday ? 'ring-2 ring-white/30' : ''}
         relative
       `}
@@ -333,7 +344,7 @@ function CalendarDayCell({ date, tradingDay, isToday, onClick }: CalendarDayCell
       {/* Day Number */}
       <div className={`
         text-lg font-medium
-        ${hasData ? 'text-white' : 'text-gray-600'}
+        ${hasData ? 'text-white' : 'text-gray-700'}
         ${isToday ? 'font-bold' : ''}
       `}>
         {dayNumber}

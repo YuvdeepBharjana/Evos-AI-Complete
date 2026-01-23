@@ -13,6 +13,7 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type { TradingDay, TradingDayStatus } from '../types/tradingDay';
+import { getTodayDateKey, addDays } from '../lib/dateKey';
 
 // ============================================
 // TYPES
@@ -57,11 +58,10 @@ interface TradingDayState {
 // ============================================
 
 /**
- * Get today's date in YYYY-MM-DD format
+ * Get today's date in YYYY-MM-DD format (local timezone)
  */
 function getTodayDate(): string {
-  const today = new Date();
-  return today.toISOString().split('T')[0];
+  return getTodayDateKey();
 }
 
 /**
@@ -481,71 +481,76 @@ export const useTradingDayStore = create<TradingDayState>((set, get) => ({
   
   /**
    * Current Discipline Streak
-   * Count consecutive green days from most recent backward
+   * Count consecutive calendar days with green status from most recent backward
+   * Requires actual consecutive calendar days (not just consecutive entries in history)
    * Only counts closed days with finalStatus === "green"
-   * Breaks on first red day
-   * Does not count neutral days
+   * Breaks on first missing day, red day, or neutral day
    */
   currentStreak: () => {
     const { history } = get();
-    
-    // Only include closed days, sorted by date (most recent first)
-    const closedDays = history
-      .filter(day => day.isClosed && day.finalStatus !== null)
+
+    const closed = history
+      .filter(d => d.isClosed && d.finalStatus)
       .sort((a, b) => b.date.localeCompare(a.date));
-    
-    if (closedDays.length === 0) {
-      return 0;
-    }
-    
+
+    if (closed.length === 0) return 0;
+
     let streak = 0;
-    
-    // Count consecutive green days from most recent backward
-    for (const day of closedDays) {
-      if (day.finalStatus === 'green') {
-        streak++;
-      } else {
-        // Break on first non-green day (red or neutral)
-        break;
-      }
+    let expected = closed[0].date; // start from most recent closed day
+
+    for (const day of closed) {
+      if (day.date !== expected) break; // gap breaks streak
+      if (day.finalStatus !== 'green') break;
+
+      streak++;
+      expected = addDays(expected, -1);
     }
-    
+
     return streak;
   },
   
   /**
    * Longest Discipline Streak
-   * Computes the longest run of consecutive green days in history
+   * Computes the longest run of consecutive calendar days with green status
+   * Requires actual consecutive calendar days (not just consecutive entries in history)
    * Only counts closed days with finalStatus === "green"
-   * Does not count neutral days
+   * Does not count neutral days or missing days
    */
   longestStreak: () => {
     const { history } = get();
-    
-    // Only include closed days, sorted by date (oldest first)
-    const closedDays = history
-      .filter(day => day.isClosed && day.finalStatus !== null)
+
+    const closed = history
+      .filter(d => d.isClosed && d.finalStatus)
       .sort((a, b) => a.date.localeCompare(b.date));
-    
-    if (closedDays.length === 0) {
-      return 0;
-    }
-    
-    let longestStreak = 0;
-    let currentStreak = 0;
-    
-    // Find longest consecutive sequence of green days
-    for (const day of closedDays) {
-      if (day.finalStatus === 'green') {
-        currentStreak++;
-        longestStreak = Math.max(longestStreak, currentStreak);
-      } else {
-        // Reset on non-green day
-        currentStreak = 0;
+
+    let longest = 0;
+    let current = 0;
+
+    for (let i = 0; i < closed.length; i++) {
+      const day = closed[i];
+
+      if (day.finalStatus !== 'green') {
+        current = 0;
+        continue;
       }
+
+      if (i === 0) {
+        current = 1;
+      } else {
+        const prev = closed[i - 1];
+        const expected = addDays(prev.date, 1);
+
+        if (day.date === expected && prev.finalStatus === 'green') {
+          current += 1;
+        } else {
+          current = 1; // restart streak
+        }
+      }
+
+      longest = Math.max(longest, current);
     }
-    
-    return longestStreak;
+
+    return longest;
   },
   
   /**

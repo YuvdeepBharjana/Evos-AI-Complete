@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, ArrowRight } from 'lucide-react';
 import { useTradingDayStore } from '../store/useTradingDayStore';
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 /**
  * Daily Discipline Home
@@ -12,9 +12,83 @@ export const HomePage = () => {
   const navigate = useNavigate();
   const { currentDay, initializeToday } = useTradingDayStore();
 
+  // ============================================
+  // EDGE READINESS STATE
+  // ============================================
+  const [edgeReadiness, setEdgeReadiness] = useState<number>(0);
+
   useEffect(() => {
     initializeToday();
   }, [initializeToday]);
+
+  // ============================================
+  // LOAD EDGE PROFILE FROM LOCALSTORAGE
+  // ============================================
+  useEffect(() => {
+    try {
+      const edgeProfileJson = localStorage.getItem('evos.edgeProfile');
+      if (edgeProfileJson) {
+        const edgeProfile = JSON.parse(edgeProfileJson);
+        
+        // Calculate edge readiness from loaded profile
+        let score = 0;
+
+        // If backtesting completed: +40%
+        if (edgeProfile.hasBacktested === true) {
+          score += 40;
+        }
+
+        // If winRate AND profitFactor both have values: +35%
+        const hasWinRate = edgeProfile.winRate !== undefined && edgeProfile.winRate !== null;
+        const hasProfitFactor = edgeProfile.profitFactor !== undefined && edgeProfile.profitFactor !== null;
+        if (hasWinRate && hasProfitFactor) {
+          score += 35;
+        }
+
+        // Clamp max at 75% for now (discipline portion comes later)
+        setEdgeReadiness(Math.min(score, 75));
+      } else {
+        // Default to 0% if no profile exists
+        setEdgeReadiness(0);
+      }
+    } catch (error) {
+      // If parsing fails, default to 0%
+      console.error('Failed to parse edge profile from localStorage:', error);
+      setEdgeReadiness(0);
+    }
+  }, []); // Run once on component mount
+
+  // ============================================
+  // LOAD STRATEGY PROFILE FROM LOCALSTORAGE
+  // ============================================
+  const [strategyProfile, setStrategyProfile] = useState<any>(null);
+
+  useEffect(() => {
+    try {
+      const strategyProfileJson = localStorage.getItem('evos.strategyProfile');
+      if (strategyProfileJson) {
+        const profile = JSON.parse(strategyProfileJson);
+        setStrategyProfile(profile);
+      } else {
+        setStrategyProfile(null);
+      }
+    } catch (error) {
+      // If parsing fails, set to null
+      console.error('Failed to parse strategy profile from localStorage:', error);
+      setStrategyProfile(null);
+    }
+  }, []); // Run once on component mount
+
+  // ============================================
+  // STATUS LABEL HELPER
+  // ============================================
+  const getEdgeStatusLabel = (readiness: number): string => {
+    if (readiness >= 75) return 'LIVE-READY';
+    if (readiness >= 40) return 'TESTED';
+    return 'UNPROVEN';
+  };
+
+  const edgeStatusLabel = getEdgeStatusLabel(edgeReadiness);
 
   const preMarketCompleted = currentDay?.preMarketCompleted ?? false;
   const isClosed = currentDay?.isClosed ?? false;
@@ -28,11 +102,95 @@ export const HomePage = () => {
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 py-12">
+        {/* ============================================ */}
+        {/* EDGE READINESS BANNER */}
+        {/* ============================================ */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="mb-8 backdrop-blur-xl bg-gradient-to-br from-gray-900/80 to-gray-800/80 border-2 border-white/10 rounded-2xl p-6 shadow-xl"
+        >
+          <div className="mb-4">
+            <h2 className="text-2xl font-bold text-white mb-2">Edge Readiness</h2>
+            <p className="text-gray-400 text-sm">
+              Your trading edge validation progress
+            </p>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-400">Progress</span>
+              <span className="text-sm font-semibold text-white">{edgeReadiness}%</span>
+            </div>
+            <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${edgeReadiness}%` }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+                className="h-full bg-gradient-to-r from-green-500 via-emerald-500 to-cyan-500 rounded-full"
+              />
+            </div>
+          </div>
+
+          {/* Status Badge and CTA */}
+          <div className="flex items-center justify-between">
+            <div
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                edgeReadiness >= 75
+                  ? 'bg-green-500/20 text-green-400 border border-green-400/30'
+                  : edgeReadiness >= 40
+                  ? 'bg-blue-500/20 text-blue-400 border border-blue-400/30'
+                  : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+              }`}
+            >
+              {edgeStatusLabel}
+            </div>
+
+            {edgeReadiness < 75 && (
+              <button
+                onClick={() => {
+                  console.log('Navigate to Strategy Recognizer');
+                }}
+                className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity"
+              >
+                Complete Edge Validation
+              </button>
+            )}
+          </div>
+        </motion.div>
+
+        {/* ============================================ */}
+        {/* ACTIVE STRATEGY CARD */}
+        {/* ============================================ */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mb-8 backdrop-blur-xl bg-gradient-to-br from-gray-900/80 to-gray-800/80 border-2 border-white/10 rounded-2xl p-6 shadow-xl"
+        >
+          <h3 className="text-lg font-bold text-white mb-4">Active Strategy</h3>
+          {strategyProfile ? (
+            <div>
+              <p className="text-white font-semibold mb-2">
+                {strategyProfile.market || 'Not specified'} — {strategyProfile.tradeType || 'Not specified'}
+              </p>
+              <p className="text-gray-400 text-sm">
+                Bias TF: {strategyProfile.biasTf || 'Not specified'} | Entry TF: {strategyProfile.entryTf || 'Not specified'}
+              </p>
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm">No strategy configured yet</p>
+          )}
+        </motion.div>
+
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+          transition={{ delay: 0.15 }}
           className="text-center mb-12"
         >
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
