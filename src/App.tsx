@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useUserStore } from './store/useUserStore';
+import { useAuthStore } from './store/useAuthStore';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
@@ -30,7 +31,10 @@ import { useTradingDayStore } from './store/useTradingDayStore';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useUserStore();
+  // Check both stores - useAuthStore is primary, useUserStore is fallback
+  const { user: authUser } = useAuthStore();
+  const { user: userStoreUser } = useUserStore();
+  const user = authUser || userStoreUser;
   
   // If no user, redirect to login
   if (!user) {

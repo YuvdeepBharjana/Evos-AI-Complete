@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Dna, User, Eye, EyeOff, Shield, AlertCircle } from 'lucide-react';
-import { useUserStore } from '../store/useUserStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { login, register, demoLogin } from '../lib/api';
+import { useUserStore } from '../store/useUserStore';
+import { demoLogin } from '../lib/api';
 
 type AuthMode = 'login' | 'register';
 
@@ -18,8 +18,8 @@ export const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const navigate = useNavigate();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuthStore();
   const { setUserFromApi } = useUserStore();
-  const { signInWithGoogle } = useAuthStore();
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -64,14 +64,37 @@ export const LoginPage = () => {
 
     try {
       if (mode === 'register') {
-        const response = await register(email, password, name, acceptedTerms);
-        setUserFromApi(response.user, response.token);
+        await signUpWithEmail(email, password, name, acceptedTerms);
+        // Sync to useUserStore for compatibility
+        const { user: authUser } = useAuthStore.getState();
+        if (authUser) {
+          const { getCurrentUser } = await import('../lib/api');
+          const apiUser = await getCurrentUser();
+          if (apiUser) {
+            const token = localStorage.getItem('evos_token');
+            if (token) {
+              await setUserFromApi(apiUser, token);
+            }
+          }
+        }
         navigate('/onboarding');
       } else {
-        const response = await login(email, password);
-        setUserFromApi(response.user, response.token);
-        
-        if (response.user.onboarding_complete) {
+        await signInWithEmail(email, password);
+        // Sync to useUserStore for compatibility
+        const { user: authUser } = useAuthStore.getState();
+        if (authUser) {
+          const { getCurrentUser } = await import('../lib/api');
+          const apiUser = await getCurrentUser();
+          if (apiUser) {
+            const token = localStorage.getItem('evos_token');
+            if (token) {
+              await setUserFromApi(apiUser, token);
+            }
+          }
+        }
+        // Check onboarding status from auth store
+        const { user } = useAuthStore.getState();
+        if (user?.onboardingComplete) {
           navigate('/home');
         } else {
           navigate('/onboarding');
@@ -90,7 +113,20 @@ export const LoginPage = () => {
 
     try {
       const response = await demoLogin();
-      setUserFromApi(response.user, response.token);
+      // Use auth store's internal method to set token and user
+      const store = useAuthStore.getState();
+      const appUser = {
+        id: response.user.id,
+        email: response.user.email,
+        name: response.user.name,
+        onboardingComplete: response.user.onboarding_complete,
+        onboardingMethod: response.user.onboarding_method as 'questionnaire' | 'upload' | 'manual' | undefined,
+      };
+      // Set token and user immediately (same pattern as signInWithEmail)
+      useAuthStore.setState({ _token: response.token });
+      const { setAuthToken } = await import('../lib/api');
+      setAuthToken(response.token);
+      store._setAuthState('authed', appUser, null);
       navigate('/home');
     } catch (err: any) {
       setError('Demo login failed. Please try again.');

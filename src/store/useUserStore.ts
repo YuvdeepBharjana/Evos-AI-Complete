@@ -236,16 +236,44 @@ export const useUserStore = create<UserStore>()(
 
       completeOnboarding: async (method, nodes) => {
         await apiCompleteOnboarding(method, nodes);
-        const currentUser = get().user;
-        if (currentUser) {
-          set({
-            user: {
-              ...currentUser,
-              onboardingComplete: true,
-              onboardingMethod: method,
-              identityNodes: nodes,
-            },
-          });
+        
+        // Refresh user from API to get updated onboarding status
+        const currentUser = await getCurrentUser();
+        const token = get().authToken || localStorage.getItem('evos_token');
+        
+        if (currentUser && token) {
+          // Update useUserStore
+          await get().setUserFromApi(currentUser, token);
+          
+          // Also sync to useAuthStore (dynamic import to avoid circular dependency)
+          try {
+            const { useAuthStore } = await import('./useAuthStore');
+            const authStore = useAuthStore.getState();
+            if (authStore.user) {
+              useAuthStore.setState({
+                user: {
+                  ...authStore.user,
+                  onboardingComplete: true,
+                  onboardingMethod: method,
+                }
+              });
+            }
+          } catch (err) {
+            console.warn('Could not sync to useAuthStore:', err);
+          }
+        } else {
+          // Fallback: update local state if API call fails
+          const currentUserLocal = get().user;
+          if (currentUserLocal) {
+            set({
+              user: {
+                ...currentUserLocal,
+                onboardingComplete: true,
+                onboardingMethod: method,
+                identityNodes: nodes,
+              },
+            });
+          }
         }
       },
 

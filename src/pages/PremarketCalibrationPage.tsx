@@ -5,9 +5,9 @@
  */
 
 import { useState } from 'react';
-import { coachPremarketAnalysis, type PremarketCoachResponse, getAuthToken } from '../lib/api';
+import { coachPremarketAnalysis, type PremarketCoachResponse } from '../lib/api';
 import { buildTraderContext } from '../lib/traderContext';
-import { useAuthStore } from '../store/useAuthStore';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 export function PremarketCalibrationPage() {
   // ============================================
@@ -19,8 +19,8 @@ export function PremarketCalibrationPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Check authentication
-  const { status: authStatus } = useAuthStore();
+  // Use shared auth guard hook
+  const { isAuthed, isVerifying, isBlocked } = useRequireAuth();
 
   // ============================================
   // HANDLE SUBMIT
@@ -31,12 +31,18 @@ export function PremarketCalibrationPage() {
       return;
     }
 
-    // Check authentication
-    const token = getAuthToken();
-    if (!token || authStatus !== 'authed') {
+    // 3-state gate authentication check
+    if (isBlocked) {
       setError('Please log in to use premarket calibration. This feature requires authentication.');
       return;
     }
+
+    if (isVerifying) {
+      setError('Verifying session… try again in a moment.');
+      return;
+    }
+
+    // isAuthed → proceed
 
     setIsLoading(true);
     setError(null);
@@ -126,8 +132,14 @@ export function PremarketCalibrationPage() {
         {/* ERROR MESSAGE */}
         {/* ============================================ */}
         {error && (
-          <div className="mb-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
-            <p className="text-red-300 text-sm">{error}</p>
+          <div className={`mb-4 p-4 rounded-lg ${
+            isVerifying
+              ? 'bg-blue-500/20 border border-blue-500/50' 
+              : 'bg-red-500/20 border border-red-500/50'
+          }`}>
+            <p className={`text-sm ${
+              isVerifying ? 'text-blue-300' : 'text-red-300'
+            }`}>{error}</p>
           </div>
         )}
 
@@ -137,10 +149,10 @@ export function PremarketCalibrationPage() {
         {!isSubmitted && (
           <button
             onClick={handleSubmit}
-            disabled={isLoading}
+            disabled={isLoading || isVerifying || !isAuthed}
             className="w-full px-6 py-3 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Calibrating...' : 'Calibrate'}
+            {isVerifying ? 'Verifying…' : isLoading ? 'Calibrating...' : 'Calibrate'}
           </button>
         )}
 

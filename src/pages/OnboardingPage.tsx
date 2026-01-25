@@ -5,6 +5,7 @@ import { QuestionnaireFlow } from '../components/onboarding/QuestionnaireFlow';
 import { ManualOnboardingFlow } from '../components/onboarding/ManualOnboardingFlow';
 import { MentorSelectionModal } from '../components/psychmirror/MentorSelectionModal';
 import { useUserStore } from '../store/useUserStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { createDefaultProfile, generateNodesFromQuestionnaire } from '../lib/generateMockProfile';
 import type { IdentityNode } from '../types';
 import type { AIMentorStyle } from '../lib/api';
@@ -21,11 +22,24 @@ export const OnboardingPage = () => {
     const [traderProfile, setTraderProfile] = useState<TraderProfile | null>(null); // TRADER: Store generated profile
     const navigate = useNavigate();
     const { setUser, completeOnboarding } = useUserStore();
+    const { user: authUser } = useAuthStore();
 
     // handleMethodSelect removed - choice step not used in trader onboarding
 
     const handleManualComplete = async (nodes: IdentityNode[]) => {
         await completeOnboarding('manual', nodes);
+        
+        // Sync onboarding status to useAuthStore if user exists there
+        const authStore = useAuthStore.getState();
+        if (authStore.user) {
+            useAuthStore.setState({
+                user: {
+                    ...authStore.user,
+                    onboardingComplete: true,
+                }
+            });
+        }
+        
         setStep('complete');
 
         // Show mentor selection after animation
@@ -43,6 +57,17 @@ export const OnboardingPage = () => {
         const nodes = generateNodesFromQuestionnaire(answers);
         await completeOnboarding('questionnaire', nodes);
         
+        // Sync onboarding status to useAuthStore if user exists there
+        const authStore = useAuthStore.getState();
+        if (authStore.user) {
+            useAuthStore.setState({
+                user: {
+                    ...authStore.user,
+                    onboardingComplete: true,
+                }
+            });
+        }
+        
         // Go to profile summary transition screen
         setStep('profile-summary');
     };
@@ -51,8 +76,8 @@ export const OnboardingPage = () => {
 
     const handleMentorSelect = (style: AIMentorStyle) => {
         console.log('✅ Mentor style selected during onboarding:', style);
-        // Navigate to Mirror after mentor selection
-        navigate('/mirror');
+        // Navigate to home (daily discipline loop) after mentor selection
+        navigate('/home');
     };
 
     // Personal context step removed - start directly with questionnaire
@@ -235,7 +260,31 @@ export const OnboardingPage = () => {
                                 className="text-center"
                             >
                                 <button
-                                    onClick={() => navigate('/home')}
+                                    onClick={async () => {
+                                        // Ensure user state is refreshed before navigating
+                                        const { getCurrentUser } = await import('../lib/api');
+                                        const currentUser = await getCurrentUser();
+                                        const token = localStorage.getItem('evos_token');
+                                        
+                                        if (currentUser && token) {
+                                            // Refresh both stores
+                                            await setUserFromApi(currentUser, token);
+                                            
+                                            // Sync to useAuthStore
+                                            const authStore = useAuthStore.getState();
+                                            if (authStore.user) {
+                                                useAuthStore.setState({
+                                                    user: {
+                                                        ...authStore.user,
+                                                        onboardingComplete: true,
+                                                    }
+                                                });
+                                            }
+                                        }
+                                        
+                                        // Navigate to home
+                                        navigate('/home');
+                                    }}
                                     className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-500 via-emerald-500 to-cyan-500 text-white text-lg font-bold rounded-xl hover:opacity-90 transition-opacity shadow-xl shadow-green-500/20"
                                 >
                                     <span>▶</span>
@@ -381,7 +430,28 @@ export const OnboardingPage = () => {
                                 className="flex flex-col sm:flex-row gap-4"
                             >
                                 <button
-                                    onClick={() => {
+                                    onClick={async () => {
+                                        // Ensure user state is refreshed before navigating
+                                        const { getCurrentUser } = await import('../lib/api');
+                                        const currentUser = await getCurrentUser();
+                                        const token = localStorage.getItem('evos_token');
+                                        
+                                        if (currentUser && token) {
+                                            // Refresh both stores
+                                            await setUserFromApi(currentUser, token);
+                                            
+                                            // Sync to useAuthStore
+                                            const authStore = useAuthStore.getState();
+                                            if (authStore.user) {
+                                                useAuthStore.setState({
+                                                    user: {
+                                                        ...authStore.user,
+                                                        onboardingComplete: true,
+                                                    }
+                                                });
+                                            }
+                                        }
+                                        
                                         // Navigate to home (discipline hub) after onboarding
                                         navigate('/home');
                                     }}

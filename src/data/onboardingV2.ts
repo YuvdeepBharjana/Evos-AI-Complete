@@ -33,6 +33,7 @@ export const onboardingV2Questions: OnboardingV2Question[] = [
     category: 'market_type',
     multiSelect: false,
     options: [
+      { label: 'Any and all', value: 'any_and_all' },
       { label: 'Futures', value: 'futures' },
       { label: 'Options', value: 'options' },
       { label: 'Stocks', value: 'stocks' },

@@ -52,6 +52,7 @@ interface AuthStore {
   // Internal: Update auth state (ONLY called by listener)
   _setAuthState: (status: AuthStatus, user: AppUser | null, error: string | null) => void;
   _setToken: (token: string | null) => Promise<void>;
+  _checkAuthState: () => Promise<void>;
   
   // Initialize auth listener (runs once at app start)
   initAuthListener: () => (() => void) | undefined;
@@ -82,6 +83,7 @@ export const useAuthStore = create<AuthStore>()(
       
       _checkAuthState: async () => {
         const token = get()._token || getAuthToken();
+        const currentUser = get().user; // Preserve existing user during verification
         
         if (!token) {
           get()._setAuthState('unauthed', null, null);
@@ -89,8 +91,10 @@ export const useAuthStore = create<AuthStore>()(
         }
         
         // Token exists - verify and fetch user
-        // Set loading state while checking
-        get()._setAuthState('loading', null, null);
+        // Only set loading if we don't already have a user (to avoid UI flash)
+        if (!currentUser) {
+          get()._setAuthState('loading', null, null);
+        }
         
         try {
           const apiUser = await apiGetCurrentUser();
@@ -115,8 +119,20 @@ export const useAuthStore = create<AuthStore>()(
         try {
           get()._setAuthState('loading', null, null);
           const response = await apiLogin(email, password);
-          // Set token and wait for user data to load
-          await get()._setToken(response.token);
+          
+          // Set user immediately from response (no waiting for verification)
+          const appUser = mapToAppUser(response.user);
+          set({ _token: response.token });
+          setAuthToken(response.token);
+          
+          // Set user immediately for instant UI feedback
+          get()._setAuthState('authed', appUser, null);
+          
+          // Verify in background (optional - for token validation)
+          get()._checkAuthState().catch(() => {
+            // If verification fails, we already have user set, so just log
+            console.warn('Background auth verification failed, but user is already set');
+          });
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : 'Login failed';
           get()._setAuthState('unauthed', null, errorMessage);
@@ -128,8 +144,20 @@ export const useAuthStore = create<AuthStore>()(
         try {
           get()._setAuthState('loading', null, null);
           const response = await apiRegister(email, password, name, acceptedTerms);
-          // Set token and wait for user data to load
-          await get()._setToken(response.token);
+          
+          // Set user immediately from response (no waiting for verification)
+          const appUser = mapToAppUser(response.user);
+          set({ _token: response.token });
+          setAuthToken(response.token);
+          
+          // Set user immediately for instant UI feedback
+          get()._setAuthState('authed', appUser, null);
+          
+          // Verify in background (optional - for token validation)
+          get()._checkAuthState().catch(() => {
+            // If verification fails, we already have user set, so just log
+            console.warn('Background auth verification failed, but user is already set');
+          });
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : 'Registration failed';
           get()._setAuthState('unauthed', null, errorMessage);
