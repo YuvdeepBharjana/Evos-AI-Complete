@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EvoSAI | AI Automation for Law Firms</title>
+  <meta name="description" content="EvoSAI builds AI-powered client intake and follow-up automation for solo and small law firms. Respond to every new inquiry in under 60 seconds — automatically." />
+  <meta name="keywords" content="law firm intake automation, AI for law firms, client intake software, legal lead capture, law firm follow-up automation" />
+  <meta property="og:title" content="EvoSAI | AI Automation for Law Firms" />
+  <meta property="og:description" content="Respond to every new inquiry in under 60 seconds — automatically. AI intake & follow-up systems built for solo and small law firms." />
+  <meta property="og:type" content="website" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ---------- Reset & Base ---------- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      color: #1a2332;
+      background: #ffffff;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
+    img { max-width: 100%; display: block; }
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; }
+
+    :root {
+      --navy: #0B1F3A;
+      --navy-700: #122d52;
+      --navy-500: #1e3a66;
+      --ink: #1a2332;
+      --muted: #5b6b80;
+      --line: #e5e9ef;
+      --surface: #f6f7f9;
+      --surface-2: #fafbfc;
+      --white: #ffffff;
+      --radius: 10px;
+      --radius-lg: 14px;
+      --shadow-sm: 0 1px 2px rgba(11, 31, 58, 0.04), 0 1px 3px rgba(11, 31, 58, 0.06);
+      --shadow-md: 0 4px 12px rgba(11, 31, 58, 0.06), 0 2px 4px rgba(11, 31, 58, 0.04);
+      --shadow-lg: 0 12px 32px rgba(11, 31, 58, 0.08), 0 4px 8px rgba(11, 31, 58, 0.04);
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section { padding: 100px 0; position: relative; }
+
+    /* ---------- Typography ---------- */
+    h1, h2, h3, h4 {
+      font-family: 'Inter', sans-serif;
+      color: var(--navy);
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      font-weight: 700;
+    }
+    h1 { font-size: clamp(2.25rem, 4.6vw, 3.75rem); font-weight: 800; letter-spacing: -0.03em; }
+    h2 { font-size: clamp(1.75rem, 3vw, 2.5rem); }
+    h3 { font-size: 1.25rem; font-weight: 600; }
+    p { color: var(--muted); }
+
+    .eyebrow {
+      display: inline-block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--navy);
+      padding: 6px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--white);
+      margin-bottom: 20px;
+    }
+
+    .section-head { max-width: 720px; margin: 0 auto 60px; text-align: center; }
+    .section-head p { margin-top: 16px; font-size: 1.05rem; }
+
+    /* ---------- Buttons ---------- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 24px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 8px;
+      transition: transform 0.2s var(--ease), background 0.2s var(--ease),
+                  color 0.2s var(--ease), border-color 0.2s var(--ease),
+                  box-shadow 0.2s var(--ease);
+      white-space: nowrap;
+      letter-spacing: -0.01em;
+    }
+    .btn-primary {
+      background: var(--navy);
+      color: var(--white);
+      border: 1px solid var(--navy);
+    }
+    .btn-primary:hover {
+      background: var(--navy-700);
+      border-color: var(--navy-700);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+    .btn-secondary {
+      background: var(--white);
+      color: var(--navy);
+      border: 1px solid var(--line);
+    }
+    .btn-secondary:hover {
+      border-color: var(--navy);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-lg { padding: 16px 28px; font-size: 1rem; }
+    .btn .arrow { transition: transform 0.25s var(--ease); }
+    .btn:hover .arrow { transform: translateX(3px); }
+
+    /* ---------- Nav ---------- */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: saturate(180%) blur(12px);
+      -webkit-backdrop-filter: saturate(180%) blur(12px);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
+    }
+    .nav.scrolled {
+      border-bottom-color: var(--line);
+      box-shadow: 0 1px 0 rgba(11, 31, 58, 0.02);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+    }
+    .logo img {
+      height: 52px;
+      width: auto;
+      object-fit: contain;
+      display: block;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 36px;
+      list-style: none;
+    }
+    .nav-links a {
+      font-size: 0.92rem;
+      font-weight: 500;
+      color: var(--ink);
+      transition: color 0.2s var(--ease);
+    }
+    .nav-links a:hover { color: var(--navy); }
+    .nav-cta { display: flex; align-items: center; gap: 12px; }
+    .hamburger {
+      display: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s var(--ease);
+    }
+    .hamburger:hover { background: var(--surface); }
+    .hamburger span {
+      display: block;
+      width: 20px;
+      height: 1.5px;
+      background: var(--navy);
+      position: relative;
+      transition: transform 0.25s var(--ease), opacity 0.2s var(--ease);
+    }
+    .hamburger span::before,
+    .hamburger span::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 20px;
+      height: 1.5px;
+      background: var(--navy);
+      transition: transform 0.25s var(--ease);
+    }
+    .hamburger span::before { top: -6px; }
+    .hamburger span::after { top: 6px; }
+    .hamburger.open span { background: transparent; }
+    .hamburger.open span::before { transform: translateY(6px) rotate(45deg); }
+    .hamburger.open span::after { transform: translateY(-6px) rotate(-45deg); }
+
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 72px;
+      left: 0;
+      right: 0;
+      background: var(--white);
+      border-bottom: 1px solid var(--line);
+      padding: 24px;
+      box-shadow: var(--shadow-md);
+    }
+    .mobile-menu.open { display: block; }
+    .mobile-menu ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .mobile-menu a {
+      display: block;
+      padding: 12px 4px;
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--ink);
+      border-bottom: 1px solid var(--line);
+    }
+    .mobile-menu .btn { margin-top: 20px; width: 100%; }
+
+    /* ---------- Hero ---------- */
+    .hero {
+      padding: 160px 0 100px;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(11,31,58,0.04), transparent 60%),
+        var(--white);
+      border-bottom: 1px solid var(--line);
+    }
+    .hero-inner { text-align: center; max-width: 880px; margin: 0 auto; }
+    .hero h1 { margin-bottom: 24px; }
+    .hero h1 .accent { color: var(--navy); position: relative; white-space: nowrap; }
+    .hero h1 .accent::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; bottom: 4px;
+      height: 8px;
+      background: rgba(11, 31, 58, 0.08);
+      z-index: -1;
+      border-radius: 2px;
+    }
+    .hero-sub {
+      font-size: 1.15rem;
+      color: var(--muted);
+      max-width: 640px;
+      margin: 0 auto 40px;
+      line-height: 1.6;
+    }
+    .hero-ctas {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 64px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      max-width: 780px;
+      margin: 0 auto;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    .stat {
+      background: var(--white);
+      padding: 28px 20px;
+      text-align: center;
+      transition: background 0.25s var(--ease);
+    }
+    .stat:hover { background: var(--surface-2); }
+    .stat-num {
+      font-size: 1.85rem;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 6px;
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* ---------- Problem ---------- */
+    .problem { background: var(--surface-2); }
+    .cards-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    .card {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 32px 28px;
+      transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease), border-color 0.3s var(--ease);
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: #d5dae3;
+      box-shadow: var(--shadow-lg);
+    }
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: var(--surface);
+      display: grid;
+      place-items: center;
+      margin-bottom: 20px;
+      color: var(--navy);
+    }
+    .card h3 { margin-bottom: 10px; }
+    .card p { font-size: 0.95rem; }
+
+    /* ---------- How it works ---------- */
+    .how { background: var(--white); }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      position: relative;
+    }
+    .step {
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--white);
+      transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease), border-color 0.3s var(--ease);
+      position: relative;
+    }
+    .step:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-md);
+      border-color: #d5dae3;
+    }
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--navy);
+      color: var(--white);
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+    }
+    .step h3 { margin-bottom: 8px; font-size: 1.1rem; }
+    .step p { font-size: 0.93rem; }
+
+    /* ---------- Services / Pricing ---------- */
+    .services { background: var(--surface-2); }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .price-card {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 40px 36px;
+      transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+      display: flex;
+      flex-direction: column;
+    }
+    .price-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+    .price-card.featured {
+      background: var(--navy);
+      color: var(--white);
+      border-color: var(--navy);
+      position: relative;
+    }
+    .price-card.featured h3,
+    .price-card.featured .price { color: var(--white); }
+    .price-card.featured p,
+    .price-card.featured .price-period { color: rgba(255,255,255,0.72); }
+    .price-card.featured .features li { color: rgba(255,255,255,0.88); }
+    .price-card.featured .features li::before { color: var(--white); opacity: 0.9; }
+    .price-card.featured .btn-primary {
+      background: var(--white);
+      color: var(--navy);
+      border-color: var(--white);
+    }
+    .price-card.featured .btn-primary:hover {
+      background: #f1f3f7;
+      border-color: #f1f3f7;
+    }
+    .badge {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: rgba(255,255,255,0.14);
+      color: var(--white);
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+    .price-card h3 { font-size: 1.35rem; margin-bottom: 6px; }
+    .price-card > p.tagline { margin-bottom: 24px; font-size: 0.95rem; }
+    .price {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .price-period {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-top: 6px;
+      margin-bottom: 28px;
+    }
+    .features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 32px;
+      flex: 1;
+    }
+    .features li {
+      display: flex;
+      gap: 10px;
+      font-size: 0.94rem;
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    .features li::before {
+      content: '';
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      margin-top: 3px;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%230B1F3A'><path fill-rule='evenodd' d='M16.704 5.29a1 1 0 0 1 .006 1.414l-7.5 7.6a1 1 0 0 1-1.42.006l-3.5-3.5a1 1 0 1 1 1.414-1.414l2.79 2.79 6.796-6.89a1 1 0 0 1 1.414-.006z' clip-rule='evenodd'/></svg>");
+      background-repeat: no-repeat;
+      background-size: contain;
+    }
+    .price-card.featured .features li::before {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='white'><path fill-rule='evenodd' d='M16.704 5.29a1 1 0 0 1 .006 1.414l-7.5 7.6a1 1 0 0 1-1.42.006l-3.5-3.5a1 1 0 1 1 1.414-1.414l2.79 2.79 6.796-6.89a1 1 0 0 1 1.414-.006z' clip-rule='evenodd'/></svg>");
+    }
+
+    /* ---------- Testimonials ---------- */
+    .testimonials { background: var(--white); }
+    .quote-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .quote {
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 36px 32px;
+      transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+    }
+    .quote:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+    .quote-mark {
+      font-family: Georgia, serif;
+      font-size: 3rem;
+      line-height: 1;
+      color: var(--navy);
+      opacity: 0.22;
+      margin-bottom: 8px;
+      height: 24px;
+    }
+    .quote blockquote {
+      font-size: 1.05rem;
+      line-height: 1.65;
+      color: var(--ink);
+      margin-bottom: 24px;
+      font-weight: 400;
+    }
+    .quote-author {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+    }
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--navy);
+      color: var(--white);
+      display: grid;
+      place-items: center;
+      font-weight: 600;
+      font-size: 0.9rem;
+      letter-spacing: 0.02em;
+      flex-shrink: 0;
+    }
+    .quote-meta strong { display: block; color: var(--navy); font-size: 0.95rem; }
+    .quote-meta span { font-size: 0.85rem; color: var(--muted); }
+
+    /* ---------- FAQ ---------- */
+    .faq { background: var(--surface-2); }
+    .faq-list {
+      max-width: 780px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .faq-item {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
+    }
+    .faq-item:hover { border-color: #d5dae3; }
+    .faq-item.open { box-shadow: var(--shadow-sm); }
+    .faq-q {
+      width: 100%;
+      padding: 22px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      text-align: left;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--navy);
+      line-height: 1.4;
+    }
+    .faq-q:hover { background: var(--surface-2); }
+    .faq-icon {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      position: relative;
+      transition: transform 0.3s var(--ease);
+    }
+    .faq-icon::before, .faq-icon::after {
+      content: '';
+      position: absolute;
+      background: var(--navy);
+      border-radius: 1px;
+    }
+    .faq-icon::before { top: 10px; left: 3px; width: 16px; height: 2px; }
+    .faq-icon::after { top: 3px; left: 10px; width: 2px; height: 16px; transition: transform 0.3s var(--ease); }
+    .faq-item.open .faq-icon::after { transform: scaleY(0); }
+    .faq-a {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s var(--ease);
+    }
+    .faq-a-inner {
+      padding: 0 24px 24px;
+      color: var(--muted);
+      font-size: 0.96rem;
+      line-height: 1.65;
+    }
+
+    /* ---------- Final CTA ---------- */
+    .final-cta {
+      background: var(--navy);
+      color: var(--white);
+      padding: 100px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .final-cta::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,0.04), transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(255,255,255,0.03), transparent 40%);
+      pointer-events: none;
+    }
+    .final-cta-inner {
+      max-width: 720px;
+      margin: 0 auto;
+      text-align: center;
+      position: relative;
+    }
+    .final-cta h2 {
+      color: var(--white);
+      margin-bottom: 16px;
+    }
+    .final-cta p {
+      color: rgba(255,255,255,0.72);
+      font-size: 1.08rem;
+      margin-bottom: 36px;
+    }
+    .email-form {
+      display: flex;
+      gap: 8px;
+      max-width: 520px;
+      margin: 0 auto 20px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 10px;
+      padding: 6px;
+      transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+    }
+    .email-form:focus-within {
+      border-color: rgba(255,255,255,0.4);
+      background: rgba(255,255,255,0.09);
+    }
+    .email-form input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--white);
+      padding: 12px 14px;
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+    .email-form input::placeholder { color: rgba(255,255,255,0.5); }
+    .email-form button {
+      background: var(--white);
+      color: var(--navy);
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.92rem;
+      transition: background 0.2s var(--ease), transform 0.2s var(--ease);
+    }
+    .email-form button:hover { background: #f1f3f7; transform: translateY(-1px); }
+    .or-divider {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.5);
+      margin: 20px 0;
+      letter-spacing: 0.06em;
+    }
+    .final-cta .btn-secondary {
+      background: transparent;
+      border-color: rgba(255,255,255,0.22);
+      color: var(--white);
+    }
+    .final-cta .btn-secondary:hover {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.4);
+    }
+    .form-msg {
+      margin-top: 12px;
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.75);
+      min-height: 20px;
+    }
+
+    /* ---------- Footer ---------- */
+    footer {
+      background: var(--white);
+      padding: 48px 0 32px;
+      border-top: 1px solid var(--line);
+    }
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 32px;
+      margin-bottom: 32px;
+    }
+    .footer-brand p {
+      margin-top: 12px;
+      font-size: 0.9rem;
+      max-width: 320px;
+    }
+    .footer-nav {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+    .footer-col h4 {
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--navy);
+      margin-bottom: 14px;
+      font-weight: 600;
+    }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .footer-col a {
+      font-size: 0.92rem;
+      color: var(--muted);
+      transition: color 0.2s var(--ease);
+    }
+    .footer-col a:hover { color: var(--navy); }
+    .footer-bottom {
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    /* ---------- Fade-in on scroll ---------- */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 960px) {
+      section { padding: 72px 0; }
+      .hero { padding: 130px 0 72px; }
+      .cards-3, .steps, .pricing-grid, .quote-grid {
+        grid-template-columns: 1fr;
+      }
+      .stats { max-width: 560px; }
+    }
+
+    @media (max-width: 720px) {
+      .nav-links, .nav-cta .btn { display: none; }
+      .hamburger { display: inline-flex; }
+      .hero-ctas { flex-direction: column; align-items: stretch; }
+      .hero-ctas .btn { width: 100%; }
+      .stats { grid-template-columns: 1fr; }
+      .email-form { flex-direction: column; padding: 10px; gap: 10px; }
+      .email-form button { width: 100%; }
+      .footer-nav { gap: 28px; }
+      .footer-inner { flex-direction: column; }
+      .price-card { padding: 32px 24px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+      .reveal { opacity: 1; transform: none; }
+      html { scroll-behavior: auto; }
+    }
+
+    /* ---------- Why EvoSAI ---------- */
+    .why { background: var(--white); }
+
+    .comparison-wrap {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-sm);
+    }
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 680px;
+      font-size: 0.93rem;
+    }
+    .comparison-table thead tr th {
+      padding: 16px 20px;
+      font-weight: 600;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      text-align: center;
+      color: var(--muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    .comparison-table thead tr th:first-child {
+      text-align: left;
+      color: var(--navy);
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      width: 30%;
+    }
+    .comparison-table thead tr th.col-evosai {
+      background: var(--navy);
+      color: var(--white);
+      font-size: 0.88rem;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      min-width: 110px;
+    }
+    .comparison-table tbody tr {
+      border-bottom: 1px solid var(--line);
+      transition: background 0.18s var(--ease);
+    }
+    .comparison-table tbody tr:last-child { border-bottom: none; }
+    .comparison-table tbody tr:hover { background: var(--surface-2); }
+    .comparison-table tbody td {
+      padding: 15px 20px;
+      text-align: center;
+      vertical-align: middle;
+      color: var(--muted);
+    }
+    .comparison-table tbody td:first-child {
+      text-align: left;
+      color: var(--ink);
+      font-weight: 500;
+      font-size: 0.94rem;
+    }
+    /* ✓ cell */
+    .comparison-table td.cell-yes {
+      background: #f0faf4;
+      color: #1a7c43;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    /* EvoSAI ✓ cell */
+    .comparison-table td.cell-evosai-yes {
+      background: #e8f5ee;
+      color: #147a3c;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+    /* ✕ cell */
+    .comparison-table td.cell-no {
+      background: #fafafa;
+      color: #c0444a;
+      font-size: 0.95rem;
+    }
+    /* Partial cell */
+    .comparison-table td.cell-partial {
+      background: #fffbf0;
+      color: #9a6c00;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .comparison-callout {
+      margin-top: 28px;
+      background: #f0f4f9;
+      border-left: 3px solid var(--navy);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 24px 28px;
+      text-align: center;
+      font-size: 1.05rem;
+      color: var(--ink);
+      line-height: 1.65;
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Mobile: keep feature + EvoSAI, scroll for competitors */
+    @media (max-width: 720px) {
+      .comparison-table { min-width: 480px; }
+      .comparison-table th,
+      .comparison-table td { padding: 13px 14px; }
+      .comparison-callout { font-size: 0.97rem; padding: 20px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============ NAV ============ -->
+  <nav class="nav" id="nav">
+    <div class="container nav-inner">
+      <a href="#top" class="logo" aria-label="EvoSAI home">
+        <img src="evosai-logo.png" alt="EvoSAI" />
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="#problem">The Problem</a></li>
+        <li><a href="#how">How It Works</a></li>
+        <li><a href="#why">Why EvoSAI</a></li>
+        <li><a href="#services">Services</a></li>
+        <li><a href="#testimonials">Results</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+
+      <div class="nav-cta">
+        <a class="btn btn-primary" href="[INSERT YOUR CAL.COM LINK]" target="_blank" rel="noopener">
+          Book a free call
+        </a>
+        <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false">
+          <span></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="mobile-menu" id="mobileMenu">
+      <ul>
+        <li><a href="#problem">The Problem</a></li>
+        <li><a href="#how">How It Works</a></li>
+        <li><a href="#why">Why EvoSAI</a></li>
+        <li><a href="#services">Services</a></li>
+        <li><a href="#testimonials">Results</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+      <a class="btn btn-primary" href="[INSERT YOUR CAL.COM LINK]" target="_blank" rel="noopener">Book a free call</a>
+    </div>
+  </nav>
+
+  <!-- ============ HERO ============ -->
+  <header class="hero" id="top">
+    <div class="container hero-inner reveal">
+      <span class="eyebrow">Built for Solo & Small Law Firms</span>
+      <h1>Every new inquiry,<br/>answered in <span class="accent">under 60 seconds</span>.</h1>
+      <p class="hero-sub">
+        EvoSAI builds AI-powered intake and follow-up systems that respond to every lead instantly, qualify them against your criteria, and book the consultation — so your firm never loses another client to a slow reply.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary btn-lg" href="[INSERT YOUR CAL.COM LINK]" target="_blank" rel="noopener">
+          Book a free strategy call <span class="arrow">→</span>
+        </a>
+        <a class="btn btn-secondary btn-lg" href="#how">See how it works</a>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-num">&lt; 60s</div>
+          <div class="stat-label">Response time to every new lead</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">30–40%</div>
+          <div class="stat-label">More qualified leads captured</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">0 hrs</div>
+          <div class="stat-label">Staff time spent on intake</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ PROBLEM ============ -->
+  <section class="problem" id="problem">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">The Problem</span>
+        <h2>Your best lead just called your competitor.</h2>
+        <p>Most small firms lose 40–60% of potential clients not on the merits of the case — but because of how long it takes to respond. Here's where it breaks down.</p>
+      </div>
+
+      <div class="cards-3">
+        <div class="card reveal">
+          <div class="card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          </div>
+          <h3>Slow response loses the client</h3>
+          <p>Studies show that leads contacted within 5 minutes are 21x more likely to convert. A missed call on a Tuesday afternoon usually means the case goes to the firm that answered first.</p>
+        </div>
+
+        <div class="card reveal">
+          <div class="card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l3-9 6 18 3-9h3"/></svg>
+          </div>
+          <h3>Inconsistent follow-up</h3>
+          <p>Leads that don't answer the first time rarely get a second or third touch. Your pipeline quietly leaks revenue every week because no one has time to chase each prospect.</p>
+        </div>
+
+        <div class="card reveal">
+          <div class="card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v4M16 4v4"/></svg>
+          </div>
+          <h3>Intake is eating billable hours</h3>
+          <p>Partners and paralegals burn hours every week on unqualified calls, scheduling, and follow-ups — time that should be spent on cases that actually generate revenue.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section class="how" id="how">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">How It Works</span>
+        <h2>A done-for-you system, live in 2–3 weeks.</h2>
+        <p>We handle the strategy, the build, and the ongoing performance. You handle the cases.</p>
+      </div>
+
+      <div class="steps">
+        <div class="step reveal">
+          <div class="step-num">01</div>
+          <h3>Discovery call</h3>
+          <p>We map your current intake flow, common case types, and ideal client criteria — typically 30 minutes with a partner or office manager.</p>
+        </div>
+        <div class="step reveal">
+          <div class="step-num">02</div>
+          <h3>We build the system</h3>
+          <p>Custom AI intake agent, follow-up sequences, calendar routing, and integrations with your existing tools — fully configured to your firm's voice.</p>
+        </div>
+        <div class="step reveal">
+          <div class="step-num">03</div>
+          <h3>Go live</h3>
+          <p>We test, train on your criteria, and launch. Every new inquiry — web form, missed call, or chat — gets a qualified response in under 60 seconds.</p>
+        </div>
+        <div class="step reveal">
+          <div class="step-num">04</div>
+          <h3>Ongoing optimization</h3>
+          <p>We monitor conversion, refine responses, and report monthly on leads captured, consultations booked, and revenue influenced.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WHY EVOSAI ============ -->
+  <section class="why" id="why">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Why EvoSAI</span>
+        <h2>Every other solution asks you to figure it out yourself.</h2>
+        <p>Other platforms sell you software and a manual. We build the system, hand it over, and it works from day one.</p>
+      </div>
+
+      <div class="reveal">
+        <div class="comparison-wrap">
+          <table class="comparison-table" aria-label="EvoSAI vs. competitors comparison">
+            <thead>
+              <tr>
+                <th scope="col">Feature</th>
+                <th scope="col">Clio Grow</th>
+                <th scope="col">Lawmatics</th>
+                <th scope="col">Smith.ai</th>
+                <th scope="col" class="col-evosai">EvoSAI</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>60-second auto response (SMS + email)</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-partial">Partial</td>
+                <td class="cell-partial">Phone only</td>
+                <td class="cell-evosai-yes">✓</td>
+              </tr>
+              <tr>
+                <td>Done-for-you setup — no DIY</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-partial">Partial</td>
+                <td class="cell-evosai-yes">✓</td>
+              </tr>
+              <tr>
+                <td>AI-personalized follow-up sequences</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-partial">Partial</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-evosai-yes">✓</td>
+              </tr>
+              <tr>
+                <td>No ongoing software subscription</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-evosai-yes">✓</td>
+              </tr>
+              <tr>
+                <td>Works with your existing tools and CRM</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-partial">Partial</td>
+                <td class="cell-partial">Partial</td>
+                <td class="cell-evosai-yes">✓</td>
+              </tr>
+              <tr>
+                <td>Flat one-time project price</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-evosai-yes">✓</td>
+              </tr>
+              <tr>
+                <td>Past client re-engagement automation</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-partial">Partial</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-evosai-yes">✓</td>
+              </tr>
+              <tr>
+                <td>Ad funnel management (Meta / Google)</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-no">✕</td>
+                <td class="cell-evosai-yes">✓</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="comparison-callout reveal">
+          Unlike Clio, Lawmatics, or Smith.ai — there's no software to learn, no monthly platform fee, and no lock-in. EvoSAI builds your system once. You own it.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SERVICES / PRICING ============ -->
+  <section class="services" id="services">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Services & Investment</span>
+        <h2>Transparent, fixed-fee pricing.</h2>
+        <p>No hourly billing. No surprise invoices. You know exactly what you're paying before we start.</p>
+      </div>
+
+      <div class="pricing-grid">
+        <div class="price-card featured reveal">
+          <span class="badge">Most Popular</span>
+          <h3>AI Intake System</h3>
+          <p class="tagline">The complete one-time build that replaces your manual intake.</p>
+          <div class="price">$1,500–$3,000</div>
+          <div class="price-period">One-time build · delivered in 2–3 weeks</div>
+          <ul class="features">
+            <li>AI intake agent trained on your firm's criteria</li>
+            <li>Instant response to web forms, missed calls, and chat</li>
+            <li>Automated multi-touch follow-up sequences</li>
+            <li>Calendar integration & auto-booking of consultations</li>
+            <li>Integrations with Clio, MyCase, or your existing CRM</li>
+            <li>Full team training & documentation</li>
+          </ul>
+          <a class="btn btn-primary" href="[INSERT YOUR CAL.COM LINK]" target="_blank" rel="noopener">
+            Book a free call <span class="arrow">→</span>
+          </a>
+        </div>
+
+        <div class="price-card reveal">
+          <h3>Monthly Retainer</h3>
+          <p class="tagline">Ongoing support, optimization, and performance reporting.</p>
+          <div class="price">$500–$1,200<span style="font-size:1rem;color:var(--muted);font-weight:500;">/mo</span></div>
+          <div class="price-period">Billed monthly · cancel anytime</div>
+          <ul class="features">
+            <li>Continuous monitoring & system uptime</li>
+            <li>Monthly performance reports (leads in, booked, lost)</li>
+            <li>Quarterly AI retraining as your practice evolves</li>
+            <li>Priority support & configuration changes</li>
+            <li>A/B testing of scripts and follow-up cadences</li>
+          </ul>
+          <a class="btn btn-secondary" href="[INSERT YOUR CAL.COM LINK]" target="_blank" rel="noopener">
+            Discuss retainer <span class="arrow">→</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TESTIMONIALS ============ -->
+  <section class="testimonials" id="testimonials">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">What Partners Say</span>
+        <h2>Built for firms who value their time.</h2>
+      </div>
+
+      <div class="quote-grid">
+        <div class="quote reveal">
+          <div class="quote-mark">&ldquo;</div>
+          <blockquote>
+            We were losing at least three or four good PI leads a week just from slow callbacks. After EvoSAI went live, every inquiry got a qualified response within a minute — we filled our consultation calendar in the first month.
+          </blockquote>
+          <div class="quote-author">
+            <div class="avatar">MR</div>
+            <div class="quote-meta">
+              <strong>M. Reyes, Managing Partner</strong>
+              <span>Personal Injury Firm · 4 attorneys</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="quote reveal">
+          <div class="quote-mark">&ldquo;</div>
+          <blockquote>
+            Our paralegals were drowning in intake calls. EvoSAI took that off our plate entirely. The follow-up system alone has recovered cases we'd have written off as cold. Cleanest ROI we've had on any technology investment.
+          </blockquote>
+          <div class="quote-author">
+            <div class="avatar">JT</div>
+            <div class="quote-meta">
+              <strong>J. Thompson, Partner</strong>
+              <span>Immigration Practice · 2 attorneys</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="faq" id="faq">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">FAQ</span>
+        <h2>Questions partners ask us.</h2>
+      </div>
+
+      <div class="faq-list">
+        <div class="faq-item reveal">
+          <button class="faq-q" aria-expanded="false">
+            How long does setup take?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-a">
+            <div class="faq-a-inner">
+              Most firms are live in 2–3 weeks from the discovery call. The first week we gather your criteria, intake scripts, and case examples; weeks two and three are build, test, and launch. There's no heavy lift on your end beyond a single kickoff call and reviewing what we build.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item reveal">
+          <button class="faq-q" aria-expanded="false">
+            Do I need to change my current software?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-a">
+            <div class="faq-a-inner">
+              No. EvoSAI integrates with what you already use — Clio, MyCase, PracticePanther, Lawmatics, or a general CRM like HubSpot. If you have a phone system, web form, or chat widget, we plug in without ripping anything out. You keep your existing workflow; we just make sure no lead falls through it.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item reveal">
+          <button class="faq-q" aria-expanded="false">
+            What if it doesn't work?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-a">
+            <div class="faq-a-inner">
+              We offer a 30-day performance guarantee. If your system isn't responding to inquiries within 60 seconds and measurably improving your booked-consultation rate, we keep working — at no additional cost — until it does. If you still don't see results, we refund the build fee. We only win when your firm does.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item reveal">
+          <button class="faq-q" aria-expanded="false">
+            What practice areas do you work with?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-a">
+            <div class="faq-a-inner">
+              We specialize in high-volume consumer-facing practices where response speed directly impacts conversion: personal injury, immigration, family law, criminal defense, and estate planning. If your firm relies on inbound inquiries from web, phone, or referral — we can help.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FINAL CTA ============ -->
+  <section class="final-cta" id="contact">
+    <div class="container final-cta-inner reveal">
+      <h2>Stop losing leads to slow response times.</h2>
+      <p>Book a free 30-minute strategy call. We'll audit your current intake, show you where revenue is leaking, and outline exactly what a system would look like for your firm — no pitch, no obligation.</p>
+
+      <form class="email-form" id="emailForm" novalidate>
+        <input type="email" id="emailInput" placeholder="Your work email" required aria-label="Your work email"/>
+        <button type="submit">Send me the audit</button>
+      </form>
+      <div class="form-msg" id="formMsg" aria-live="polite"></div>
+
+      <div class="or-divider">— or —</div>
+
+      <a class="btn btn-secondary btn-lg" href="[INSERT YOUR CAL.COM LINK]" target="_blank" rel="noopener">
+        Book a call directly <span class="arrow">→</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <a href="#top" class="logo">
+            <img src="evosai-logo.png" alt="EvoSAI" />
+          </a>
+          <p>AI-powered client intake and follow-up, built for solo and small law firms.</p>
+        </div>
+
+        <div class="footer-nav">
+          <div class="footer-col">
+            <h4>Company</h4>
+            <ul>
+              <li><a href="#problem">The Problem</a></li>
+              <li><a href="#how">How It Works</a></li>
+              <li><a href="#services">Services</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Resources</h4>
+            <ul>
+              <li><a href="#testimonials">Results</a></li>
+              <li><a href="#faq">FAQ</a></li>
+              <li><a href="#contact">Contact</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Get In Touch</h4>
+            <ul>
+              <li><a href="mailto:[INSERT YOUR EMAIL @evosai domain]">[INSERT YOUR EMAIL @evosai domain]</a></li>
+              <li><a href="[INSERT YOUR CAL.COM LINK]" target="_blank" rel="noopener">Book a call</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span>© <span id="year"></span> EvoSAI. All rights reserved.</span>
+        <span>Built for law firms who value their time.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ---------- Year ----------
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // ---------- Nav scroll state ----------
+    const nav = document.getElementById('nav');
+    const onScroll = () => {
+      if (window.scrollY > 8) nav.classList.add('scrolled');
+      else nav.classList.remove('scrolled');
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    // ---------- Mobile menu ----------
+    const hamburger = document.getElementById('hamburger');
+    const mobileMenu = document.getElementById('mobileMenu');
+    const toggleMenu = (force) => {
+      const willOpen = typeof force === 'boolean' ? force : !mobileMenu.classList.contains('open');
+      mobileMenu.classList.toggle('open', willOpen);
+      hamburger.classList.toggle('open', willOpen);
+      hamburger.setAttribute('aria-expanded', String(willOpen));
+      document.body.style.overflow = willOpen ? 'hidden' : '';
+    };
+    hamburger.addEventListener('click', () => toggleMenu());
+    mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => toggleMenu(false)));
+    window.addEventListener('resize', () => { if (window.innerWidth > 720) toggleMenu(false); });
+
+    // ---------- FAQ accordion ----------
+    document.querySelectorAll('.faq-item').forEach(item => {
+      const q = item.querySelector('.faq-q');
+      const a = item.querySelector('.faq-a');
+      q.addEventListener('click', () => {
+        const open = item.classList.toggle('open');
+        q.setAttribute('aria-expanded', String(open));
+        a.style.maxHeight = open ? a.scrollHeight + 'px' : '0px';
+      });
+    });
+
+    // ---------- Reveal on scroll ----------
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+    // ---------- Email form ----------
+    const form = document.getElementById('emailForm');
+    const input = document.getElementById('emailInput');
+    const msg = document.getElementById('formMsg');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = input.value.trim();
+      const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+      if (!valid) {
+        msg.textContent = 'Please enter a valid work email.';
+        msg.style.color = 'rgba(255,255,255,0.85)';
+        return;
+      }
+      msg.textContent = "Thanks — we'll be in touch within one business day.";
+      msg.style.color = 'rgba(255,255,255,0.85)';
+      input.value = '';
+    });
+  </script>
+</body>
+</html>
